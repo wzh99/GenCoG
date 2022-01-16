@@ -1,4 +1,4 @@
 if __name__ == '__main__':
-    from typegraph import expr
-    print(expr.Const(1))
+    from typegraph.expr import *
+    e = And(s('a') == 1, s('b') == 2)
     pass

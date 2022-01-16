@@ -7,6 +7,7 @@ class TypeKind(IntEnum):
     """
     Simple RTTI mechanism for `Type`.
     """
+    BOOL = auto()
     INT = auto()
     FLOAT = auto()
     STR = auto()
@@ -21,7 +22,7 @@ class Type:
     """
     kind: TypeKind
 
-    prim_kinds = [TypeKind.INT, TypeKind.FLOAT, TypeKind.STR]
+    prim_kinds = [TypeKind.BOOL, TypeKind.INT, TypeKind.FLOAT, TypeKind.STR]
 
     def __eq__(self, other: 'Type'):
         """
@@ -30,6 +31,13 @@ class Type:
         :return: Whether the two types are structurally equal.
         """
         return self.kind == other.kind
+
+
+class Bool(Type):
+    """
+    Boolean type.
+    """
+    kind = TypeKind.BOOL
 
 
 class Int(Type):
@@ -100,7 +108,7 @@ class List(Type):
         return self.elem_ty_ == other.elem_ty_
 
 
-PyTypeable = typing.Union[int, float, str, tuple, list]
+PyTypeable = typing.Union[bool, int, float, str, tuple, list]
 
 
 def type_py_value(v: PyTypeable) -> Type:
@@ -109,7 +117,9 @@ def type_py_value(v: PyTypeable) -> Type:
     :param v: Any acceptable Python object.
     :return: Type of `v`.
     """
-    if isinstance(v, int):
+    if v.__class__ == bool:
+        return Bool()
+    elif isinstance(v, int):
         return Int()
     elif isinstance(v, float):
         return Float()
@@ -121,6 +131,6 @@ def type_py_value(v: PyTypeable) -> Type:
         return List(type_py_value(v[0]))
     else:
         raise TypeError(
-            'Cannot type Python object of type \'{}\''.format(
+            'Cannot type Python object of type {}'.format(
                 util.cls_name(v))
         )

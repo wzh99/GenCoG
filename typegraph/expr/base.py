@@ -1,6 +1,6 @@
-from enum import IntEnum, auto
-from typing import Dict
-from typing import Optional, Union
+from enum import Enum, IntEnum, auto
+import typing
+from typing import Any, Callable, Dict, Optional, Union, Type
 
 from .. import ty, util
 
@@ -14,15 +14,17 @@ class ExprKind(IntEnum):
     CMP = auto()
     AND = auto()
     OR = auto()
+    FOR_EACH = auto()
     COND = auto()
+    SHAPE = auto()
+    RANK = auto()
+    DTYPE = auto()
     TUPLE = auto()
     LIST = auto()
     GETITEM = auto()
     LEN = auto()
     CONCAT = auto()
     SLICE = auto()
-    REDUCE_ELEM = auto()
-    REDUCE_INDEXED = auto()
 
 
 class Expr:
@@ -34,11 +36,71 @@ class Expr:
     def __init__(self):
         self.type_: Optional[ty.Type] = None
 
+    def __add__(self, other: 'ExprLike'):
+        return Arith(ArithOp.ADD, self, other)
+
+    def __radd__(self, other: 'ExprLike'):
+        return Arith(ArithOp.ADD, other, self)
+
+    def __sub__(self, other: 'ExprLike'):
+        return Arith(ArithOp.SUB, self, other)
+
+    def __rsub__(self, other: 'ExprLike'):
+        return Arith(ArithOp.SUB, other, self)
+
+    def __mul__(self, other: 'ExprLike'):
+        return Arith(ArithOp.MUL, self, other)
+
+    def __rmul__(self, other: 'ExprLike'):
+        return Arith(ArithOp.MUL, other, self)
+
+    def __truediv__(self, other: 'ExprLike'):
+        return Arith(ArithOp.DIV, self, other)
+
+    def __rtruediv__(self, other: 'ExprLike'):
+        return Arith(ArithOp.DIV, other, self)
+
+    def __floordiv__(self, other: 'ExprLike'):
+        return Arith(ArithOp.DIV, self, other)
+
+    def __rfloordiv__(self, other: 'ExprLike'):
+        return Arith(ArithOp.DIV, other, self)
+
+    def max(self, other: 'ExprLike'):
+        return Arith(ArithOp.MAX, self, other)
+
+    def min(self, other: 'ExprLike'):
+        return Arith(ArithOp.MIN, self, other)
+
+    def __eq__(self, other: 'ExprLike'):
+        return Cmp(CmpOp.EQ, self, other)
+
+    def __ne__(self, other: 'ExprLike'):
+        return Cmp(CmpOp.NE, self, other)
+
+    def __lt__(self, other: 'ExprLike'):
+        return Cmp(CmpOp.LT, self, other)
+
+    def __le__(self, other: 'ExprLike'):
+        return Cmp(CmpOp.LE, self, other)
+
+    def __gt__(self, other: 'ExprLike'):
+        return Cmp(CmpOp.GT, self, other)
+
+    def __ge__(self, other: 'ExprLike'):
+        return Cmp(CmpOp.GE, self, other)
+
+    def __and__(self, other: 'ExprLike'):
+        return And(self, other)
+
+    def __or__(self, other: 'ExprLike'):
+        return Or(self, other)
+
 
 ExprLike = Union[Expr, ty.PyTypeable]
 
 
-def cvt_expr(e: ExprLike) -> Expr:
+def to_expr(e: ExprLike) -> Expr:
     """
     Convert a Python object to a constraint expression.
 
@@ -76,8 +138,8 @@ class Range(Expr):
 
     def __init__(self, begin: Optional[ExprLike], end: Optional[ExprLike]):
         super().__init__()
-        self.begin_ = util.map_optional(cvt_expr, begin)
-        self.end_ = util.map_optional(cvt_expr, end)
+        self.begin_ = util.map_optional(to_expr, begin)
+        self.end_ = util.map_optional(to_expr, end)
 
 
 class Var(Expr):
@@ -92,7 +154,7 @@ class Var(Expr):
         super().__init__()
         if t.kind not in ty.Type.prim_kinds:
             raise ValueError(
-                'Cannot create variable for non-primitive type \'{}\''.format(
+                'Cannot create variable for non-primitive type {}'.format(
                     util.cls_name(t))
             )
         self.type_ = t
@@ -132,3 +194,145 @@ def s(name: str):
     Shorthand for `Symbol.create`.
     """
     return Symbol.create(name)
+
+
+class ArithOp(Enum):
+    ADD = '+'
+    SUB = '-'
+    MUL = '*'
+    DIV = '/'  # __floordiv__ for int, __div__ for float
+    MOD = '%'
+    MAX = 'max'
+    MIN = 'min'
+
+
+class Arith(Expr):
+    """
+    Arithmetic expressions.
+    """
+    kind = ExprKind.ARITH
+
+    op_funcs: Dict[ArithOp, Dict[typing.Tuple[Type, Type], Callable[[Any, Any], Any]]] = {
+        ArithOp.ADD: {
+            (int, int): int.__add__,
+        },
+        ArithOp.SUB: {
+            (int, int): int.__sub__,
+        },
+        ArithOp.MUL: {
+            (int, int): int.__mul__,
+        },
+        ArithOp.DIV: {
+            (int, int): int.__floordiv__,
+        },
+        ArithOp.MOD: {
+            (int, int): int.__mod__,
+        },
+        ArithOp.MAX: {
+            (int, int): max,
+        },
+        ArithOp.MIN: {
+            (int, int): min,
+        },
+    }
+
+    def __init__(self, op: ArithOp, lhs: ExprLike, rhs: ExprLike):
+        super().__init__()
+        self.op_ = op
+        self.lhs_ = to_expr(lhs)
+        self.rhs_ = to_expr(rhs)
+
+
+class CmpOp(Enum):
+    EQ = '='
+    NE = '!='
+    LT = '<'
+    LE = '<='
+    GT = '>'
+    GE = '>='
+
+
+class Cmp(Expr):
+    """
+    Comparison expressions.
+    """
+    kind = ExprKind.CMP
+
+    op_funcs: Dict[CmpOp, Dict[typing.Tuple[Type, Type], Callable[[Any, Any], bool]]] = {
+        CmpOp.EQ: {
+            (int, int): int.__eq__,
+            (str, str): str.__eq__,
+        },
+        CmpOp.NE: {
+            (int, int): int.__ne__,
+            (str, str): str.__ne__,
+        },
+        CmpOp.LT: {
+            (int, int): int.__lt__,
+        },
+        CmpOp.LE: {
+            (int, int): int.__le__,
+        },
+        CmpOp.GT: {
+            (int, int): int.__gt__,
+        },
+        CmpOp.GE: {
+            (int, int): int.__ge__,
+        },
+    }
+
+    def __init__(self, op: CmpOp, lhs: ExprLike, rhs: ExprLike):
+        super().__init__()
+        self.op_ = op
+        self.lhs_ = to_expr(lhs)
+        self.rhs_ = to_expr(rhs)
+
+
+class And(Expr):
+    """
+    Conjunction of two or more boolean expressions. It is suggested that the constructor is
+    directly used when there are more than two clauses.
+    """
+    kind = ExprKind.AND
+
+    def __init__(self, *clauses: ExprLike):
+        super().__init__()
+        self.clauses_ = tuple(to_expr(e) for e in clauses)
+
+
+class Or(Expr):
+    """
+    Disjunction of two or more boolean expressions. It is suggested that the constructor is
+    directly used when there are more than two clauses.
+    """
+    kind = ExprKind.OR
+
+    def __init__(self, *clauses: ExprLike):
+        super().__init__()
+        self.clauses_ = tuple(to_expr(e) for e in clauses)
+
+
+class ForEach(Expr):
+    """
+    Universal quantifier for propositions defined in an integer range.
+    """
+    kind = ExprKind.FOR_EACH
+
+    def __init__(self, idx: Symbol, ran: Range, body: ExprLike):
+        super().__init__()
+        self.idx_ = idx
+        self.ran_ = ran
+        self.body_ = to_expr(body)
+
+
+class Cond(Expr):
+    """
+    Conditional expression.
+    """
+    kind = ExprKind.COND
+
+    def __init__(self, pred: ExprLike, true_br: ExprLike, fls_br: ExprLike):
+        super().__init__()
+        self.pred_ = to_expr(pred)
+        self.true_br_ = to_expr(true_br)
+        self.fls_br_ = to_expr(fls_br)
