@@ -19,6 +19,8 @@ class TensorSpec:
 
     avail_attrs: Dict[str, Callable[['TensorSpec'], Expr]] = {
         'shape': lambda self: Shape(self),
+        'rank': lambda self: Rank(self),
+        'dtype': lambda self: DType(self),
     }
 
     def __getattr__(self, name: str):

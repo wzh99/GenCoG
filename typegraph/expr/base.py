@@ -96,6 +96,10 @@ class Expr:
     def __or__(self, other: 'ExprLike'):
         return Or(self, other)
 
+    def __getitem__(self, idx: 'ExprLike'):
+        from .array import GetItem
+        return GetItem(self, idx)
+
 
 ExprLike = Union[Expr, ty.PyTypeable]
 
@@ -107,10 +111,14 @@ def to_expr(e: ExprLike) -> Expr:
     :param e: The Python object to be converted.
     :return: The converted result.
     """
+    from .array import Tuple
+
     if isinstance(e, Expr):
         return e
-    elif isinstance(e, (int, float, str)):
+    elif isinstance(e, (bool, int, float, str)):
         return Const(e)
+    elif isinstance(e, (tuple, list)):
+        return Tuple(*e)
     else:
         raise TypeError(
             'Cannot convert Python object of type {}'.format(
@@ -158,7 +166,7 @@ class Var(Expr):
                     util.cls_name(t))
             )
         self.type_ = t
-        self.range_ = ran
+        self.range_ = Range(None, None) if ran is None else ran
 
 
 class Symbol(Expr):
@@ -167,33 +175,6 @@ class Symbol(Expr):
     constraint expression such as `List`.
     """
     kind = ExprKind.SYMBOL
-
-    _registry: Dict[str, 'Symbol'] = {}
-
-    @classmethod
-    def create(cls, name: str):
-        """
-        Create a new symbol or find previously created symbol according to the given name. Two
-        distinct symbols have overlapping scope, they must have different names. Otherwise,
-        we do not care whether they share the same name or not.
-
-        :param name: The name used to identify the symbol.
-        :return: The result symbol.
-        """
-        if name not in cls._registry:
-            cls._registry[name] = Symbol()
-        return cls._registry[name]
-
-    @classmethod
-    def clear(cls):
-        cls._registry.clear()
-
-
-def s(name: str):
-    """
-    Shorthand for `Symbol.create`.
-    """
-    return Symbol.create(name)
 
 
 class ArithOp(Enum):
@@ -297,6 +278,10 @@ class And(Expr):
 
     def __init__(self, *clauses: ExprLike):
         super().__init__()
+        if len(clauses) <= 1:
+            raise ValueError(
+                'At least two clauses must be provided.'
+            )
         self.clauses_ = tuple(to_expr(e) for e in clauses)
 
 
@@ -309,6 +294,10 @@ class Or(Expr):
 
     def __init__(self, *clauses: ExprLike):
         super().__init__()
+        if len(clauses) <= 1:
+            raise ValueError(
+                'At least two clauses must be provided.'
+            )
         self.clauses_ = tuple(to_expr(e) for e in clauses)
 
 
@@ -318,11 +307,11 @@ class ForEach(Expr):
     """
     kind = ExprKind.FOR_EACH
 
-    def __init__(self, idx: Symbol, ran: Range, body: ExprLike):
+    def __init__(self, ran: Range, body_f: Callable[[Symbol], ExprLike]):
         super().__init__()
-        self.idx_ = idx
         self.ran_ = ran
-        self.body_ = to_expr(body)
+        self.idx_ = Symbol()
+        self.body_ = to_expr(body_f(self.idx_))
 
 
 class Cond(Expr):
