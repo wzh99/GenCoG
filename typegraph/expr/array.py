@@ -1,5 +1,6 @@
-from .base import Expr, ExprKind, ExprLike, Symbol, Range, to_expr
 from typing import Callable
+
+from .base import Expr, ExprKind, ExprLike, Symbol, Range, ArithOp, to_expr
 
 
 class Tuple(Expr):
@@ -12,7 +13,7 @@ class Tuple(Expr):
         super().__init__()
         if len(fields) == 0:
             raise ValueError(
-                'At least one field must be provided.'
+                f'Expect at least one field, got {len(fields)}.'
             )
         self.fields_ = tuple(to_expr(f) for f in fields)
 
@@ -63,7 +64,7 @@ class Concat(Expr):
         super().__init__()
         if len(arrays) <= 1:
             raise ValueError(
-                'At least two arrays must be provided.'
+                f'Expect at least two arrays, got {len(arrays)}.'
             )
         self.arrays_ = tuple(to_expr(a) for a in arrays)
 
@@ -77,3 +78,53 @@ class Slice(Expr):
         super().__init__()
         self.arr_ = to_expr(arr)
         self.ran_ = ran
+
+
+class Map(Expr):
+    """
+    Map elements in a list by a given function.
+    """
+    kind = ExprKind.MAP
+
+    def __init__(self, arr: ExprLike, f: Callable[[Symbol], ExprLike]):
+        super().__init__()
+        self.arr_ = to_expr(arr)
+        self.sym_ = Symbol()
+        self.body_ = to_expr(f(self.sym_))
+
+
+class ReduceArray(Expr):
+    """
+    Reduce elements in an array.
+    """
+    kind = ExprKind.REDUCE_ARRAY
+
+    reduce_ops = [
+        ArithOp.ADD,
+        ArithOp.MUL,
+        ArithOp.MAX,
+        ArithOp.MIN,
+    ]
+
+    def __init__(self, arr: ExprLike, op: ArithOp, init: ExprLike):
+        super().__init__()
+        self.arr_ = to_expr(arr)
+        if op not in self.reduce_ops:
+            raise ValueError(
+                f'Operator {op} cannot be used for reduction.'
+            )
+        self.op_ = op
+        self.init_ = to_expr(init)
+
+
+class ReduceIndex(Expr):
+    """
+    Reduce expressions in an integer range.
+    """
+    kind = ExprKind.REDUCE_INDEX
+
+    def __init__(self, ran: Range, body_f: Callable[[Symbol], ExprLike]):
+        super().__init__()
+        self.ran_ = ran
+        self.idx_ = Symbol()
+        self.body_ = to_expr(body_f(self.idx_))

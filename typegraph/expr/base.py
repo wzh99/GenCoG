@@ -1,11 +1,13 @@
-from enum import Enum, IntEnum, auto
 import typing
+from enum import Enum, IntEnum, auto
 from typing import Any, Callable, Dict, Optional, Union, Type
 
-from .. import ty, util
+from . import ty
+from .. import util
 
 
 class ExprKind(IntEnum):
+    # Basic
     CONST = auto()
     VAR = auto()
     SYMBOL = auto()
@@ -16,15 +18,20 @@ class ExprKind(IntEnum):
     OR = auto()
     FOR_EACH = auto()
     COND = auto()
+    # Tensor
     SHAPE = auto()
     RANK = auto()
     DTYPE = auto()
+    # Array
     TUPLE = auto()
     LIST = auto()
     GETITEM = auto()
     LEN = auto()
     CONCAT = auto()
     SLICE = auto()
+    MAP = auto()
+    REDUCE_ARRAY = auto()
+    REDUCE_INDEX = auto()
 
 
 class Expr:
@@ -101,7 +108,7 @@ class Expr:
         return GetItem(self, idx)
 
 
-ExprLike = Union[Expr, ty.PyTypeable]
+ExprLike = Union[Expr, ty.ValueType]
 
 
 def to_expr(e: ExprLike) -> Expr:
@@ -115,13 +122,13 @@ def to_expr(e: ExprLike) -> Expr:
 
     if isinstance(e, Expr):
         return e
-    elif isinstance(e, (bool, int, float, str)):
+    elif isinstance(e, (bool, int, float, str, ty.DataType)):
         return Const(e)
     elif isinstance(e, (tuple, list)):
         return Tuple(*e)
     else:
         raise TypeError(
-            'Cannot convert Python object of type {}'.format(
+            'Cannot convert Python object of type {} to constraint expression.'.format(
                 util.cls_name(e))
         )
 
@@ -132,7 +139,7 @@ class Const(Expr):
     """
     kind = ExprKind.CONST
 
-    def __init__(self, val: ty.PyTypeable):
+    def __init__(self, val: ty.ValueType):
         super().__init__()
         self.val_ = val
         self.type_ = ty.type_py_value(val)
@@ -144,7 +151,7 @@ class Range(Expr):
     """
     kind = ExprKind.RANGE
 
-    def __init__(self, begin: Optional[ExprLike], end: Optional[ExprLike]):
+    def __init__(self, begin: Optional[ExprLike] = None, end: Optional[ExprLike] = None):
         super().__init__()
         self.begin_ = util.map_optional(to_expr, begin)
         self.end_ = util.map_optional(to_expr, end)
@@ -280,7 +287,7 @@ class And(Expr):
         super().__init__()
         if len(clauses) <= 1:
             raise ValueError(
-                'At least two clauses must be provided.'
+                f'Expect at least two clauses, got {len(clauses)}.'
             )
         self.clauses_ = tuple(to_expr(e) for e in clauses)
 
@@ -296,7 +303,7 @@ class Or(Expr):
         super().__init__()
         if len(clauses) <= 1:
             raise ValueError(
-                'At least two clauses must be provided.'
+                f'Expect at least two clauses, got {len(clauses)}.'
             )
         self.clauses_ = tuple(to_expr(e) for e in clauses)
 

@@ -1,5 +1,6 @@
 from enum import IntEnum, auto
 from typing import Dict, Callable
+
 from .base import Expr, ExprKind, ExprLike, to_expr
 
 
@@ -17,18 +18,18 @@ class TensorSpec:
         self.kind_ = kind
         self.idx_ = to_expr(idx)
 
-    avail_attrs: Dict[str, Callable[['TensorSpec'], Expr]] = {
+    attrs: Dict[str, Callable[['TensorSpec'], Expr]] = {
         'shape': lambda self: Shape(self),
         'rank': lambda self: Rank(self),
-        'dtype': lambda self: DType(self),
+        'dtype': lambda self: GetDType(self),
     }
 
-    def __getattr__(self, name: str):
-        if name in self.avail_attrs:
-            return self.avail_attrs[name](self)
+    def __getattr__(self, name: str) -> Expr:
+        if name in self.attrs:
+            return self.attrs[name](self)
         else:
             raise AttributeError(
-                'Unknown attribute \'{}\''.format(name)
+                'Unknown attribute \'{}\'.'.format(name)
             )
 
 
@@ -66,7 +67,7 @@ class Rank(Expr):
         self.tensor_ = tensor
 
 
-class DType(Expr):
+class GetDType(Expr):
     """
     Get data type of a tensor.
     """
