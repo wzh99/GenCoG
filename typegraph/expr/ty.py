@@ -8,13 +8,13 @@ class TypeKind(IntEnum):
     """
     Simple RTTI mechanism for `Type`.
     """
-    BOOL = auto()
-    INT = auto()
-    FLOAT = auto()
-    STR = auto()
-    DTYPE = auto()
-    TUPLE = auto()
-    LIST = auto()
+    bool = auto()
+    int = auto()
+    float = auto()
+    str = auto()
+    dtype = auto()
+    tuple = auto()
+    list = auto()
 
 
 class Type:
@@ -23,7 +23,13 @@ class Type:
     """
     kind: TypeKind
 
-    prim_kinds = [TypeKind.BOOL, TypeKind.INT, TypeKind.FLOAT, TypeKind.STR]
+    prim_kinds = [
+        TypeKind.bool,
+        TypeKind.int,
+        TypeKind.float,
+        TypeKind.str,
+        TypeKind.dtype,
+    ]
 
     def __eq__(self, other: 'Type'):
         """
@@ -33,40 +39,43 @@ class Type:
         """
         return self.kind == other.kind
 
+    def __str__(self):
+        return self.kind.name
+
 
 class Bool(Type):
     """
     Boolean type.
     """
-    kind = TypeKind.BOOL
+    kind = TypeKind.bool
 
 
 class Int(Type):
     """
     Integer type.
     """
-    kind = TypeKind.INT
+    kind = TypeKind.int
 
 
 class Float(Type):
     """
     Float type.
     """
-    kind = TypeKind.FLOAT
+    kind = TypeKind.float
 
 
 class Str(Type):
     """
     String type.
     """
-    kind = TypeKind.STR
+    kind = TypeKind.str
 
 
 class DType(Type):
     """
     Type for tensor data type.
     """
-    kind = TypeKind.DTYPE
+    kind = TypeKind.dtype
 
 
 class TypeCode(IntEnum):
@@ -99,12 +108,12 @@ class DataType:
         return self.code_.name + str(self.bits_)
 
 
-class Tuple(Type):
+class TupleType(Type):
     """
     Type for fixed-length array of possibly heterogeneous elements. A homogeneous tuple type can
     be cast to a list type.
     """
-    kind = TypeKind.TUPLE
+    kind = TypeKind.tuple
 
     def __init__(self, *field_ty: Type):
         if len(field_ty) == 0:
@@ -115,12 +124,12 @@ class Tuple(Type):
         self.is_homo_ = self._is_homo()
 
     def __eq__(self, other: Type):
-        if other.kind == TypeKind.LIST:
-            other = typing.cast(List, other)
+        if other.kind == TypeKind.list:
+            other = typing.cast(ListType, other)
             return self.is_homo_ and self.field_ty_[0] == other.elem_ty_
         elif self.kind != other.kind:
             return False
-        other = typing.cast(Tuple, other)
+        other = typing.cast(TupleType, other)
         if len(self.field_ty_) != len(other.field_ty_):
             return False
         return all(map(lambda p: p[0] == p[1], zip(self.field_ty_, other.field_ty_)))
@@ -130,23 +139,32 @@ class Tuple(Type):
             return True
         return all(map(lambda t: t == self.field_ty_[0], self.field_ty_[1:]))
 
+    def __str__(self):
+        if len(self.field_ty_) == 1:
+            return '({},)'.format(str(self.field_ty_[0]))
+        else:
+            return '({})'.format(', '.join(map(lambda f: str(f), self.field_ty_)))
 
-class List(Type):
+
+class ListType(Type):
     """
     Type for variable-length array of homogeneous elements.
     """
-    kind = TypeKind.LIST
+    kind = TypeKind.list
 
     def __init__(self, elem_ty: Type):
         self.elem_ty_ = elem_ty
 
     def __eq__(self, other: Type):
-        if other.kind == TypeKind.TUPLE:
+        if other.kind == TypeKind.tuple:
             return other.__eq__(self)
         elif self.kind != other.kind:
             return False
-        other = typing.cast(List, other)
+        other = typing.cast(ListType, other)
         return self.elem_ty_ == other.elem_ty_
+
+    def __str__(self):
+        return f'[{self.elem_ty_}]'
 
 
 ValueType = typing.Union[bool, int, float, str, tuple, list, DataType]
@@ -169,9 +187,9 @@ def type_py_value(v: ValueType) -> Type:
     elif isinstance(v, DataType):
         return DType()
     elif isinstance(v, tuple):
-        return Tuple(*(type_py_value(f) for f in v))
+        return TupleType(*(type_py_value(f) for f in v))
     elif isinstance(v, list):
-        return List(type_py_value(v[0]))
+        return ListType(type_py_value(v[0]))
     else:
         raise TypeError(
             'Cannot type Python object of type {}'.format(

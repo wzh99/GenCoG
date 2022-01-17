@@ -93,23 +93,24 @@ class Map(Expr):
         self.body_ = to_expr(f(self.sym_))
 
 
+reduce_ops = [
+    ArithOp.ADD,
+    ArithOp.MUL,
+    ArithOp.MAX,
+    ArithOp.MIN,
+]
+
+
 class ReduceArray(Expr):
     """
     Reduce elements in an array.
     """
     kind = ExprKind.REDUCE_ARRAY
 
-    reduce_ops = [
-        ArithOp.ADD,
-        ArithOp.MUL,
-        ArithOp.MAX,
-        ArithOp.MIN,
-    ]
-
     def __init__(self, arr: ExprLike, op: ArithOp, init: ExprLike):
         super().__init__()
         self.arr_ = to_expr(arr)
-        if op not in self.reduce_ops:
+        if op not in reduce_ops:
             raise ValueError(
                 f'Operator {op} cannot be used for reduction.'
             )
@@ -123,8 +124,13 @@ class ReduceIndex(Expr):
     """
     kind = ExprKind.REDUCE_INDEX
 
-    def __init__(self, ran: Range, body_f: Callable[[Symbol], ExprLike]):
+    def __init__(self, ran: Range, op: ArithOp, body_f: Callable[[Symbol], ExprLike]):
         super().__init__()
         self.ran_ = ran
+        if op not in reduce_ops:
+            raise ValueError(
+                f'Operator {op} cannot be used for reduction.'
+            )
+        self.op_ = op
         self.idx_ = Symbol()
         self.body_ = to_expr(body_f(self.idx_))

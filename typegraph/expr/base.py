@@ -1,8 +1,10 @@
 import typing
 from enum import Enum, IntEnum, auto
 from typing import Any, Callable, Dict, Optional, Union, Type
+from warnings import warn
 
 from . import ty
+from .ty import TypeKind, ValueType, DataType
 from .. import util
 
 
@@ -18,7 +20,9 @@ class ExprKind(IntEnum):
     OR = auto()
     FOR_EACH = auto()
     COND = auto()
+    GETATTR = auto()
     # Tensor
+    NUM = auto()
     SHAPE = auto()
     RANK = auto()
     DTYPE = auto()
@@ -103,12 +107,15 @@ class Expr:
     def __or__(self, other: 'ExprLike'):
         return Or(self, other)
 
-    def __getitem__(self, idx: 'ExprLike'):
-        from .array import GetItem
-        return GetItem(self, idx)
+    def __getitem__(self, item: 'ExprLike'):
+        from .array import GetItem, Slice
+        if isinstance(item, Range):
+            return Slice(self, item)
+        else:
+            return GetItem(self, item)
 
 
-ExprLike = Union[Expr, ty.ValueType]
+ExprLike = Union[Expr, ValueType]
 
 
 def to_expr(e: ExprLike) -> Expr:
@@ -122,7 +129,7 @@ def to_expr(e: ExprLike) -> Expr:
 
     if isinstance(e, Expr):
         return e
-    elif isinstance(e, (bool, int, float, str, ty.DataType)):
+    elif isinstance(e, (bool, int, float, str, DataType)):
         return Const(e)
     elif isinstance(e, (tuple, list)):
         return Tuple(*e)
@@ -139,7 +146,7 @@ class Const(Expr):
     """
     kind = ExprKind.CONST
 
-    def __init__(self, val: ty.ValueType):
+    def __init__(self, val: ValueType):
         super().__init__()
         self.val_ = val
         self.type_ = ty.type_py_value(val)
@@ -151,10 +158,20 @@ class Range(Expr):
     """
     kind = ExprKind.RANGE
 
+    valid_type_kinds = [TypeKind.int, TypeKind.float]
+
     def __init__(self, begin: Optional[ExprLike] = None, end: Optional[ExprLike] = None):
         super().__init__()
         self.begin_ = util.map_optional(to_expr, begin)
         self.end_ = util.map_optional(to_expr, end)
+
+    @classmethod
+    def validate_type(cls, t: ty.Type, ran: Optional['Range']) -> Optional['Range']:
+        if t.kind in Range.valid_type_kinds:
+            return ran
+        elif ran is not None:
+            warn(f'Ignore range for type {t}.')
+        return None
 
 
 class Var(Expr):
@@ -173,7 +190,7 @@ class Var(Expr):
                     util.cls_name(t))
             )
         self.type_ = t
-        self.range_ = Range(None, None) if ran is None else ran
+        self.range_ = Range.validate_type(t, ran)
 
 
 class Symbol(Expr):
@@ -332,3 +349,14 @@ class Cond(Expr):
         self.pred_ = to_expr(pred)
         self.true_br_ = to_expr(true_br)
         self.fls_br_ = to_expr(fls_br)
+
+
+class GetAttr(Expr):
+    """
+    Get attribute value from operator.
+    """
+    kind = ExprKind.GETATTR
+
+    def __init__(self, name: str):
+        super().__init__()
+        self.name_ = name
