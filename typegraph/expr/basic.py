@@ -77,6 +77,12 @@ class Expr:
     def __rfloordiv__(self, other: 'ExprLike'):
         return Arith(ArithOp.DIV, other, self)
 
+    def __mod__(self, other: 'ExprLike'):
+        return Arith(ArithOp.MOD, self, other)
+
+    def __rmod__(self, other: 'ExprLike'):
+        return Arith(ArithOp.MOD, other, self)
+
     def max(self, other: 'ExprLike'):
         return Arith(ArithOp.MAX, self, other)
 
@@ -182,15 +188,10 @@ class Var(Expr):
     """
     kind = ExprKind.VAR
 
-    def __init__(self, t: ty.Type, ran: Optional[Range] = None):
+    def __init__(self, t: Optional[ty.Type] = None, ran: Optional[Range] = None):
         super().__init__()
-        if t.kind not in ty.Type.prim_kinds:
-            raise ValueError(
-                'Cannot create variable for non-primitive type {}'.format(
-                    util.cls_name(t))
-            )
         self.type_ = t
-        self.range_ = Range.validate_type(t, ran)
+        self.ran_ = ran
 
 
 class Symbol(Expr):
@@ -360,3 +361,7 @@ class GetAttr(Expr):
     def __init__(self, name: str):
         super().__init__()
         self.name_ = name
+
+
+def a(name: str):
+    return GetAttr(name)

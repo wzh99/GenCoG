@@ -78,6 +78,13 @@ class DType(Type):
     kind = TypeKind.dtype
 
 
+BOOL = Bool()
+INT = Int()
+FLOAT = Float()
+STR = Str()
+DTYPE = DType()
+
+
 class TypeCode(IntEnum):
     int = auto()
     uint = auto()

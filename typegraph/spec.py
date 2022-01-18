@@ -1,7 +1,7 @@
-from typing import List, Optional, Dict
+from typing import List, Dict, Optional
 from warnings import warn
 
-from .expr import Type, ExprLike, Range, to_expr
+from .expr import Type, ExprLike, to_expr
 
 
 class Attr:
@@ -9,10 +9,10 @@ class Attr:
     Specification of an operator attribute.
     """
 
-    def __init__(self, name: str, ty: Type, ran: Optional[Range] = None):
+    def __init__(self, name: str, expr: ExprLike, ty: Optional[Type] = None):
         self.name_ = name
+        self.expr_ = to_expr(expr)
         self.ty_ = ty
-        self.range_ = Range.validate_type(ty, ran)
 
 
 class ConstraintSet:
@@ -48,83 +48,83 @@ class ConstraintSet:
 
     @property
     def attrs(self):
-        return self.attrs_
+        return self._attrs
 
     @attrs.setter
     def attrs(self, *v: List[Attr]):
-        self.attrs_ = v[0]
+        self._attrs = v[0]
 
     @property
     def in_num(self):
-        return self.in_num_
+        return self._in_num
 
     @in_num.setter
     def in_num(self, *v: ExprLike):
-        self.in_num_ = to_expr(v[0])
+        self._in_num = to_expr(v[0])
 
     @property
     def in_ranks(self):
-        return self.in_ranks_
+        return self._in_ranks
 
     @in_ranks.setter
     def in_ranks(self, *v: ExprLike):
-        self.in_ranks_ = to_expr(v[0])
+        self._in_ranks = to_expr(v[0])
 
     @property
     def in_dtypes(self):
-        return self.in_dtypes_
+        return self._in_dtypes
 
     @in_dtypes.setter
     def in_dtypes(self, *v: ExprLike):
-        self.in_dtypes_ = to_expr(v[0])
+        self._in_dtypes = to_expr(v[0])
 
     @property
     def in_shapes(self):
-        return self.in_shapes_
+        return self._in_shapes
 
     @in_shapes.setter
     def in_shapes(self, *v: ExprLike):
-        self.in_shapes_ = to_expr(v[0])
+        self._in_shapes = to_expr(v[0])
 
     @property
     def extra(self):
-        return self.extra_
+        return self._extra
 
     @extra.setter
     def extra(self, *v: List[ExprLike]):
-        self.extra_ = [to_expr(c) for c in v[0]]
+        self._extra = [to_expr(c) for c in v[0]]
 
     @property
     def out_num(self):
-        return self.out_num_
+        return self._out_num
 
     @out_num.setter
     def out_num(self, *v: ExprLike):
-        self.out_num_ = to_expr(v[0])
+        self._out_num = to_expr(v[0])
 
     @property
     def out_ranks(self):
-        return self.out_ranks_
+        return self._out_ranks
 
     @out_ranks.setter
     def out_ranks(self, *v: ExprLike):
-        self.out_ranks_ = to_expr(v[0])
+        self._out_ranks = to_expr(v[0])
 
     @property
     def out_dtypes(self):
-        return self.out_dtypes_
+        return self._out_dtypes
 
     @out_dtypes.setter
     def out_dtypes(self, *v: ExprLike):
-        self.out_dtypes_ = to_expr(v[0])
+        self._out_dtypes = to_expr(v[0])
 
     @property
     def out_shapes(self):
-        return self.out_shapes_
+        return self._out_shapes
 
     @out_shapes.setter
     def out_shapes(self, *v: ExprLike):
-        self.out_shapes_ = to_expr(v[0])
+        self._out_shapes = to_expr(v[0])
 
 
 class Op:
@@ -132,9 +132,9 @@ class Op:
     Specification of an operator.
     """
 
-    def __init__(self, name: str, constr: ConstraintSet):
+    def __init__(self, name: str, spec: ConstraintSet):
         self.name_ = name
-        self.constr_ = constr
+        self.spec_ = spec
         OpRegistry.register(self)
 
 

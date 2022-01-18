@@ -2,17 +2,17 @@ from ..expr import *
 from ..spec import ConstraintSet, Op
 
 
-def create_bcast():
+def _create_bcast():
     m = IN[0].rank
     n = IN[1].rank
     return ConstraintSet(
         attrs=[],
         in_num=2,
-        in_ranks=[Var(Int()), Var(Int())],
-        in_dtypes=[Var(DType()), Var(DType())],
+        in_ranks=[Var(INT), Var(INT)],
+        in_dtypes=[Var(DTYPE), Var(DTYPE)],
         in_shapes=[
-            List(m, lambda _: Var(Int())),
-            List(n, lambda _: Var(Int()))
+            List(m, lambda _: Var(INT)),
+            List(n, lambda _: Var(INT))
         ],
         extra=[
             IN[0].dtype == IN[1].dtype,
@@ -41,17 +41,17 @@ def create_bcast():
     )
 
 
-bcast = create_bcast()
+_bcast = _create_bcast()
 
-Op('add', bcast)
+Op('add', _bcast)
 
 
 def create_bcast_cmp():
-    cmp = create_bcast()
+    cmp = _create_bcast()
     cmp.out_dtypes = [DataType.b()]
     return cmp
 
 
-bcast_cmp = create_bcast_cmp()
+_bcast_cmp = create_bcast_cmp()
 
-Op('less', bcast_cmp)
+Op('less', _bcast_cmp)
