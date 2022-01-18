@@ -124,7 +124,8 @@ class ReduceIndex(Expr):
     """
     kind = ExprKind.REDUCE_INDEX
 
-    def __init__(self, ran: Range, op: ArithOp, body_f: Callable[[Symbol], ExprLike]):
+    def __init__(self, ran: Range, op: ArithOp, body_f: Callable[[Symbol], ExprLike],
+                 init: ExprLike):
         super().__init__()
         self.ran_ = ran
         if op not in reduce_ops:
@@ -134,3 +135,4 @@ class ReduceIndex(Expr):
         self.op_ = op
         self.idx_ = Symbol()
         self.body_ = to_expr(body_f(self.idx_))
+        self.init_ = to_expr(init)

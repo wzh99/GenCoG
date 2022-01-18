@@ -8,11 +8,11 @@ def _create_bcast():
     return ConstraintSet(
         attrs=[],
         in_num=2,
-        in_ranks=[Var(INT), Var(INT)],
-        in_dtypes=[Var(DTYPE), Var(DTYPE)],
+        in_ranks=[Var(), Var()],
+        in_dtypes=[Var(), Var()],
         in_shapes=[
-            List(m, lambda _: Var(INT)),
-            List(n, lambda _: Var(INT))
+            List(m, lambda _: Var()),
+            List(n, lambda _: Var())
         ],
         extra=[
             IN[0].dtype == IN[1].dtype,
