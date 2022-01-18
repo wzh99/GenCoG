@@ -101,6 +101,26 @@ class DataType:
             f'Cannot create DataType from \'{s}\''
         )
 
+    @classmethod
+    def i(cls, bits: int):
+        return DataType(TypeCode.int, bits)
+
+    @classmethod
+    def u(cls, bits: int):
+        return DataType(TypeCode.uint, bits)
+
+    @classmethod
+    def b(cls):
+        return DataType(TypeCode.uint, 1)
+
+    @classmethod
+    def f(cls, bits: int):
+        return DataType(TypeCode.float, bits)
+
+    @classmethod
+    def bf(cls, bits: int):
+        return DataType(TypeCode.bfloat, bits)
+
     def __eq__(self, other: 'DataType'):
         return self.code_ == other.code_ and self.bits_ == other.bits_
 

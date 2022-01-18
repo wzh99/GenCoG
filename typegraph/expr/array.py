@@ -1,6 +1,6 @@
 from typing import Callable
 
-from .base import Expr, ExprKind, ExprLike, Symbol, Range, ArithOp, to_expr
+from .basic import Expr, ExprKind, ExprLike, Symbol, Range, ArithOp, to_expr
 
 
 class Tuple(Expr):

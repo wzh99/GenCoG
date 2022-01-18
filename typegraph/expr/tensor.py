@@ -1,6 +1,6 @@
 from enum import IntEnum, auto
 
-from .base import Expr, ExprKind, ExprLike, to_expr
+from .basic import Expr, ExprKind, ExprLike, to_expr
 
 
 class TensorKind(IntEnum):
