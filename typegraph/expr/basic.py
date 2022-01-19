@@ -18,6 +18,7 @@ class ExprKind(IntEnum):
     CMP = auto()
     AND = auto()
     OR = auto()
+    NOT = auto()
     FOR_EACH = auto()
     COND = auto()
     GETATTR = auto()
@@ -36,6 +37,9 @@ class ExprKind(IntEnum):
     MAP = auto()
     REDUCE_ARRAY = auto()
     REDUCE_INDEX = auto()
+    FILTER = auto()
+    INSET = auto()
+    SUBSET = auto()
 
 
 class Expr:
@@ -112,6 +116,9 @@ class Expr:
 
     def __or__(self, other: 'ExprLike'):
         return Or(self, other)
+
+    def __xor__(self, other: 'ExprLike'):
+        return Cmp(CmpOp.NE, self, other)
 
     def __getitem__(self, item: 'ExprLike'):
         from .array import GetItem, Slice
@@ -206,7 +213,7 @@ class ArithOp(Enum):
     ADD = '+'
     SUB = '-'
     MUL = '*'
-    DIV = '/'  # __floordiv__ for int, __div__ for float
+    DIV = '/'
     MOD = '%'
     MAX = 'max'
     MIN = 'min'
@@ -266,10 +273,12 @@ class Cmp(Expr):
 
     op_funcs: Dict[CmpOp, Dict[typing.Tuple[Type, Type], Callable[[Any, Any], bool]]] = {
         CmpOp.EQ: {
+            (bool, bool): bool.__eq__,
             (int, int): int.__eq__,
             (str, str): str.__eq__,
         },
         CmpOp.NE: {
+            (bool, bool): bool.__ne__,
             (int, int): int.__ne__,
             (str, str): str.__ne__,
         },
@@ -292,6 +301,17 @@ class Cmp(Expr):
         self.op_ = op
         self.lhs_ = to_expr(lhs)
         self.rhs_ = to_expr(rhs)
+
+
+class Not(Expr):
+    """
+    Boolean negation.
+    """
+    kind = ExprKind.NOT
+
+    def __init__(self, prop: ExprLike):
+        super().__init__()
+        self.prop_ = to_expr(prop)
 
 
 class And(Expr):

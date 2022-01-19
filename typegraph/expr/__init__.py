@@ -1,4 +1,4 @@
-from .array import Tuple, List, Len, Concat, Map, ReduceArray, ReduceIndex
+from .array import Tuple, List, Len, Concat, Map, ReduceArray, ReduceIndex, Filter, InSet, Subset
 from .basic import Expr, ExprKind, ExprLike, Const, Var, Symbol, Range, And, Or, ForEach, Cond, \
     GetAttr, ArithOp, to_expr, a
 from .tensor import IN, OUT

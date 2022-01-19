@@ -93,7 +93,7 @@ class Map(Expr):
         self.body_ = to_expr(f(self.sym_))
 
 
-reduce_ops = [
+REDUCE_OPS = [
     ArithOp.ADD,
     ArithOp.MUL,
     ArithOp.MAX,
@@ -110,7 +110,7 @@ class ReduceArray(Expr):
     def __init__(self, arr: ExprLike, op: ArithOp, init: ExprLike):
         super().__init__()
         self.arr_ = to_expr(arr)
-        if op not in reduce_ops:
+        if op not in REDUCE_OPS:
             raise ValueError(
                 f'Operator {op} cannot be used for reduction.'
             )
@@ -128,7 +128,7 @@ class ReduceIndex(Expr):
                  init: ExprLike):
         super().__init__()
         self.ran_ = ran
-        if op not in reduce_ops:
+        if op not in REDUCE_OPS:
             raise ValueError(
                 f'Operator {op} cannot be used for reduction.'
             )
@@ -136,3 +136,40 @@ class ReduceIndex(Expr):
         self.idx_ = Symbol()
         self.body_ = to_expr(body_f(self.idx_))
         self.init_ = to_expr(init)
+
+
+class Filter(Expr):
+    """
+    Filter elements according to a predicate.
+    """
+    kind = ExprKind.FILTER
+
+    def __init__(self, arr: ExprLike, pred_f: Callable[[Symbol], ExprLike]):
+        super().__init__()
+        self.arr_ = to_expr(arr)
+        self.sym_ = Symbol()
+        self.pred_ = to_expr(pred_f(self.sym_))
+
+
+class InSet(Expr):
+    """
+    Whether a value is in a set represented by an array.
+    """
+    kind = ExprKind.INSET
+
+    def __init__(self, elem: ExprLike, s: ExprLike):
+        super().__init__()
+        self.elem_ = to_expr(elem)
+        self.set_ = to_expr(s)
+
+
+class Subset(Expr):
+    """
+    Whether a set is subset of another set.
+    """
+    kind = ExprKind.SUBSET
+
+    def __init__(self, sub: ExprLike, sup: ExprLike):
+        super().__init__()
+        self.sub_ = to_expr(sub)
+        self.sup_ = to_expr(sup)
