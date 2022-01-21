@@ -44,7 +44,7 @@ def _create_split():
         in_shapes=[List(IN[0].rank, lambda _: Var())],
         extra=[
             ind[0] > 0,
-            ForEach(Range(1, Len(ind)), lambda i: ind[i - 1] < ind[i]),
+            ForAll(Range(1, Len(ind)), lambda i: ind[i - 1] < ind[i]),
             ind[-1] < IN[0].shape[a('axis')]
         ],
         out_num=Len(ind) + 1,

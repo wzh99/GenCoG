@@ -143,11 +143,15 @@ class OpRegistry:
     Registry for all defined operators.
     """
 
-    table: Dict[str, Op] = {}
+    _table: Dict[str, Op] = {}
 
     @classmethod
     def register(cls, op: Op):
-        if op.name_ in cls.table:
+        if op.name_ in cls._table:
             warn(f'Operator {op.name_} has already been registered.')
         else:
-            cls.table[op.name_] = op
+            cls._table[op.name_] = op
+
+    @classmethod
+    def get(cls, name: str):
+        return cls._table[name]

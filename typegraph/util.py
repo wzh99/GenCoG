@@ -1,4 +1,4 @@
-from typing import Callable, TypeVar, Optional, cast
+from typing import Callable, TypeVar, Optional, List, cast
 
 T = TypeVar('T')
 R = TypeVar('R')
@@ -17,3 +17,7 @@ def unwrap(o: Optional[T]) -> T:
         raise RuntimeError('Cannot unwrap None.')
     else:
         return cast(T, o)
+
+
+def filter_none(lst: List[Optional[T]]) -> List[T]:
+    return list(filter(lambda e: e is not None, lst))

@@ -1,6 +1,6 @@
 import typing
 from enum import Enum, IntEnum, auto
-from typing import Any, Callable, Dict, Optional, Union, Type
+from typing import Any, Callable, Dict, Optional, Union, Type, List
 from warnings import warn
 
 from . import ty
@@ -16,12 +16,12 @@ class ExprKind(IntEnum):
     RANGE = auto()
     ARITH = auto()
     CMP = auto()
+    NOT = auto()
     AND = auto()
     OR = auto()
-    NOT = auto()
-    FOR_EACH = auto()
+    FORALL = auto()
     COND = auto()
-    GETATTR = auto()
+    ATTR = auto()
     # Tensor
     NUM = auto()
     SHAPE = auto()
@@ -48,8 +48,12 @@ class Expr:
     """
     kind: ExprKind
 
-    def __init__(self):
+    def __init__(self, sub: List['Expr']):
         self.type_: Optional[ty.Type] = None
+        self.sub_ = sub
+        self.ref_cnt_ = 0
+        for s in self.sub_:
+            s.ref_cnt_ += 1
 
     def __add__(self, other: 'ExprLike'):
         return Arith(ArithOp.ADD, self, other)
@@ -160,7 +164,7 @@ class Const(Expr):
     kind = ExprKind.CONST
 
     def __init__(self, val: ValueType):
-        super().__init__()
+        super().__init__([])
         self.val_ = val
         self.type_ = ty.type_py_value(val)
 
@@ -174,9 +178,9 @@ class Range(Expr):
     valid_type_kinds = [TypeKind.int, TypeKind.float]
 
     def __init__(self, begin: Optional[ExprLike] = None, end: Optional[ExprLike] = None):
-        super().__init__()
         self.begin_ = util.map_optional(to_expr, begin)
         self.end_ = util.map_optional(to_expr, end)
+        super().__init__(util.filter_none([self.begin_, self.end_]))
 
     @classmethod
     def validate_type(cls, t: ty.Type, ran: Optional['Range']) -> Optional['Range']:
@@ -196,9 +200,9 @@ class Var(Expr):
     kind = ExprKind.VAR
 
     def __init__(self, t: Optional[ty.Type] = None, ran: Optional[Range] = None):
-        super().__init__()
         self.type_ = t
         self.ran_ = ran
+        super().__init__(util.filter_none([self.ran_]))
 
 
 class Symbol(Expr):
@@ -207,6 +211,9 @@ class Symbol(Expr):
     constraint expression such as `List`.
     """
     kind = ExprKind.SYMBOL
+
+    def __init__(self):
+        super().__init__([])
 
 
 class ArithOp(Enum):
@@ -250,10 +257,10 @@ class Arith(Expr):
     }
 
     def __init__(self, op: ArithOp, lhs: ExprLike, rhs: ExprLike):
-        super().__init__()
         self.op_ = op
         self.lhs_ = to_expr(lhs)
         self.rhs_ = to_expr(rhs)
+        super().__init__([self.lhs_, self.rhs_])
 
 
 class CmpOp(Enum):
@@ -297,10 +304,10 @@ class Cmp(Expr):
     }
 
     def __init__(self, op: CmpOp, lhs: ExprLike, rhs: ExprLike):
-        super().__init__()
         self.op_ = op
         self.lhs_ = to_expr(lhs)
         self.rhs_ = to_expr(rhs)
+        super().__init__([self.lhs_, self.rhs_])
 
 
 class Not(Expr):
@@ -310,8 +317,8 @@ class Not(Expr):
     kind = ExprKind.NOT
 
     def __init__(self, prop: ExprLike):
-        super().__init__()
         self.prop_ = to_expr(prop)
+        super().__init__([self.prop_])
 
 
 class And(Expr):
@@ -322,12 +329,12 @@ class And(Expr):
     kind = ExprKind.AND
 
     def __init__(self, *clauses: ExprLike):
-        super().__init__()
         if len(clauses) <= 1:
             raise ValueError(
                 f'Expect at least two clauses, got {len(clauses)}.'
             )
-        self.clauses_ = tuple(to_expr(e) for e in clauses)
+        self.clauses_ = list(to_expr(e) for e in clauses)
+        super().__init__(self.clauses_)
 
 
 class Or(Expr):
@@ -338,25 +345,25 @@ class Or(Expr):
     kind = ExprKind.OR
 
     def __init__(self, *clauses: ExprLike):
-        super().__init__()
         if len(clauses) <= 1:
             raise ValueError(
                 f'Expect at least two clauses, got {len(clauses)}.'
             )
-        self.clauses_ = tuple(to_expr(e) for e in clauses)
+        self.clauses_ = list(to_expr(e) for e in clauses)
+        super().__init__(self.clauses_)
 
 
-class ForEach(Expr):
+class ForAll(Expr):
     """
     Universal quantifier for propositions defined in an integer range.
     """
-    kind = ExprKind.FOR_EACH
+    kind = ExprKind.FORALL
 
     def __init__(self, ran: Range, body_f: Callable[[Symbol], ExprLike]):
-        super().__init__()
         self.ran_ = ran
         self.idx_ = Symbol()
         self.body_ = to_expr(body_f(self.idx_))
+        super().__init__([self.ran_, self.idx_, self.body_])
 
 
 class Cond(Expr):
@@ -366,20 +373,20 @@ class Cond(Expr):
     kind = ExprKind.COND
 
     def __init__(self, pred: ExprLike, true_br: ExprLike, fls_br: ExprLike):
-        super().__init__()
         self.pred_ = to_expr(pred)
-        self.true_br_ = to_expr(true_br)
+        self.tr_br_ = to_expr(true_br)
         self.fls_br_ = to_expr(fls_br)
+        super().__init__([self.pred_, self.tr_br_, self.fls_br_])
 
 
 class GetAttr(Expr):
     """
     Get attribute value from operator.
     """
-    kind = ExprKind.GETATTR
+    kind = ExprKind.ATTR
 
     def __init__(self, name: str):
-        super().__init__()
+        super().__init__([])
         self.name_ = name
 
 
