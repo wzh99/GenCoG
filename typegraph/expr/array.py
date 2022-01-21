@@ -73,6 +73,7 @@ class Slice(Expr):
     """
     Get slice from an array.
     """
+    kind = ExprKind.SLICE
 
     def __init__(self, arr: ExprLike, ran: Range):
         self.arr_ = to_expr(arr)

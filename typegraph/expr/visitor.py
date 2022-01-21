@@ -135,6 +135,6 @@ class ExprVisitor(Generic[A, R]):
         return self._visit_sub(subset, arg)
 
     def _visit_sub(self, expr: Expr, arg: A):
-        for s in expr.sub_:
+        for s in expr.sub_expr_:
             self.visit(s, arg)
         return None

@@ -1,11 +1,11 @@
-from enum import IntEnum, auto
+from enum import Enum
 
 from .basic import Expr, ExprKind, ExprLike, to_expr
 
 
-class TensorKind(IntEnum):
-    INPUT = auto()
-    OUTPUT = auto()
+class TensorKind(Enum):
+    INPUT = 'IN'
+    OUTPUT = 'OUT'
 
 
 class TensorDesc:

@@ -1,6 +1,6 @@
 import typing
 from enum import Enum, IntEnum, auto
-from typing import Any, Callable, Dict, Optional, Union, Type, List
+from typing import Any, Callable, Dict, Optional, Union, Type, List, Generic, TypeVar
 from warnings import warn
 
 from . import ty
@@ -48,11 +48,11 @@ class Expr:
     """
     kind: ExprKind
 
-    def __init__(self, sub: List['Expr']):
+    def __init__(self, sub_expr: List['Expr']):
         self.type_: Optional[ty.Type] = None
-        self.sub_ = sub
+        self.sub_expr_ = sub_expr
         self.ref_cnt_ = 0
-        for s in self.sub_:
+        for s in self.sub_expr_:
             s.ref_cnt_ += 1
 
     def __add__(self, other: 'ExprLike'):
@@ -200,9 +200,9 @@ class Var(Expr):
     kind = ExprKind.VAR
 
     def __init__(self, t: Optional[ty.Type] = None, ran: Optional[Range] = None):
-        self.type_ = t
         self.ran_ = ran
         super().__init__(util.filter_none([self.ran_]))
+        self.type_ = t
 
 
 class Symbol(Expr):
@@ -214,6 +214,40 @@ class Symbol(Expr):
 
     def __init__(self):
         super().__init__([])
+
+
+T = TypeVar('T')
+
+
+class Env(Generic[T]):
+    """
+    Environment, mapping from symbol to object.
+    """
+
+    def __init__(self, prev: Optional['Env'] = None, sym: Optional[Symbol] = None,
+                 val: Optional[T] = None):
+        self._prev = prev
+        self._sym = sym
+        if self._sym is not None and val is None:
+            raise ValueError(
+                'Value cannot be None if symbol is not None.'
+            )
+        self._val = val
+
+    def __add__(self, pair: typing.Tuple[Symbol, T]):
+        return Env(prev=self, sym=pair[0], val=pair[1])
+
+    def __getitem__(self, sym: Symbol) -> Optional[T]:
+        env = self
+        while env._sym is not None:
+            if env._sym is sym:
+                return env._val
+            else:
+                env = env._prev
+        return None
+
+    def __contains__(self, sym: Symbol) -> bool:
+        return self[sym] is not None
 
 
 class ArithOp(Enum):
