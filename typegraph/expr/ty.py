@@ -1,4 +1,4 @@
-import typing
+from typing import cast, Union
 from enum import IntEnum, auto
 
 from .. import util
@@ -43,28 +43,28 @@ class Type:
         return self.kind.name
 
 
-class Bool(Type):
+class BoolType(Type):
     """
     Boolean type.
     """
     kind = TypeKind.bool
 
 
-class Int(Type):
+class IntType(Type):
     """
     Integer type.
     """
     kind = TypeKind.int
 
 
-class Float(Type):
+class FloatType(Type):
     """
     Float type.
     """
     kind = TypeKind.float
 
 
-class Str(Type):
+class StrType(Type):
     """
     String type.
     """
@@ -78,10 +78,10 @@ class DType(Type):
     kind = TypeKind.dtype
 
 
-BOOL = Bool()
-INT = Int()
-FLOAT = Float()
-STR = Str()
+BOOL = BoolType()
+INT = IntType()
+FLOAT = FloatType()
+STR = StrType()
 DTYPE = DType()
 
 
@@ -152,11 +152,11 @@ class TupleType(Type):
 
     def __eq__(self, other: Type):
         if other.kind == TypeKind.list:
-            other = typing.cast(ListType, other)
+            other = cast(ListType, other)
             return self.is_homo_ and self.field_ty_[0] == other.elem_ty_
         elif self.kind != other.kind:
             return False
-        other = typing.cast(TupleType, other)
+        other = cast(TupleType, other)
         if len(self.field_ty_) != len(other.field_ty_):
             return False
         return all(map(lambda p: p[0] == p[1], zip(self.field_ty_, other.field_ty_)))
@@ -187,14 +187,14 @@ class ListType(Type):
             return other.__eq__(self)
         elif self.kind != other.kind:
             return False
-        other = typing.cast(ListType, other)
+        other = cast(ListType, other)
         return self.elem_ty_ == other.elem_ty_
 
     def __str__(self):
         return f'[{self.elem_ty_}]'
 
 
-ValueType = typing.Union[bool, int, float, str, tuple, list, DataType]
+ValueType = Union[bool, int, float, str, tuple, list, DataType]
 
 
 def type_py_value(v: ValueType) -> Type:
@@ -204,13 +204,13 @@ def type_py_value(v: ValueType) -> Type:
     :return: Type of `v`.
     """
     if v.__class__ == bool:
-        return Bool()
+        return BoolType()
     elif isinstance(v, int):
-        return Int()
+        return IntType()
     elif isinstance(v, float):
-        return Float()
+        return FloatType()
     elif isinstance(v, str):
-        return Str()
+        return StrType()
     elif isinstance(v, DataType):
         return DType()
     elif isinstance(v, tuple):

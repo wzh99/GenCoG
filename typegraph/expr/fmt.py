@@ -9,13 +9,23 @@ from .tensor import Num, TensorDesc, Shape, Rank, GetDType
 from .visitor import ExprVisitor
 from ..util import CodeBuffer, NameGenerator, cls_name
 
+from colorama import Fore, Back
 
-class ExprPrinter(ExprVisitor[Env[str], t.Any]):
+
+class ExprPrinter(ExprVisitor[Env[str], Any]):
     def __init__(self, buf: CodeBuffer, highlights: t.List[Expr]):
         super().__init__()
         self._buf = buf
-        self._high = highlights
+        self._high_ids = set(id(e) for e in highlights)
         self._name_gen = NameGenerator('_s', [])
+
+    def visit(self, expr: Expr, env: Env[str]):
+        high = id(expr) in self._high_ids
+        if high:
+            self._buf.write(Back.RED + Fore.BLACK)
+        super().visit(expr, env)
+        if high:
+            self._buf.write(Back.RESET + Fore.RESET)
 
     def visit_const(self, const: Const, env: Env[str]):
         self._buf.write(str(const.val_))
@@ -70,7 +80,7 @@ class ExprPrinter(ExprVisitor[Env[str], t.Any]):
     def visit_forall(self, forall: ForAll, env: Env[str]):
         nested_env = self._gen_nested_env(env, forall.idx_)
         self._write_cls(forall)
-        self._write_pos([
+        self._write_multi([
             (forall.ran_, lambda ran: self.visit_range(ran, env)),
             (forall.idx_, lambda idx: self.visit_symbol(idx, nested_env)),
             (forall.body_, lambda body: self.visit(body, nested_env))
@@ -111,7 +121,7 @@ class ExprPrinter(ExprVisitor[Env[str], t.Any]):
     def visit_list(self, lst: List, env: Env[str]):
         nested_env = self._gen_nested_env(env, lst.idx_)
         self._write_cls(lst)
-        self._write_pos([
+        self._write_multi([
             (lst.len_, lambda l: self.visit(l, env)),
             (lst.idx_, lambda idx: self.visit_symbol(idx, nested_env)),
             (lst.body_, lambda body: self.visit(body, nested_env))
@@ -136,7 +146,7 @@ class ExprPrinter(ExprVisitor[Env[str], t.Any]):
     def visit_map(self, m: Map, env: Env[str]):
         nested_env = self._gen_nested_env(env, m.sym_)
         self._write_cls(m)
-        self._write_pos([
+        self._write_multi([
             (m.arr_, lambda arr: self.visit(arr, env)),
             (m.sym_, lambda sym: self.visit(sym, nested_env)),
             (m.body_, lambda body: self.visit(body, nested_env))
@@ -144,7 +154,7 @@ class ExprPrinter(ExprVisitor[Env[str], t.Any]):
 
     def visit_reduce_array(self, red: ReduceArray, env: Env[str]):
         self._write_cls(red)
-        self._write_pos([
+        self._write_multi([
             (red.arr_, lambda arr: self.visit(arr, env)),
             (red.op_, lambda op: self._buf.write(op.value)),
             (red.init_, lambda init: self.visit(init, env))
@@ -153,7 +163,7 @@ class ExprPrinter(ExprVisitor[Env[str], t.Any]):
     def visit_reduce_index(self, red: ReduceIndex, env: Env[str]):
         nested_env = self._gen_nested_env(env, red.idx_)
         self._write_cls(red)
-        self._write_pos([
+        self._write_multi([
             (red.ran_, lambda ran: self.visit(red.ran_, env)),
             (red.op_, lambda op: self._buf.write(op.value)),
             (red.idx_, lambda idx: self.visit(idx, nested_env)),
@@ -164,7 +174,7 @@ class ExprPrinter(ExprVisitor[Env[str], t.Any]):
     def visit_filter(self, flt: Filter, env: Env[str]):
         nested_env = self._gen_nested_env(env, flt.sym_)
         self._write_cls(flt)
-        self._write_pos([
+        self._write_multi([
             (flt.arr_, lambda arr: self.visit(arr, env)),
             (flt.sym_, lambda sym: self.visit(sym, nested_env)),
             (flt.pred_, lambda pred: self.visit(pred, nested_env))
@@ -172,14 +182,14 @@ class ExprPrinter(ExprVisitor[Env[str], t.Any]):
 
     def visit_inset(self, inset: InSet, env: Env[str]):
         self._write_cls(inset)
-        self._write_pos([
+        self._write_multi([
             (inset.elem_, lambda elem: self.visit(elem, env)),
             (inset.set_, lambda s: self.visit(s, env))
         ])
 
     def visit_subset(self, subset: Subset, env: Env[str]):
         self._write_cls(subset)
-        self._write_pos([
+        self._write_multi([
             (subset.sub_, lambda sub: self.visit(sub, env)),
             (subset.sup_, lambda sup: self.visit(sup, env))
         ])

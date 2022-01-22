@@ -5,6 +5,7 @@ from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, R
 from .basic import Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, ForAll, \
     Cond, GetAttr
 from .tensor import Num, Shape, Rank, GetDType
+from .ty import Type, TypeKind, BoolType, IntType, FloatType, StrType, DType, TupleType, ListType
 
 A = TypeVar('A')
 R = TypeVar('R')
@@ -137,4 +138,42 @@ class ExprVisitor(Generic[A, R]):
     def _visit_sub(self, expr: Expr, arg: A):
         for s in expr.sub_expr_:
             self.visit(s, arg)
+        return None
+
+
+class TypeVisitor(Generic[A, R]):
+    """
+    Base class for type visitors.
+    """
+
+    def __init__(self):
+        self._methods: Dict[TypeKind, Callable[[Any, A], R]] = {
+            TypeKind.bool: self.visit_bool,
+        }
+
+    def visit(self, t: Type, arg: A) -> R:
+        return self._methods[t.kind](t, arg)
+
+    def visit_bool(self, b: BoolType, arg: A) -> R:
+        pass
+
+    def visit_int(self, i: IntType, arg: A) -> R:
+        pass
+
+    def visit_float(self, f: FloatType, arg: A) -> R:
+        pass
+
+    def visit_str(self, s: StrType, arg: A) -> R:
+        pass
+
+    def visit_dtype(self, dtype: DType, arg: A) -> R:
+        pass
+
+    def visit_tuple(self, tup: TupleType, arg: A) -> R:
+        for t in tup.field_ty_:
+            self.visit(t, arg)
+        return None
+
+    def visit_list(self, lst: ListType, arg: A) -> R:
+        self.visit(lst.elem_ty_, arg)
         return None
