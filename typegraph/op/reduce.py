@@ -1,5 +1,5 @@
 from ..expr import *
-from ..spec import Attr, ConstraintSet, Op
+from ..spec import Attr, ConstraintSpec, Op
 
 
 def _create_reduce():
@@ -8,7 +8,7 @@ def _create_reduce():
     def _is_reduce_axis(i: ExprLike):
         return InSet(i, a('axis')) ^ a('exclude')
 
-    return ConstraintSet(
+    return ConstraintSpec(
         attrs=[
             Attr('axis', List(Var(), lambda _: Var(INT))),
             Attr('keepdims', Var(BOOL)),

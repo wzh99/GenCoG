@@ -1,11 +1,11 @@
 from ..expr import *
-from ..spec import ConstraintSet, Op
+from ..spec import ConstraintSpec, Op
 
 
 def _create_bcast():
     m = IN[0].rank
     n = IN[1].rank
-    return ConstraintSet(
+    return ConstraintSpec(
         attrs=[],
         in_num=2,
         in_ranks=[Var(), Var()],

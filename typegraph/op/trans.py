@@ -1,7 +1,7 @@
 from ..expr import *
-from ..spec import Attr, ConstraintSet, Op
+from ..spec import Attr, ConstraintSpec, Op
 
-_concat = ConstraintSet(
+_concat = ConstraintSpec(
     attrs=[
         Attr('axis', Var(ty=INT, ran=Range(0, IN[0].rank)))
     ],
@@ -32,7 +32,7 @@ Op('concatenate', _concat)
 
 def _create_split():
     ind = a('indices_or_sections')
-    return ConstraintSet(
+    return ConstraintSpec(
         attrs=[
             Attr('axis', Var(ty=INT, ran=Range(0, IN[0].rank))),
             Attr('indices_or_sections',

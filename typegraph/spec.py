@@ -15,7 +15,7 @@ class Attr:
         self.ty_ = ty
 
 
-class ConstraintSet:
+class ConstraintSpec:
     """
     Set of constraints specified for an operator. This object can be shared across different
     operators if they have identical attributes and typing constraints.
@@ -32,9 +32,6 @@ class ConstraintSet:
                  out_ranks: ExprLike,
                  out_dtypes: ExprLike,
                  out_shapes: ExprLike):
-        """
-        :param attrs:
-        """
         self.attrs = attrs
         self.in_num = in_num
         self.in_ranks = in_ranks
@@ -48,6 +45,10 @@ class ConstraintSet:
 
     @property
     def attrs(self):
+        """
+        List of attributes of the operator. Necessary type annotation for variables is required
+        for type inference. Later attributes can refer to previous ones.
+        """
         return self._attrs
 
     @attrs.setter
@@ -56,6 +57,10 @@ class ConstraintSet:
 
     @property
     def in_num(self):
+        """
+        Expression which can be evaluated to number of inputs of the operator. Can refer to
+        attributes.
+        """
         return self._in_num
 
     @in_num.setter
@@ -64,6 +69,10 @@ class ConstraintSet:
 
     @property
     def in_ranks(self):
+        """
+        Expression which can be evaluated to the ranks of input tensors. It must be consistent
+        with the input number. Can refer to attributes and input number.
+        """
         return self._in_ranks
 
     @in_ranks.setter
@@ -72,6 +81,10 @@ class ConstraintSet:
 
     @property
     def in_dtypes(self):
+        """
+        Expression which can be evaluated to the data types of input tensors. It must be
+        consistent with the input number. Can refer to attributes and input number.
+        """
         return self._in_dtypes
 
     @in_dtypes.setter
@@ -80,6 +93,11 @@ class ConstraintSet:
 
     @property
     def in_shapes(self):
+        """
+        Expression which can be evaluated to the shapes of input tensors. It must be consistent
+        with the input number and input ranks. Can refer to attributes, input number and input
+        ranks.
+        """
         return self._in_shapes
 
     @in_shapes.setter
@@ -88,6 +106,9 @@ class ConstraintSet:
 
     @property
     def extra(self):
+        """
+        List of extra constraints on attributes and inputs.
+        """
         return self._extra
 
     @extra.setter
@@ -96,6 +117,10 @@ class ConstraintSet:
 
     @property
     def out_num(self):
+        """
+        Expression which can be evaluated to number of outputs of the operator. Can refer to
+        attributes and inputs.
+        """
         return self._out_num
 
     @out_num.setter
@@ -104,6 +129,10 @@ class ConstraintSet:
 
     @property
     def out_ranks(self):
+        """
+        Expression which can be evaluated to the ranks of output tensors. It must be consistent
+        with the output number. Can refer to attributes, inputs and output number.
+        """
         return self._out_ranks
 
     @out_ranks.setter
@@ -112,6 +141,10 @@ class ConstraintSet:
 
     @property
     def out_dtypes(self):
+        """
+        Expression which can be evaluated to the data types of output tensors. It must be
+        consistent with the output number. Can refer to attributes, inputs and output number.
+        """
         return self._out_dtypes
 
     @out_dtypes.setter
@@ -120,6 +153,11 @@ class ConstraintSet:
 
     @property
     def out_shapes(self):
+        """
+        Expression which can be evaluated to the shapes of output tensors. It must be consistent
+        with the output number and output ranks. Can refer to attributes, inputs, output number
+        and output ranks.
+        """
         return self._out_shapes
 
     @out_shapes.setter
@@ -132,7 +170,7 @@ class Op:
     Specification of an operator.
     """
 
-    def __init__(self, name: str, spec: ConstraintSet):
+    def __init__(self, name: str, spec: ConstraintSpec):
         self.name_ = name
         self.spec_ = spec
         OpRegistry.register(self)

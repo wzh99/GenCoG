@@ -1,5 +1,5 @@
 from ..expr import *
-from ..spec import Attr, ConstraintSet, Op
+from ..spec import Attr, ConstraintSpec, Op
 
 
 def _conv_dim(data: Expr, weight: Expr, dilation: Expr, pad_b: Expr, pad_e: Expr, stride: Expr):
@@ -7,7 +7,7 @@ def _conv_dim(data: Expr, weight: Expr, dilation: Expr, pad_b: Expr, pad_e: Expr
     return (data + pad_b + pad_e - dilated_kernel_size) // stride + 1
 
 
-_conv2d = ConstraintSet(
+_conv2d = ConstraintSpec(
     attrs=[
         Attr('kernel_size', [Var(INT), Var(INT)]),
         Attr('channels', Var(INT)),
