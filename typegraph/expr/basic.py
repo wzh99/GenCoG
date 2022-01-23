@@ -3,7 +3,7 @@ from enum import Enum, IntEnum, auto
 from typing import Any, Callable, Dict, Optional, Union, List, Generic, TypeVar
 from warnings import warn
 
-from .ty import Type, TypeKind, ValueType, DataType, type_py_value, BOOL, INT, FLOAT, STR, DTYPE
+from .ty import Type, TypeKind, ValueType, DataType, type_py_value, BOOL, INT, STR, DTYPE
 from .. import util
 
 
@@ -297,7 +297,7 @@ class Arith(Expr):
 
 
 class CmpOp(Enum):
-    EQ = '='
+    EQ = '=='
     NE = '!='
     LT = '<'
     LE = '<='
@@ -316,11 +316,13 @@ class Cmp(Expr):
             BOOL: bool.__eq__,
             INT: int.__eq__,
             STR: str.__eq__,
+            DTYPE: DataType.__eq__,
         },
         CmpOp.NE: {
             BOOL: bool.__ne__,
             INT: int.__ne__,
             STR: str.__ne__,
+            DTYPE: DataType.__ne__,
         },
         CmpOp.LT: {
             INT: int.__lt__,

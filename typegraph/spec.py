@@ -1,7 +1,10 @@
-from typing import List, Dict, Optional
+from typing import List, Dict
 from warnings import warn
 
-from .expr import Type, ExprLike, to_expr
+from .expr import Type, Expr, ExprLike, ExprTypeError, ListType, to_expr, infer_type, print_expr, \
+    BOOL, INT, DTYPE
+from .expr.ty import TyVar
+from .util import CodeBuffer
 
 
 class Attr:
@@ -9,10 +12,9 @@ class Attr:
     Specification of an operator attribute.
     """
 
-    def __init__(self, name: str, expr: ExprLike, ty: Optional[Type] = None):
+    def __init__(self, name: str, expr: ExprLike):
         self.name_ = name
         self.expr_ = to_expr(expr)
-        self.ty_ = ty
 
 
 class ConstraintSpec:
@@ -164,6 +166,50 @@ class ConstraintSpec:
     def out_shapes(self, *v: ExprLike):
         self._out_shapes = to_expr(v[0])
 
+    def check(self):
+        """
+        Perform type inference on the specified constraints. The check should be done after all the
+        constraints of an operator are determined.
+        """
+        # Attribute types
+        attr_ty: Dict[str, Type] = {}
+        for i, attr in enumerate(self.attrs):
+            ty = self._infer_type(attr.expr_, attr_ty, f'attr[{i}]')
+            attr_ty[attr.name_] = ty
+
+        # Inputs
+        self._infer_type(self.in_num, attr_ty, 'in_num', INT)
+        self._infer_type(self.in_ranks, attr_ty, 'in_ranks', ListType(INT))
+        self._infer_type(self.in_dtypes, attr_ty, 'in_dtypes', ListType(DTYPE))
+        self._infer_type(self.in_shapes, attr_ty, 'in_shapes', ListType(ListType(INT)))
+
+        # Extra constraints
+        for i, cmp in enumerate(self.extra):
+            self._infer_type(cmp, attr_ty, f'extra[{i}]', BOOL)
+
+        # Outputs
+        self._infer_type(self.out_num, attr_ty, 'out_num', INT)
+        self._infer_type(self.out_ranks, attr_ty, 'out_ranks', ListType(INT))
+        self._infer_type(self.out_dtypes, attr_ty, 'out_dtypes', ListType(DTYPE))
+        self._infer_type(self.out_shapes, attr_ty, 'out_shapes', ListType(ListType(INT)))
+
+    @staticmethod
+    def _infer_type(expr: Expr, attr_ty: Dict[str, Type], name: str, hint: Type = TyVar()):
+        try:
+            ty = infer_type(expr, attr_ty, hint=hint)
+        except ExprTypeError as err:
+            buf = CodeBuffer()
+            print_expr(expr, buf, [err.expr_])
+            raise SpecCheckError(name, err.msg_, str(buf))
+        return ty
+
+
+class SpecCheckError(Exception):
+    def __init__(self, name: str, msg: str, code: str):
+        self.name_ = name
+        self.msg_ = msg
+        self.code_ = code
+
 
 class Op:
     """
@@ -173,6 +219,14 @@ class Op:
     def __init__(self, name: str, spec: ConstraintSpec):
         self.name_ = name
         self.spec_ = spec
+        try:
+            spec.check()
+        except SpecCheckError as err:
+            raise RuntimeError(
+                f'Specification check failed of operator \'{self.name_}\': '
+                f'{err.msg_}\n'
+                f'{err.name_}={err.code_}'
+            )
         OpRegistry.register(self)
 
 

@@ -21,7 +21,7 @@ _concat = ConstraintSpec(
     out_shapes=[
         List(IN[0].rank, lambda j: Cond(
             j == a('axis'),
-            ReduceIndex(IN.num, ArithOp.ADD, lambda i: IN[i].shape[j], 0),
+            ReduceIndex(Range(end=IN.num), ArithOp.ADD, lambda i: IN[i].shape[j], 0),
             IN[0].shape[j]
         ))
     ]

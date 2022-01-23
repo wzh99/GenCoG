@@ -178,7 +178,7 @@ class TypeInfer(ExprVisitor[InferArg, Type]):
 
     def visit_slice(self, slc: Slice, arg: InferArg) -> Type:
         elem_hint = self._create_elem_hint(slc, arg.hint)
-        self.visit_range(slc.ran_, InferArg(arg.env, INT))
+        self.visit(slc.ran_, InferArg(arg.env, INT))
         return self.visit(slc.arr_, InferArg(arg.env, ListType(elem_hint)))
 
     def visit_map(self, m: Map, arg: InferArg) -> Type:
@@ -195,7 +195,7 @@ class TypeInfer(ExprVisitor[InferArg, Type]):
         return self._check_arith_type(red, red.op_, ty)
 
     def visit_reduce_index(self, red: ReduceIndex, arg: InferArg) -> Type:
-        self.visit_range(red.ran_, InferArg(arg.env, INT))
+        self.visit(red.ran_, InferArg(arg.env, INT))
         env = arg.env + (red.idx_, INT)
         ty = self._unify_expr([red.body_, red.init_], InferArg(env, arg.hint))
         return self._check_arith_type(red, red.op_, ty)

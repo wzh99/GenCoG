@@ -35,7 +35,7 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
         items = []
         if var.type_ is not None:
             items.append(('ty', var.type_, lambda ty: self._buf.write(str(ty))))
-        items.append(('ran', var.ran_, lambda ran: self.visit_range(ran, env)))
+        items.append(('ran', var.ran_, lambda ran: self.visit(ran, env)))
         self._write_named(items)
 
     def visit_range(self, ran: Range, env: Env[str]):
@@ -80,7 +80,7 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
         nested_env = self._gen_nested_env(env, forall.idx_)
         self._write_cls(forall)
         self._write_multi([
-            (forall.ran_, lambda ran: self.visit_range(ran, env)),
+            (forall.ran_, lambda ran: self.visit(ran, env)),
             (forall.idx_, lambda idx: self.visit_symbol(idx, nested_env)),
             (forall.body_, lambda body: self.visit(body, nested_env))
         ])
