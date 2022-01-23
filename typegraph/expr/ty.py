@@ -1,5 +1,5 @@
-from typing import cast, Union
 from enum import IntEnum, auto
+from typing import cast, Union
 
 from .. import util
 
@@ -15,6 +15,7 @@ class TypeKind(IntEnum):
     dtype = auto()
     tuple = auto()
     list = auto()
+    var = auto()
 
 
 class Type:
@@ -38,6 +39,9 @@ class Type:
         :return: Whether the two types are structurally equal.
         """
         return self.kind == other.kind
+
+    def __hash__(self):
+        return self.kind.__hash__()
 
     def __str__(self):
         return self.kind.name
@@ -164,7 +168,14 @@ class TupleType(Type):
     def _is_homo(self):
         if len(self.field_ty_) == 1:
             return True
-        return all(map(lambda t: t == self.field_ty_[0], self.field_ty_[1:]))
+        return all(map(lambda ty: ty == self.field_ty_[0], self.field_ty_[1:]))
+
+    @property
+    def elem_type(self):
+        if self.is_homo_:
+            return self.field_ty_[0]
+        else:
+            raise RuntimeError('Cannot get element type from heterogeneous tuple.')
 
     def __str__(self):
         if len(self.field_ty_) == 1:
@@ -222,3 +233,16 @@ def type_py_value(v: ValueType) -> Type:
             'Cannot type Python object of type {}'.format(
                 util.cls_name(v))
         )
+
+
+class TyVar(Type):
+    """
+    Type variable. This type is just for type inference and should not appear in user code.
+    """
+    kind = TypeKind.var
+
+    def __str__(self):
+        return '?'
+
+    def __eq__(self, other):
+        return self is other

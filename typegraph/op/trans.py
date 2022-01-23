@@ -3,7 +3,7 @@ from ..spec import Attr, ConstraintSet, Op
 
 _concat = ConstraintSet(
     attrs=[
-        Attr('axis', Var(t=INT, ran=Range(0, IN[0].rank)))
+        Attr('axis', Var(ty=INT, ran=Range(0, IN[0].rank)))
     ],
     in_num=Var(),
     in_ranks=Concat([Var(ran=Range(begin=1))], List(IN.num - 1, lambda _: IN[0].rank)),
@@ -34,7 +34,7 @@ def _create_split():
     ind = a('indices_or_sections')
     return ConstraintSet(
         attrs=[
-            Attr('axis', Var(t=INT, ran=Range(0, IN[0].rank))),
+            Attr('axis', Var(ty=INT, ran=Range(0, IN[0].rank))),
             Attr('indices_or_sections',
                  List(Var(ran=Range(begin=1, end=IN[0].shape[a('axis')])), lambda _: Var(INT)))
         ],

@@ -5,7 +5,8 @@ from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, R
 from .basic import Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, ForAll, \
     Cond, GetAttr
 from .tensor import Num, Shape, Rank, GetDType
-from .ty import Type, TypeKind, BoolType, IntType, FloatType, StrType, DType, TupleType, ListType
+from .ty import Type, TypeKind, BoolType, IntType, FloatType, StrType, DType, TupleType, ListType, \
+    TyVar
 
 A = TypeVar('A')
 R = TypeVar('R')
@@ -149,6 +150,13 @@ class TypeVisitor(Generic[A, R]):
     def __init__(self):
         self._methods: Dict[TypeKind, Callable[[Any, A], R]] = {
             TypeKind.bool: self.visit_bool,
+            TypeKind.int: self.visit_int,
+            TypeKind.float: self.visit_float,
+            TypeKind.str: self.visit_str,
+            TypeKind.dtype: self.visit_dtype,
+            TypeKind.tuple: self.visit_tuple,
+            TypeKind.list: self.visit_list,
+            TypeKind.var: self.visit_var,
         }
 
     def visit(self, t: Type, arg: A) -> R:
@@ -177,3 +185,6 @@ class TypeVisitor(Generic[A, R]):
     def visit_list(self, lst: ListType, arg: A) -> R:
         self.visit(lst.elem_ty_, arg)
         return None
+
+    def visit_var(self, var: TyVar, arg: A) -> R:
+        pass

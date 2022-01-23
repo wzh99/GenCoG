@@ -18,10 +18,12 @@ def map_optional(f: Callable[[T], R], o: Optional[T]) -> Optional[R]:
 
 
 def unwrap(o: Optional[T]) -> T:
-    if o is None:
-        raise RuntimeError('Cannot unwrap None.')
-    else:
-        return cast(T, o)
+    assert o is not None
+    return cast(T, o)
+
+
+def unwrap_or(o: Optional[T], default: T) -> T:
+    return default if o is None else o
 
 
 def filter_none(lst: List[Optional[T]]) -> List[T]:

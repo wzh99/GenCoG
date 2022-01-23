@@ -1,10 +1,9 @@
-import typing
+import typing as t
 from enum import Enum, IntEnum, auto
-from typing import Any, Callable, Dict, Optional, Union, Type, List, Generic, TypeVar
+from typing import Any, Callable, Dict, Optional, Union, List, Generic, TypeVar
 from warnings import warn
 
-from . import ty
-from .ty import TypeKind, ValueType, DataType
+from .ty import Type, TypeKind, ValueType, DataType, type_py_value, BOOL, INT, FLOAT, STR, DTYPE
 from .. import util
 
 
@@ -49,7 +48,7 @@ class Expr:
     kind: ExprKind
 
     def __init__(self, sub_expr: List['Expr']):
-        self.type_: Optional[ty.Type] = None
+        self.type_: Optional[Type] = None
         self.sub_expr_ = sub_expr
         self.ref_cnt_ = 0
         for s in self.sub_expr_:
@@ -166,7 +165,7 @@ class Const(Expr):
     def __init__(self, val: ValueType):
         super().__init__([])
         self.val_ = val
-        self.type_ = ty.type_py_value(val)
+        self.type_ = type_py_value(val)
 
 
 class Range(Expr):
@@ -183,11 +182,11 @@ class Range(Expr):
         super().__init__(util.filter_none([self.begin_, self.end_]))
 
     @classmethod
-    def validate_type(cls, t: ty.Type, ran: Optional['Range']) -> Optional['Range']:
-        if t.kind in Range.valid_type_kinds:
+    def validate_type(cls, ty: Type, ran: Optional['Range']) -> Optional['Range']:
+        if ty.kind in Range.valid_type_kinds:
             return ran
         elif ran is not None:
-            warn(f'Ignore range for type {t}.')
+            warn(f'Ignore range for type {ty}.')
         return None
 
 
@@ -199,10 +198,10 @@ class Var(Expr):
     """
     kind = ExprKind.VAR
 
-    def __init__(self, t: Optional[ty.Type] = None, ran: Optional[Range] = None):
-        self.ran_ = ran
+    def __init__(self, ty: Optional[Type] = None, ran: Optional[Range] = None):
+        self.ran_ = util.unwrap_or(ran, Range())
         super().__init__(util.filter_none([self.ran_]))
-        self.type_ = t
+        self.type_ = ty
 
 
 class Symbol(Expr):
@@ -234,7 +233,7 @@ class Env(Generic[T]):
             )
         self._val = val
 
-    def __add__(self, pair: typing.Tuple[Symbol, T]):
+    def __add__(self, pair: t.Tuple[Symbol, T]):
         return Env(prev=self, sym=pair[0], val=pair[1])
 
     def __getitem__(self, sym: Symbol) -> Optional[T]:
@@ -266,27 +265,27 @@ class Arith(Expr):
     """
     kind = ExprKind.ARITH
 
-    op_funcs: Dict[ArithOp, Dict[typing.Tuple[Type, Type], Callable[[Any, Any], Any]]] = {
+    op_funcs: Dict[ArithOp, Dict[Type, Callable[[Any, Any], Any]]] = {
         ArithOp.ADD: {
-            (int, int): int.__add__,
+            INT: int.__add__,
         },
         ArithOp.SUB: {
-            (int, int): int.__sub__,
+            INT: int.__sub__,
         },
         ArithOp.MUL: {
-            (int, int): int.__mul__,
+            INT: int.__mul__,
         },
         ArithOp.DIV: {
-            (int, int): int.__floordiv__,
+            INT: int.__floordiv__,
         },
         ArithOp.MOD: {
-            (int, int): int.__mod__,
+            INT: int.__mod__,
         },
         ArithOp.MAX: {
-            (int, int): max,
+            INT: max,
         },
         ArithOp.MIN: {
-            (int, int): min,
+            INT: min,
         },
     }
 
@@ -312,28 +311,28 @@ class Cmp(Expr):
     """
     kind = ExprKind.CMP
 
-    op_funcs: Dict[CmpOp, Dict[typing.Tuple[Type, Type], Callable[[Any, Any], bool]]] = {
+    op_funcs: Dict[CmpOp, Dict[Type, Callable[[Any, Any], bool]]] = {
         CmpOp.EQ: {
-            (bool, bool): bool.__eq__,
-            (int, int): int.__eq__,
-            (str, str): str.__eq__,
+            BOOL: bool.__eq__,
+            INT: int.__eq__,
+            STR: str.__eq__,
         },
         CmpOp.NE: {
-            (bool, bool): bool.__ne__,
-            (int, int): int.__ne__,
-            (str, str): str.__ne__,
+            BOOL: bool.__ne__,
+            INT: int.__ne__,
+            STR: str.__ne__,
         },
         CmpOp.LT: {
-            (int, int): int.__lt__,
+            INT: int.__lt__,
         },
         CmpOp.LE: {
-            (int, int): int.__le__,
+            INT: int.__le__,
         },
         CmpOp.GT: {
-            (int, int): int.__gt__,
+            INT: int.__gt__,
         },
         CmpOp.GE: {
-            (int, int): int.__ge__,
+            INT: int.__ge__,
         },
     }
 
