@@ -94,27 +94,27 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
 
     def visit_and(self, a: And, env: Env[str]):
         self._write_cls(a)
-        self._write_multi([(cl, lambda c: self.visit(c, env)) for cl in a.clauses_])
+        self._write_pos_multi([(cl, lambda c: self.visit(c, env)) for cl in a.clauses_])
 
     def visit_or(self, o: Or, env: Env[str]):
         self._write_cls(o)
-        self._write_multi([(cl, lambda c: self.visit(c, env)) for cl in o.clauses_])
+        self._write_pos_multi([(cl, lambda c: self.visit(c, env)) for cl in o.clauses_])
 
     def visit_forall(self, forall: ForAll, env: Env[str]):
         nested_env = self._gen_nested_env(env, forall.idx_)
         self._write_cls(forall)
-        self._write_multi([
-            (forall.ran_, lambda ran: self.visit(ran, env)),
-            (forall.idx_, lambda idx: self.visit_symbol(idx, nested_env)),
-            (forall.body_, lambda body: self.visit(body, nested_env))
+        self._write_named_multi([
+            ('ran', forall.ran_, lambda ran: self.visit(ran, env)),
+            ('idx', forall.idx_, lambda idx: self.visit_symbol(idx, nested_env)),
+            ('body', forall.body_, lambda body: self.visit(body, nested_env))
         ])
 
     def visit_cond(self, cond: Cond, env: Env[str]):
         self._write_cls(cond)
-        self._write_multi([
-            (cond.pred_, lambda pred: self.visit(pred, env)),
-            (cond.tr_br_, lambda br: self.visit(br, env)),
-            (cond.fls_br_, lambda br: self.visit(br, env))
+        self._write_named_multi([
+            ('pred', cond.pred_, lambda pred: self.visit(pred, env)),
+            ('tr_br', cond.tr_br_, lambda br: self.visit(br, env)),
+            ('fls_br', cond.fls_br_, lambda br: self.visit(br, env))
         ])
 
     def visit_attr(self, attr: GetAttr, env: Env[str]):
@@ -144,10 +144,10 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
     def visit_list(self, lst: List, env: Env[str]):
         nested_env = self._gen_nested_env(env, lst.idx_)
         self._write_cls(lst)
-        self._write_multi([
-            (lst.len_, lambda l: self.visit(l, env)),
-            (lst.idx_, lambda idx: self.visit_symbol(idx, nested_env)),
-            (lst.body_, lambda body: self.visit(body, nested_env))
+        self._write_named_multi([
+            ('len', lst.len_, lambda l: self.visit(l, env)),
+            ('idx', lst.idx_, lambda idx: self.visit_symbol(idx, nested_env)),
+            ('body', lst.body_, lambda body: self.visit(body, nested_env))
         ])
 
     def visit_getitem(self, getitem: GetItem, env: Env[str]):
@@ -160,7 +160,7 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
 
     def visit_concat(self, concat: Concat, env: Env[str]):
         self._write_cls(concat)
-        self._write_multi([(arr, lambda arr: self.visit(arr, env)) for arr in concat.arrays_])
+        self._write_pos_multi([(arr, lambda arr: self.visit(arr, env)) for arr in concat.arrays_])
 
     def visit_slice(self, slc: Slice, env: Env[str]):
         self.visit(slc.arr_, env)
@@ -169,52 +169,52 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
     def visit_map(self, m: Map, env: Env[str]):
         nested_env = self._gen_nested_env(env, m.sym_)
         self._write_cls(m)
-        self._write_multi([
-            (m.arr_, lambda arr: self.visit(arr, env)),
-            (m.sym_, lambda sym: self.visit(sym, nested_env)),
-            (m.body_, lambda body: self.visit(body, nested_env))
+        self._write_named_multi([
+            ('arr', m.arr_, lambda arr: self.visit(arr, env)),
+            ('sym', m.sym_, lambda sym: self.visit(sym, nested_env)),
+            ('body', m.body_, lambda body: self.visit(body, nested_env))
         ])
 
     def visit_reduce_array(self, red: ReduceArray, env: Env[str]):
         self._write_cls(red)
-        self._write_multi([
-            (red.arr_, lambda arr: self.visit(arr, env)),
-            (red.op_, lambda op: self._buf.write(op.value)),
-            (red.init_, lambda init: self.visit(init, env))
+        self._write_named_multi([
+            ('arr', red.arr_, lambda arr: self.visit(arr, env)),
+            ('op', red.op_, lambda op: self._buf.write(op.value)),
+            ('init', red.init_, lambda init: self.visit(init, env))
         ])
 
     def visit_reduce_index(self, red: ReduceIndex, env: Env[str]):
         nested_env = self._gen_nested_env(env, red.idx_)
         self._write_cls(red)
-        self._write_multi([
-            (red.ran_, lambda ran: self.visit(red.ran_, env)),
-            (red.op_, lambda op: self._buf.write(op.value)),
-            (red.idx_, lambda idx: self.visit(idx, nested_env)),
-            (red.body_, lambda body: self.visit(body, nested_env)),
-            (red.init_, lambda init: self.visit(init, env))
+        self._write_named_multi([
+            ('ran', red.ran_, lambda ran: self.visit(red.ran_, env)),
+            ('op', red.op_, lambda op: self._buf.write(op.value)),
+            ('idx', red.idx_, lambda idx: self.visit(idx, nested_env)),
+            ('body', red.body_, lambda body: self.visit(body, nested_env)),
+            ('init', red.init_, lambda init: self.visit(init, env))
         ])
 
     def visit_filter(self, flt: Filter, env: Env[str]):
         nested_env = self._gen_nested_env(env, flt.sym_)
         self._write_cls(flt)
-        self._write_multi([
-            (flt.arr_, lambda arr: self.visit(arr, env)),
-            (flt.sym_, lambda sym: self.visit(sym, nested_env)),
-            (flt.pred_, lambda pred: self.visit(pred, nested_env))
+        self._write_named_multi([
+            ('arr', flt.arr_, lambda arr: self.visit(arr, env)),
+            ('sym', flt.sym_, lambda sym: self.visit(sym, nested_env)),
+            ('pred', flt.pred_, lambda pred: self.visit(pred, nested_env))
         ])
 
     def visit_inset(self, inset: InSet, env: Env[str]):
         self._write_cls(inset)
-        self._write_multi([
-            (inset.elem_, lambda elem: self.visit(elem, env)),
-            (inset.set_, lambda s: self.visit(s, env))
+        self._write_named_multi([
+            ('elem', inset.elem_, lambda elem: self.visit(elem, env)),
+            ('set', inset.set_, lambda s: self.visit(s, env))
         ])
 
     def visit_subset(self, subset: Subset, env: Env[str]):
         self._write_cls(subset)
-        self._write_multi([
-            (subset.sub_, lambda sub: self.visit(sub, env)),
-            (subset.sup_, lambda sup: self.visit(sup, env))
+        self._write_named_multi([
+            ('sub', subset.sub_, lambda sub: self.visit(sub, env)),
+            ('sup', subset.sup_, lambda sup: self.visit(sup, env))
         ])
 
     def _gen_nested_env(self, env: Env[str], sym: Symbol):
@@ -228,13 +228,17 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
                    sep: str = ', ', prefix: str = '(', suffix: str = ')'):
         self._buf.write_pos(items, sep=sep, prefix=prefix, suffix=suffix)
 
-    def _write_multi(self, items: t.List[t.Tuple[Any, Callable[[Any], None]]],
-                     sep: str = ',', prefix: str = '(', suffix: str = ')'):
+    def _write_pos_multi(self, items: t.List[t.Tuple[Any, Callable[[Any], None]]],
+                         sep: str = ',', prefix: str = '(', suffix: str = ')'):
         self._buf.write_pos_multi(items, sep=sep, prefix=prefix, suffix=suffix)
 
     def _write_named(self, items: t.List[t.Tuple[str, Any, Callable[[Any], None]]],
                      sep: str = ', ', prefix: str = '(', suffix: str = ')'):
         self._buf.write_named(items, sep=sep, prefix=prefix, suffix=suffix)
+
+    def _write_named_multi(self, items: t.List[t.Tuple[str, Any, Callable[[Any], None]]],
+                           sep: str = ',', prefix: str = '(', suffix: str = ')'):
+        self._buf.write_named_multi(items, sep=sep, prefix=prefix, suffix=suffix)
 
 
 def print_expr(expr: Expr, buf: CodeBuffer, highlights: t.List[Expr]):

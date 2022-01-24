@@ -174,7 +174,7 @@ class ConstraintSpec:
         # Attribute types
         attr_ty: Dict[str, Type] = {}
         for attr in self.attrs:
-            ty = self._infer_type(attr.expr_, attr_ty, f'attr[{attr.name_}]')
+            ty = self._infer_type(attr.expr_, attr_ty, f'attr[\'{attr.name_}\']')
             attr_ty[attr.name_] = ty
 
         # Inputs
@@ -255,7 +255,6 @@ class Op:
                 f'{err.msg_}\n'
                 f'{err.name_}={err.code_}'
             )
-        print(spec)
         OpRegistry.register(self)
 
 
