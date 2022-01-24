@@ -1,15 +1,15 @@
 import typing as t
 from typing import Any, Callable
 
+from colorama import Fore, Back
+
 from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
     InSet, Subset
 from .basic import Expr, Const, Var, Range, Symbol, Env, Arith, Cmp, Not, And, Or, ForAll, Cond, \
     GetAttr
 from .tensor import Num, TensorDesc, Shape, Rank, GetDType
 from .visitor import ExprVisitor
-from ..util import CodeBuffer, NameGenerator, cls_name
-
-from colorama import Fore, Back
+from ..util import CodeBuffer, NameGenerator, cls_name, colored_text
 
 
 class ExprPrinter(ExprVisitor[Env[str], Any]):
@@ -18,6 +18,7 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
         self._buf = buf
         self._high_ids = set(id(e) for e in highlights)
         self._name_gen = NameGenerator('_s', [])
+        self._color_idx = 0
 
     def visit(self, expr: Expr, env: Env[str]):
         high = id(expr) in self._high_ids
@@ -50,19 +51,42 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
     def visit_symbol(self, sym: Symbol, env: Env[str]):
         self._buf.write(f'{cls_name(sym)}(\'{env[sym]}\')')
 
+    colors = [
+        Fore.YELLOW,
+        Fore.GREEN,
+        Fore.BLUE,
+    ]
+
+    def _next_color(self):
+        color = self.colors[self._color_idx]
+        self._color_idx = (self._color_idx + 1) % len(self.colors)
+        return color
+
     def visit_arith(self, arith: Arith, env: Env[str]):
-        self._write_pos([
-            (arith.lhs_, lambda lhs: self.visit(lhs, env)),
-            (arith.op_, lambda op: self._buf.write(op.value)),
-            (arith.rhs_, lambda rhs: self.visit(rhs, env))
-        ], sep=' ')
+        color = self._next_color()
+        self._write_pos(
+            [
+                (arith.lhs_, lambda lhs: self.visit(lhs, env)),
+                (arith.op_, lambda op: self._buf.write(op.value)),
+                (arith.rhs_, lambda rhs: self.visit(rhs, env))
+            ],
+            sep=' ',
+            prefix=colored_text('(', color),
+            suffix=colored_text(')', color)
+        )
 
     def visit_cmp(self, cmp: Cmp, env: Env[str]):
-        self._write_pos([
-            (cmp.lhs_, lambda lhs: self.visit(lhs, env)),
-            (cmp.op_, lambda op: self._buf.write(op.value)),
-            (cmp.rhs_, lambda rhs: self.visit(rhs, env))
-        ], sep=' ')
+        color = self._next_color()
+        self._write_pos(
+            [
+                (cmp.lhs_, lambda lhs: self.visit(lhs, env)),
+                (cmp.op_, lambda op: self._buf.write(op.value)),
+                (cmp.rhs_, lambda rhs: self.visit(rhs, env))
+            ],
+            sep=' ',
+            prefix=colored_text('(', color),
+            suffix=colored_text(')', color)
+        )
 
     def visit_not(self, n: Not, env: Env[str]):
         self._write_cls(n)
@@ -202,31 +226,15 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
 
     def _write_pos(self, items: t.List[t.Tuple[Any, Callable[[Any], None]]],
                    sep: str = ', ', prefix: str = '(', suffix: str = ')'):
-        self._buf.write(prefix)
-        for i, (obj, fmt) in enumerate(items):
-            if i != 0:
-                self._buf.write(sep)
-            fmt(obj)
-        self._buf.write(suffix)
+        self._buf.write_pos(items, sep=sep, prefix=prefix, suffix=suffix)
 
     def _write_multi(self, items: t.List[t.Tuple[Any, Callable[[Any], None]]],
                      sep: str = ',', prefix: str = '(', suffix: str = ')'):
-        self._buf.writeln(prefix)
-        with self._buf.indent():
-            for i, (obj, fmt) in enumerate(items):
-                fmt(obj)
-                self._buf.writeln(sep)
-        self._buf.write(suffix)
+        self._buf.write_pos_multi(items, sep=sep, prefix=prefix, suffix=suffix)
 
     def _write_named(self, items: t.List[t.Tuple[str, Any, Callable[[Any], None]]],
                      sep: str = ', ', prefix: str = '(', suffix: str = ')'):
-        self._buf.write(prefix)
-        for i, (name, obj, fmt) in enumerate(items):
-            if i != 0:
-                self._buf.write(sep)
-            self._buf.write(f'{name}=')
-            fmt(obj)
-        self._buf.write(suffix)
+        self._buf.write_named(items, sep=sep, prefix=prefix, suffix=suffix)
 
 
 def print_expr(expr: Expr, buf: CodeBuffer, highlights: t.List[Expr]):

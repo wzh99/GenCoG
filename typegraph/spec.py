@@ -4,7 +4,7 @@ from warnings import warn
 from .expr import Type, Expr, ExprLike, ExprTypeError, ListType, to_expr, infer_type, print_expr, \
     BOOL, INT, DTYPE
 from .expr.ty import TyVar
-from .util import CodeBuffer
+from .util import CodeBuffer, cls_name
 
 
 class Attr:
@@ -173,8 +173,8 @@ class ConstraintSpec:
         """
         # Attribute types
         attr_ty: Dict[str, Type] = {}
-        for i, attr in enumerate(self.attrs):
-            ty = self._infer_type(attr.expr_, attr_ty, f'attr[{i}]')
+        for attr in self.attrs:
+            ty = self._infer_type(attr.expr_, attr_ty, f'attr[{attr.name_}]')
             attr_ty[attr.name_] = ty
 
         # Inputs
@@ -203,6 +203,34 @@ class ConstraintSpec:
             raise SpecCheckError(name, err.msg_, str(buf))
         return ty
 
+    def __str__(self):
+        buf = CodeBuffer()
+        buf.write(cls_name(self))
+
+        def print_fn(e: Expr):
+            print_expr(e, buf, [])
+
+        buf.write_named_multi([
+            ('attr', self.attrs, lambda attrs: buf.write_named_multi(
+                [(a.name_, a, lambda a: print_fn(a.expr_)) for a in attrs],
+                prefix='[', suffix=']'
+            )),
+            ('in_num', self.in_num, print_fn),
+            ('in_ranks', self.in_ranks, print_fn),
+            ('in_dtypes', self.in_dtypes, print_fn),
+            ('in_shapes', self.in_shapes, print_fn),
+            ('extra', self.extra, lambda extra: buf.write_pos_multi(
+                [(cmp, print_fn) for cmp in extra],
+                prefix='[', suffix=']'
+            )),
+            ('out_num', self.out_num, print_fn),
+            ('out_ranks', self.out_ranks, print_fn),
+            ('out_dtypes', self.out_dtypes, print_fn),
+            ('out_shapes', self.out_shapes, print_fn),
+        ])
+
+        return str(buf)
+
 
 class SpecCheckError(Exception):
     def __init__(self, name: str, msg: str, code: str):
@@ -227,6 +255,7 @@ class Op:
                 f'{err.msg_}\n'
                 f'{err.name_}={err.code_}'
             )
+        print(spec)
         OpRegistry.register(self)
 
 

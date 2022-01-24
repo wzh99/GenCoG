@@ -1,5 +1,7 @@
 from io import StringIO
-from typing import Callable, TypeVar, Optional, List, Iterable, cast
+from typing import Callable, TypeVar, Optional, List, Iterable, Tuple, Any, cast
+
+from colorama import Fore
 
 T = TypeVar('T')
 R = TypeVar('R')
@@ -32,6 +34,10 @@ def filter_none(lst: List[Optional[T]]) -> List[T]:
 
 # Format
 
+def colored_text(txt: str, color: str):
+    return color + txt + Fore.RESET
+
+
 class CodeBuffer:
     """
     Efficient buffer for writing code with indentation.
@@ -59,6 +65,44 @@ class CodeBuffer:
 
     def indent(self):
         return _Indent(self)
+
+    def write_pos(self, items: List[Tuple[Any, Callable[[Any], None]]],
+                  sep: str = ', ', prefix: str = '(', suffix: str = ')'):
+        self.write(prefix)
+        for i, (obj, fmt) in enumerate(items):
+            if i != 0:
+                self.write(sep)
+            fmt(obj)
+        self.write(suffix)
+
+    def write_pos_multi(self, items: List[Tuple[Any, Callable[[Any], None]]],
+                        sep: str = ',', prefix: str = '(', suffix: str = ')'):
+        self.writeln(prefix)
+        with self.indent():
+            for i, (obj, fmt) in enumerate(items):
+                fmt(obj)
+                self.writeln(sep)
+        self.write(suffix)
+
+    def write_named(self, items: List[Tuple[str, Any, Callable[[Any], None]]],
+                    sep: str = ', ', prefix: str = '(', suffix: str = ')'):
+        self.write(prefix)
+        for i, (name, obj, fmt) in enumerate(items):
+            if i != 0:
+                self.write(sep)
+            self.write(f'{name}=')
+            fmt(obj)
+        self.write(suffix)
+
+    def write_named_multi(self, items: List[Tuple[str, Any, Callable[[Any], None]]],
+                          sep: str = ',', prefix: str = '(', suffix: str = ')'):
+        self.writeln(prefix)
+        with self.indent():
+            for i, (name, obj, fmt) in enumerate(items):
+                self.write(f'{name}=')
+                fmt(obj)
+                self.writeln(sep)
+        self.write(suffix)
 
     def _try_write_indent(self):
         if self._new_ln:
