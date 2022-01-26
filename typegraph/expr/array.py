@@ -78,6 +78,7 @@ class Slice(Expr):
     kind = ExprKind.SLICE
 
     def __init__(self, arr: ExprLike, ran: Range, ty: Optional[Type] = None):
+        ran.require_both()
         self.arr_ = to_expr(arr)
         self.ran_ = ran
         super().__init__([self.arr_, self.ran_], ty=ty)
@@ -129,6 +130,7 @@ class ReduceIndex(Expr):
 
     def __init__(self, ran: Range, op: ArithOp, body_f: Callable[[Symbol], ExprLike],
                  init: ExprLike, ty: Optional[Type] = None):
+        ran.require_both()
         self.ran_ = ran
         if op not in REDUCE_OPS:
             raise ValueError(

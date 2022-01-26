@@ -123,6 +123,8 @@ class Expr:
         from .array import GetItem, Slice
         if isinstance(item, Range):
             return Slice(self, item)
+        elif isinstance(item, slice):
+            return Slice(self, Range(begin=unwrap_or(item.start, 0), end=item.stop))
         else:
             return GetItem(self, item)
 
@@ -172,7 +174,7 @@ class Range(Expr):
 
     valid_type_kinds = [TypeKind.int, TypeKind.float]
 
-    def __init__(self, begin: Optional[ExprLike] = None, end: Optional[ExprLike] = None,
+    def __init__(self, begin: Optional[ExprLike] = 0, end: Optional[ExprLike] = None,
                  ty: Optional[Type] = None):
         self.begin_ = map_opt(to_expr, begin)
         self.end_ = map_opt(to_expr, end)

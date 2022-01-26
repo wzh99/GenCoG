@@ -1,4 +1,6 @@
 import typing as t
+from functools import reduce
+from itertools import chain, islice
 from typing import Union, Iterator, cast
 
 from .store import ValueStore, ArrayNode
@@ -65,7 +67,7 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
     def visit_cmp(self, cmp: Cmp, env: Env[ValueType]) -> ResultType:
         lv = self.visit(cmp.lhs_, env)
         rv = self.visit(cmp.rhs_, env)
-        return Cmp.op_funcs[cmp.op_][cmp.type_](lv, rv)
+        return Cmp.op_funcs[cmp.op_][cmp.lhs_.type_](lv, rv)
 
     def visit_not(self, n: Not, env: Env[ValueType]) -> ResultType:
         return not self.visit(n.prop_, env)
@@ -129,37 +131,50 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         return node
 
     def visit_tuple(self, tup: Tuple, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(tup, env)
+        return (self.visit(f, env) for f in tup.fields_)
 
     def visit_list(self, lst: List, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(lst, env)
+        return (self.visit(lst.body_, env + (lst.idx_, idx))
+                for idx in range(self.visit(lst.len_, env)))
 
     def visit_getitem(self, getitem: GetItem, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(getitem, env)
+        arr = tuple(self.visit(getitem.arr_, env))
+        idx = self.visit(getitem.idx_, env)
+        if idx >= len(arr):
+            raise EvalFailed(getitem, 'Index out of bound.')
+        return arr[idx]
 
     def visit_len(self, ln: Len, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(ln, env)
+        return len(tuple(self.visit(ln.arr_, env)))
 
     def visit_concat(self, concat: Concat, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(concat, env)
+        return chain(*(self.visit(arr, env) for arr in concat.arrays_))
 
     def visit_slice(self, slc: Slice, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(slc, env)
+        begin, end = self.visit_range(slc.ran_, env)
+        return islice(self.visit(slc.arr_, env), begin, end)
 
     def visit_map(self, m: Map, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(m, env)
+        return map(lambda v: self.visit(m.body_, env + (m.sym_, v)), self.visit(m.arr_, env))
 
     def visit_reduce_array(self, red: ReduceArray, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(red, env)
+        func = Arith.op_funcs[red.op_][red.type_]
+        return reduce(lambda acc, v: func(acc, v), self.visit(red.arr_, env),
+                      self.visit(red.init_, env))
 
     def visit_reduce_index(self, red: ReduceIndex, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(red, env)
+        begin, end = self.visit_range(red.ran_, env)
+        func = Arith.op_funcs[red.op_][red.type_]
+        return reduce(lambda acc, idx: func(acc, self.visit(red.body_, env + (red.idx_, idx))),
+                      range(begin, end), self.visit(red.init_, env))
 
     def visit_filter(self, flt: Filter, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(flt, env)
+        return filter(lambda v: self.visit(flt.pred_, env + (flt.sym_, v)),
+                      self.visit(flt.arr_, env))
 
     def visit_inset(self, inset: InSet, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(inset, env)
+        return self.visit(inset.elem_, env) in tuple(self.visit(inset.set_, env))
 
     def visit_subset(self, subset: Subset, env: Env[ValueType]) -> ResultType:
-        return self._visit_sub(subset, env)
+        sup = self.visit(subset.sup_, env)
+        return all(map(lambda v: v in sup, self.visit(subset.sub_, env)))
