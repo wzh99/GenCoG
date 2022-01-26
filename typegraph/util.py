@@ -15,7 +15,7 @@ def cls_name(o) -> str:
 
 # Optional
 
-def map_optional(f: Callable[[T], R], o: Optional[T]) -> Optional[R]:
+def map_opt(f: Callable[[T], R], o: Optional[T]) -> Optional[R]:
     return None if o is None else f(o)
 
 

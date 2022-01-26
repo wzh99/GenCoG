@@ -42,10 +42,17 @@ class TypeInfer(ExprVisitor[InferArg, Type]):
     def visit(self, e: Expr, arg: InferArg) -> Type:
         try:
             ty = super().visit(e, arg)
-        except UnificationError as ue:
-            raise ExprTypeError(e, str(ue))
+        except UnificationError as err:
+            raise ExprTypeError(e, str(err))
         if self._var_chk.visit(ty, None):
             raise ExprTypeError(e, f'Cannot infer type for {cls_name(e)}.')
+        if e.type_ is not None:
+            try:
+                self._unify(e.type_, ty)
+            except UnificationError:
+                raise ExprTypeError(
+                    e, f'Inferred type {ty} is not consistent with annotated type {e.type_}.'
+                )
         e.type_ = ty
         return ty
 

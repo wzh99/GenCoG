@@ -1,5 +1,5 @@
 from .array import Tuple, List, Len, Concat, Map, ReduceArray, ReduceIndex, Filter, InSet, Subset
-from .basic import Expr, ExprKind, ExprLike, Const, Var, Symbol, Env, Range, Not, And, Or, ForAll, \
+from .basic import Expr, ExprKind, ExprLike, Const, Var, Symbol, Range, Not, And, Or, ForAll, \
     Cond, GetAttr, ArithOp, to_expr, a
 from .fmt import print_expr
 from .infer import ExprTypeError, infer_type

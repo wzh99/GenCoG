@@ -1,6 +1,7 @@
-from typing import Callable
+from typing import Callable, Optional
 
 from .basic import Expr, ExprKind, ExprLike, Symbol, Range, ArithOp, to_expr
+from .ty import Type, INT, BOOL
 
 
 class Tuple(Expr):
@@ -9,13 +10,13 @@ class Tuple(Expr):
     """
     kind = ExprKind.TUPLE
 
-    def __init__(self, *fields: ExprLike):
+    def __init__(self, *fields: ExprLike, ty: Optional[Type] = None):
         if len(fields) == 0:
             raise ValueError(
                 f'Expect at least one field, got {len(fields)}.'
             )
         self.fields_ = list(to_expr(f) for f in fields)
-        super().__init__(self.fields_)
+        super().__init__(self.fields_, ty=ty)
 
 
 class List(Expr):
@@ -24,11 +25,12 @@ class List(Expr):
     """
     kind = ExprKind.LIST
 
-    def __init__(self, length: ExprLike, body_f: Callable[[Symbol], ExprLike]):
+    def __init__(self, length: ExprLike, body_f: Callable[[Symbol], ExprLike],
+                 ty: Optional[Type] = None):
         self.len_ = to_expr(length)
         self.idx_ = Symbol()
         self.body_ = to_expr(body_f(self.idx_))
-        super().__init__([self.len_, self.idx_, self.body_])
+        super().__init__([self.len_, self.idx_, self.body_], ty=ty)
 
 
 class GetItem(Expr):
@@ -37,10 +39,10 @@ class GetItem(Expr):
     """
     kind = ExprKind.GETITEM
 
-    def __init__(self, arr: ExprLike, idx: ExprLike):
+    def __init__(self, arr: ExprLike, idx: ExprLike, ty: Optional[Type] = None):
         self.arr_ = to_expr(arr)
         self.idx_ = to_expr(idx)
-        super().__init__([self.arr_, self.idx_])
+        super().__init__([self.arr_, self.idx_], ty=ty)
 
 
 class Len(Expr):
@@ -51,7 +53,7 @@ class Len(Expr):
 
     def __init__(self, arr: ExprLike):
         self.arr_ = to_expr(arr)
-        super().__init__([self.arr_])
+        super().__init__([self.arr_], ty=INT)
 
 
 class Concat(Expr):
@@ -60,13 +62,13 @@ class Concat(Expr):
     """
     kind = ExprKind.CONCAT
 
-    def __init__(self, *arrays: ExprLike):
+    def __init__(self, *arrays: ExprLike, ty: Optional[Type] = None):
         if len(arrays) <= 1:
             raise ValueError(
                 f'Expect at least two arrays, got {len(arrays)}.'
             )
         self.arrays_ = list(to_expr(a) for a in arrays)
-        super().__init__(self.arrays_)
+        super().__init__(self.arrays_, ty=ty)
 
 
 class Slice(Expr):
@@ -75,10 +77,10 @@ class Slice(Expr):
     """
     kind = ExprKind.SLICE
 
-    def __init__(self, arr: ExprLike, ran: Range):
+    def __init__(self, arr: ExprLike, ran: Range, ty: Optional[Type] = None):
         self.arr_ = to_expr(arr)
         self.ran_ = ran
-        super().__init__([self.arr_, self.ran_])
+        super().__init__([self.arr_, self.ran_], ty=ty)
 
 
 class Map(Expr):
@@ -87,11 +89,11 @@ class Map(Expr):
     """
     kind = ExprKind.MAP
 
-    def __init__(self, arr: ExprLike, f: Callable[[Symbol], ExprLike]):
+    def __init__(self, arr: ExprLike, f: Callable[[Symbol], ExprLike], ty: Optional[Type] = None):
         self.arr_ = to_expr(arr)
         self.sym_ = Symbol()
         self.body_ = to_expr(f(self.sym_))
-        super().__init__([self.arr_, self.sym_, self.body_])
+        super().__init__([self.arr_, self.sym_, self.body_], ty=ty)
 
 
 REDUCE_OPS = [
@@ -108,7 +110,7 @@ class ReduceArray(Expr):
     """
     kind = ExprKind.REDUCE_ARRAY
 
-    def __init__(self, arr: ExprLike, op: ArithOp, init: ExprLike):
+    def __init__(self, arr: ExprLike, op: ArithOp, init: ExprLike, ty: Optional[Type] = None):
         self.arr_ = to_expr(arr)
         if op not in REDUCE_OPS:
             raise ValueError(
@@ -116,7 +118,7 @@ class ReduceArray(Expr):
             )
         self.op_ = op
         self.init_ = to_expr(init)
-        super().__init__([self.arr_, self.init_])
+        super().__init__([self.arr_, self.init_], ty=ty)
 
 
 class ReduceIndex(Expr):
@@ -126,7 +128,7 @@ class ReduceIndex(Expr):
     kind = ExprKind.REDUCE_INDEX
 
     def __init__(self, ran: Range, op: ArithOp, body_f: Callable[[Symbol], ExprLike],
-                 init: ExprLike):
+                 init: ExprLike, ty: Optional[Type] = None):
         self.ran_ = ran
         if op not in REDUCE_OPS:
             raise ValueError(
@@ -136,7 +138,7 @@ class ReduceIndex(Expr):
         self.idx_ = Symbol()
         self.body_ = to_expr(body_f(self.idx_))
         self.init_ = to_expr(init)
-        super().__init__([self.idx_, self.body_, self.init_])
+        super().__init__([self.idx_, self.body_, self.init_], ty=ty)
 
 
 class Filter(Expr):
@@ -145,11 +147,12 @@ class Filter(Expr):
     """
     kind = ExprKind.FILTER
 
-    def __init__(self, arr: ExprLike, pred_f: Callable[[Symbol], ExprLike]):
+    def __init__(self, arr: ExprLike, pred_f: Callable[[Symbol], ExprLike],
+                 ty: Optional[Type] = None):
         self.arr_ = to_expr(arr)
         self.sym_ = Symbol()
         self.pred_ = to_expr(pred_f(self.sym_))
-        super().__init__([self.arr_, self.sym_, self.pred_])
+        super().__init__([self.arr_, self.sym_, self.pred_], ty=ty)
 
 
 class InSet(Expr):
@@ -161,7 +164,7 @@ class InSet(Expr):
     def __init__(self, elem: ExprLike, s: ExprLike):
         self.elem_ = to_expr(elem)
         self.set_ = to_expr(s)
-        super().__init__([self.elem_, self.set_])
+        super().__init__([self.elem_, self.set_], ty=BOOL)
 
 
 class Subset(Expr):
@@ -173,4 +176,4 @@ class Subset(Expr):
     def __init__(self, sub: ExprLike, sup: ExprLike):
         self.sub_ = to_expr(sub)
         self.sup_ = to_expr(sup)
-        super().__init__([self.sub_, self.sup_])
+        super().__init__([self.sub_, self.sup_], ty=BOOL)
