@@ -50,9 +50,6 @@ class Expr:
     def __init__(self, sub_expr: List['Expr']):
         self.type_: Optional[Type] = None
         self.sub_expr_ = sub_expr
-        self.ref_cnt_ = 0
-        for s in self.sub_expr_:
-            s.ref_cnt_ += 1
 
     def __add__(self, other: 'ExprLike'):
         return Arith(ArithOp.ADD, self, other)

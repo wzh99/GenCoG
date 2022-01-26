@@ -12,13 +12,13 @@ _conv2d = ConstraintSpec(
         Attr('kernel_size', [Var(INT), Var(INT)]),
         Attr('channels', Var(INT)),
         Attr('strides', [Var(INT), Var(INT)]),
-        Attr('padding', [Var(INT), Var(INT), Var(INT), Var(INT)]),
+        Attr('padding', List(4, lambda _: Var(INT))),
         Attr('dilation', [Var(INT), Var(INT)]),
         Attr('groups', Var(INT)),
     ],
     in_num=2,
     in_ranks=[4, 4],
-    in_dtypes=[Var(), Var()],
+    in_dtypes=[Var(), IN[0].dtype],
     in_shapes=[
         [Var(), Var(), Var(), Var()],  # NCHW
         Concat([a('channels'), IN[0].shape[1] // a('groups')], a('kernel_size'))  # OIHW

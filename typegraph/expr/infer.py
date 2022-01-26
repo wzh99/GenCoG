@@ -10,7 +10,7 @@ from .tensor import Num, Shape, Rank, GetDType
 from .ty import Type, TypeKind, BoolType, IntType, FloatType, StrType, DType, TupleType, ListType, \
     TyVar, BOOL, INT, DTYPE
 from .visitor import TypeVisitor, ExprVisitor
-from ..util import unwrap_or, filter_none, cls_name
+from ..util import unwrap, unwrap_or, filter_none, cls_name
 
 
 class ExprTypeError(Exception):
@@ -240,16 +240,9 @@ class TypeInfer(ExprVisitor[InferArg, Type]):
 
     @staticmethod
     def _get_elem_type(e: Expr, ty: Type):
-        if ty.kind == TypeKind.tuple:
-            arr_ty = cast(TupleType, ty)
-            if arr_ty.is_homo_:
-                return cast(TupleType, arr_ty).elem_type
-            else:
-                raise ExprTypeError(
-                    e, 'Cannot get element type for heterogeneous tuple.'
-                )
-        elif ty.kind == TypeKind.list:
-            return cast(ListType, ty).elem_ty_
+        elem_ty = ty.elem_type
+        if ty.elem_type is not None:
+            return unwrap(elem_ty)
         else:
             raise ExprTypeError(
                 e, f'Cannot get element type for {ty}.'

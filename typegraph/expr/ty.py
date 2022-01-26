@@ -1,5 +1,5 @@
 from enum import IntEnum, auto
-from typing import cast, Union
+from typing import cast, Union, Optional
 
 from .. import util
 
@@ -24,7 +24,7 @@ class Type:
     """
     kind: TypeKind
 
-    prim_kinds = [
+    scalar_kinds = [
         TypeKind.bool,
         TypeKind.int,
         TypeKind.float,
@@ -32,11 +32,17 @@ class Type:
         TypeKind.dtype,
     ]
 
+    @property
+    def is_scalar(self):
+        return self.kind in self.scalar_kinds
+
+    @property
+    def elem_type(self) -> Optional['Type']:
+        return None
+
     def __eq__(self, other: 'Type'):
         """
-        Compare structural equality of two type.
-        :param other: The other type to be compared.
-        :return: Whether the two types are structurally equal.
+        Compare structural equality of two types.
         """
         return self.kind == other.kind
 
@@ -171,11 +177,8 @@ class TupleType(Type):
         return all(map(lambda ty: ty == self.field_ty_[0], self.field_ty_[1:]))
 
     @property
-    def elem_type(self):
-        if self.is_homo_:
-            return self.field_ty_[0]
-        else:
-            raise RuntimeError('Cannot get element type from heterogeneous tuple.')
+    def elem_type(self) -> Optional['Type']:
+        return self.field_ty_[0] if self.is_homo_ else None
 
     def __str__(self):
         if len(self.field_ty_) == 1:
@@ -192,6 +195,10 @@ class ListType(Type):
 
     def __init__(self, elem_ty: Type):
         self.elem_ty_ = elem_ty
+
+    @property
+    def elem_type(self) -> Optional['Type']:
+        return self.elem_ty_
 
     def __eq__(self, other: Type):
         if other.kind == TypeKind.tuple:
