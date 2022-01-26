@@ -1,7 +1,6 @@
 import typing as t
 from enum import Enum, IntEnum, auto
 from typing import Any, Callable, Dict, Optional, Union, List, Generic, TypeVar
-from warnings import warn
 
 from .ty import Type, TypeKind, ValueType, DataType, type_py_value, BOOL, INT, STR, DTYPE
 from ..util import cls_name, map_opt, filter_none, unwrap_or
@@ -179,13 +178,17 @@ class Range(Expr):
         self.end_ = map_opt(to_expr, end)
         super().__init__(filter_none([self.begin_, self.end_]), ty=ty)
 
-    @classmethod
-    def validate_type(cls, ty: Type, ran: Optional['Range']) -> Optional['Range']:
-        if ty.kind in Range.valid_type_kinds:
-            return ran
-        elif ran is not None:
-            warn(f'Ignore range for type {ty}.')
-        return None
+    def require_begin(self):
+        if self.begin_ is None:
+            raise ValueError('Range begin cannot be None.')
+
+    def require_end(self):
+        if self.end_ is None:
+            raise ValueError('Range end cannot be None.')
+
+    def require_both(self):
+        self.require_begin()
+        self.require_end()
 
 
 class Var(Expr):
@@ -197,7 +200,7 @@ class Var(Expr):
     kind = ExprKind.VAR
 
     def __init__(self, ty: Optional[Type] = None, ran: Optional[Range] = None):
-        self.ran_ = unwrap_or(ran, Range())
+        self.ran_ = ran
         super().__init__(filter_none([self.ran_]))
         self.type_ = ty
 
@@ -393,6 +396,7 @@ class ForAll(Expr):
     kind = ExprKind.FORALL
 
     def __init__(self, ran: Range, body_f: Callable[[Symbol], ExprLike]):
+        ran.require_both()
         self.ran_ = ran
         self.idx_ = Symbol()
         self.body_ = to_expr(body_f(self.idx_))

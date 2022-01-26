@@ -61,13 +61,18 @@ class TypeInfer(ExprVisitor[InferArg, Type]):
 
     def visit_var(self, var: Var, arg: InferArg) -> Type:
         ty = self._unify(unwrap_or(var.type_, TyVar()), arg.hint)
-        return self.visit(var.ran_, InferArg(arg.env, ty))
+        if var.ran_ is not None:
+            ty = self.visit(var.ran_, InferArg(arg.env, ty))
+        return ty
 
     def visit_symbol(self, sym: Symbol, arg: InferArg) -> Type:
         return arg.env[sym]
 
     def visit_range(self, ran: Range, arg: InferArg) -> Type:
-        return self._unify_expr(filter_none([ran.begin_, ran.end_]), arg)
+        ty = self._unify_expr(filter_none([ran.begin_, ran.end_]), arg)
+        if ty.kind not in ran.valid_type_kinds:
+            raise ExprTypeError(ran, f'Range not supported for type {ty}.')
+        return ty
 
     def visit_arith(self, arith: Arith, arg: InferArg) -> Type:
         ty = self._unify_expr([arith.lhs_, arith.rhs_], arg)

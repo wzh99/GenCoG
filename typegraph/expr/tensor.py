@@ -5,8 +5,8 @@ from .ty import ListType, INT, DTYPE
 
 
 class TensorKind(Enum):
-    INPUT = 'IN'
-    OUTPUT = 'OUT'
+    input = 'IN'
+    output = 'OUT'
 
 
 class TensorDesc:
@@ -47,8 +47,8 @@ class TensorList:
         return Num(self.kind_)
 
 
-IN = TensorList(TensorKind.INPUT)
-OUT = TensorList(TensorKind.OUTPUT)
+IN = TensorList(TensorKind.input)
+OUT = TensorList(TensorKind.output)
 
 
 class Num(Expr):
