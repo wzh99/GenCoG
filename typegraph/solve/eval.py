@@ -4,13 +4,13 @@ from itertools import chain, islice
 from typing import Union, Iterator, cast
 
 from .store import ValueStore, ArrayNode
-from ..expr import ExprVisitor
 from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
     Filter, InSet, Subset
 from ..expr.basic import Env, Expr, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, ForAll, \
     Cond, GetAttr
 from ..expr.tensor import Num, Shape, Rank, GetDType, TensorKind
 from ..expr.ty import ValueType
+from ..expr.visitor import ExprVisitor
 from ..util import map_opt
 
 
@@ -40,7 +40,7 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         self._store = store
 
     def visit(self, e: Expr, env: Env[ValueType]) -> ResultType:
-        v = self._methods[e.kind](e, env)
+        v = super().visit(e, env)
         if v is None:
             # Only query from value store will produce None.
             raise EvalFailed(e, 'Cannot query from value store.')
@@ -53,6 +53,8 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         raise EvalFailed(var, 'Variable cannot be evaluated.')
 
     def visit_symbol(self, sym: Symbol, env: Env[ValueType]) -> ResultType:
+        if sym not in env:
+            raise EvalFailed(sym, 'Symbol is not found in environment.')
         return env[sym]
 
     def visit_range(self, ran: Range, env: Env[ValueType]) -> RangeType:
@@ -90,11 +92,8 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         return self._store.query_attr(attr.name_).value
 
     def visit_num(self, num: Num, env: Env[ValueType]) -> ResultType:
-        if num.t_kind_ == TensorKind.input:
-            node = self._store.in_shapes_
-        else:
-            node = self._store.out_shapes_
-        return node.len_.value
+        node = self._store.query_shape(num.t_kind_)
+        return cast(ArrayNode, node).len_.value
 
     def visit_shape(self, shape: Shape, env: Env[ValueType]) -> ResultType:
         idx = self.visit(shape.tensor_.idx_, env)
@@ -104,26 +103,20 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
     def visit_rank(self, rank: Rank, env: Env[ValueType]) -> ResultType:
         idx = self.visit(rank.tensor_.idx_, env)
         node = self._get_tensor_shape_node(rank.tensor_.kind_, idx, rank)
-        return cast(ArrayNode, node).len_.value
+        return node.len_.value
 
     def _get_tensor_shape_node(self, kind: TensorKind, idx: int, e: Expr):
-        if kind == TensorKind.input:
-            node = self._store.query_in_shape(idx)
-        else:
-            node = self._store.query_out_shape(idx)
+        node = self._store.query_shape(kind, idx)
         if node is None:
             raise EvalFailed(
                 e, f'Shape of {kind.name} tensor {idx} is undefined.'
             )
-        return node
+        return cast(ArrayNode, node)
 
     def visit_dtype(self, dtype: GetDType, env: Env[ValueType]) -> ResultType:
         kind = dtype.tensor_.kind_
         idx = self.visit(dtype.tensor_.idx_, env)
-        if kind == TensorKind.input:
-            node = self._store.query_in_dtype(idx)
-        else:
-            node = self._store.query_out_dtype(idx)
+        node = self._store.query_dtype(kind, idx)
         if node is None:
             raise EvalFailed(
                 dtype, f'Data type of {kind.name} tensor {idx} is undefined.'

@@ -1,9 +1,11 @@
 from typing import List, Dict
 from warnings import warn
 
-from .expr import Type, Expr, ExprLike, ExprTypeError, ListType, to_expr, infer_type, print_expr, \
-    BOOL, INT, DTYPE
-from .expr.ty import TyVar
+from .expr import Expr, ExprLike, ListType, BOOL, INT, DTYPE
+from .expr.basic import to_expr
+from .expr.fmt import print_expr
+from .expr.infer import ExprTypeError, infer_type
+from .expr.ty import Type, TyVar
 from .util import CodeBuffer, cls_name
 
 

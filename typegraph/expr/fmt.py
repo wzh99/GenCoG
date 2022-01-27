@@ -6,7 +6,7 @@ from colorama import Fore, Back
 from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
     InSet, Subset
 from .basic import Expr, Const, Var, Range, Symbol, Env, Arith, Cmp, Not, And, Or, ForAll, Cond, \
-    GetAttr
+    GetAttr, Dummy
 from .tensor import Num, TensorDesc, Shape, Rank, GetDType
 from .visitor import ExprVisitor
 from ..util import CodeBuffer, NameGenerator, cls_name, colored_text
@@ -36,7 +36,8 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
         items = []
         if var.type_ is not None:
             items.append(('ty', var.type_, lambda ty: self._buf.write(str(ty))))
-        items.append(('ran', var.ran_, lambda ran: self.visit(ran, env)))
+        if var.ran_ is not None:
+            items.append(('ran', var.ran_, lambda ran: self.visit(ran, env)))
         self._write_named(items)
 
     def visit_range(self, ran: Range, env: Env[str]):
@@ -119,6 +120,9 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
 
     def visit_attr(self, attr: GetAttr, env: Env[str]):
         self._buf.write(f'a(\'{attr.name_}\')')
+
+    def visit_dummy(self, dum: Dummy, env: Env[str]):
+        self._buf.write(f'{cls_name(dum)}()')
 
     def visit_num(self, num: Num, env: Env[str]):
         self._buf.write(f'{num.t_kind_.value}.num')

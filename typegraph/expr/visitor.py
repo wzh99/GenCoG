@@ -3,7 +3,7 @@ from typing import Generic, TypeVar, Dict, Callable, Any
 from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
     InSet, Subset
 from .basic import Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, ForAll, \
-    Cond, GetAttr
+    Cond, GetAttr, Dummy
 from .tensor import Num, Shape, Rank, GetDType
 from .ty import Type, TypeKind, BoolType, IntType, FloatType, StrType, DType, TupleType, ListType, \
     TyVar
@@ -87,6 +87,9 @@ class ExprVisitor(Generic[A, R]):
 
     def visit_attr(self, attr: GetAttr, arg: A) -> R:
         return self._visit_sub(attr, arg)
+
+    def visit_dummy(self, dum: Dummy, arg: A) -> R:
+        pass
 
     def visit_num(self, num: Num, arg: A) -> R:
         return self._visit_sub(num, arg)
