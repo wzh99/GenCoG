@@ -341,7 +341,7 @@ class TypeUnifier(TypeVisitor[Type, Type]):
         elif other.kind == TypeKind.list:
             if not tup.is_homo_:
                 raise UnificationError(tup, other)
-            return self.visit_list(ListType(tup.elem_type), other)
+            return self.visit_list(ListType(unwrap_or(tup.elem_type, TyVar())), other)
         else:
             raise UnificationError(tup, other)
 

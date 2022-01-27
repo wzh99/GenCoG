@@ -150,8 +150,7 @@ def to_expr(e: ExprLike) -> Expr:
         return Tuple(*e)
     else:
         raise TypeError(
-            'Cannot convert Python object of type {} to constraint expression.'.format(
-                cls_name(e))
+            f'Cannot convert Python object of type {cls_name(e)} to constraint expression.'
         )
 
 
@@ -165,6 +164,8 @@ class Const(Expr):
         super().__init__([])
         self.val_ = val
         self.type_ = type_py_value(val)
+        if not self.type_.is_scalar:
+            raise TypeError('Cannot create constant of non-scalar type.')
 
 
 class Range(Expr):

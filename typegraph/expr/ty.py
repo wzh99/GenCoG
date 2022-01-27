@@ -1,5 +1,6 @@
 from enum import IntEnum, auto
-from typing import cast, Union, Optional
+from typing import cast, Union, Optional, Dict, Callable
+import typing as t
 
 from .. import util
 
@@ -153,17 +154,14 @@ class TupleType(Type):
     kind = TypeKind.tuple
 
     def __init__(self, *field_ty: Type):
-        if len(field_ty) == 0:
-            raise ValueError(
-                f'Expect at least one field type, got {len(field_ty)}.'
-            )
         self.field_ty_ = field_ty
         self.is_homo_ = self._is_homo()
 
     def __eq__(self, other: Type):
         if other.kind == TypeKind.list:
             other = cast(ListType, other)
-            return self.is_homo_ and self.field_ty_[0] == other.elem_ty_
+            return self.is_homo_ and (
+                    len(self.field_ty_) == 0 or self.field_ty_[0] == other.elem_ty_)
         elif self.kind != other.kind:
             return False
         other = cast(TupleType, other)
@@ -172,15 +170,20 @@ class TupleType(Type):
         return all(map(lambda p: p[0] == p[1], zip(self.field_ty_, other.field_ty_)))
 
     def _is_homo(self):
-        if len(self.field_ty_) == 1:
+        if len(self.field_ty_) <= 1:
             return True
         return all(map(lambda ty: ty == self.field_ty_[0], self.field_ty_[1:]))
 
     @property
     def elem_type(self) -> Optional['Type']:
-        return self.field_ty_[0] if self.is_homo_ else None
+        if (not self.is_homo_) or (len(self.field_ty_) == 0):
+            return None
+        else:
+            return self.field_ty_[0]
 
     def __str__(self):
+        if len(self.field_ty_) == 0:
+            return '()'
         if len(self.field_ty_) == 1:
             return '({},)'.format(str(self.field_ty_[0]))
         else:
@@ -214,6 +217,16 @@ class ListType(Type):
 
 ValueType = Union[bool, int, float, str, tuple, list, DataType]
 
+_type_funcs: Dict[t.Type, Callable[[ValueType], Type]] = {
+    bool: lambda v: BOOL,
+    int: lambda v: INT,
+    float: lambda v: FLOAT,
+    str: lambda v: STR,
+    DataType: lambda v: DTYPE,
+    tuple: lambda v: TupleType(*(type_py_value(f) for f in v)),
+    list: lambda v: ListType(type_py_value(v[0])),
+}
+
 
 def type_py_value(v: ValueType) -> Type:
     """
@@ -221,20 +234,8 @@ def type_py_value(v: ValueType) -> Type:
     :param v: Any acceptable Python object.
     :return: Type of `v`.
     """
-    if v.__class__ == bool:
-        return BoolType()
-    elif isinstance(v, int):
-        return IntType()
-    elif isinstance(v, float):
-        return FloatType()
-    elif isinstance(v, str):
-        return StrType()
-    elif isinstance(v, DataType):
-        return DType()
-    elif isinstance(v, tuple):
-        return TupleType(*(type_py_value(f) for f in v))
-    elif isinstance(v, list):
-        return ListType(type_py_value(v[0]))
+    if type(v) in _type_funcs:
+        return _type_funcs[type(v)](v)
     else:
         raise TypeError(
             'Cannot type Python object of type {}'.format(

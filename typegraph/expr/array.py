@@ -11,10 +11,6 @@ class Tuple(Expr):
     kind = ExprKind.TUPLE
 
     def __init__(self, *fields: ExprLike, ty: Optional[Type] = None):
-        if len(fields) == 0:
-            raise ValueError(
-                f'Expect at least one field, got {len(fields)}.'
-            )
         self.fields_ = list(to_expr(f) for f in fields)
         super().__init__(self.fields_, ty=ty)
 

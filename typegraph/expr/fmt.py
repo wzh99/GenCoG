@@ -31,9 +31,13 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
     def visit_const(self, const: Const, env: Env[str]):
         self._buf.write(str(const.val_))
 
+    _id_mask = 2 ** 16 - 1
+
     def visit_var(self, var: Var, env: Env[str]):
         self._write_cls(var)
-        items = []
+        items = [
+            ('id', var, lambda v: self._buf.write(hex(id(v) & self._id_mask)))
+        ]
         if var.type_ is not None:
             items.append(('ty', var.type_, lambda ty: self._buf.write(str(ty))))
         if var.ran_ is not None:
