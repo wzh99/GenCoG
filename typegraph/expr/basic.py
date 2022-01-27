@@ -1,9 +1,9 @@
 import typing as t
 from enum import Enum, IntEnum, auto
-from typing import Any, Callable, Dict, Optional, Union, List, Generic, TypeVar
+from typing import Any, Callable, Dict, Optional, Union, List, Iterator, Iterable, TypeVar
 
 from .ty import Type, TypeKind, ValueType, DataType, type_py_value, BOOL, INT, STR, DTYPE
-from ..util import cls_name, map_opt, filter_none, unwrap_or
+from ..util import cls_name, map_opt, filter_none, unwrap, unwrap_or
 
 
 class ExprKind(IntEnum):
@@ -20,6 +20,7 @@ class ExprKind(IntEnum):
     FORALL = auto()
     COND = auto()
     ATTR = auto()
+    DUMMY = auto()
     # Tensor
     NUM = auto()
     SHAPE = auto()
@@ -221,35 +222,62 @@ class Symbol(Expr):
 T = TypeVar('T')
 
 
-class Env(Generic[T]):
+class Env(Iterable[T]):
     """
     Environment, mapping from symbol to object.
     """
 
     def __init__(self, prev: Optional['Env'] = None, sym: Optional[Symbol] = None,
                  val: Optional[T] = None):
-        self._prev = prev
-        self._sym = sym
-        if self._sym is not None and val is None:
+        self.prev_ = prev
+        self.sym_ = sym
+        if self.prev_ is not None and sym is None:
+            raise ValueError(
+                'Cannot create empty mapping.'
+            )
+        if self.sym_ is not None and val is None:
             raise ValueError(
                 'Value cannot be None if symbol is not None.'
             )
-        self._val = val
+        self.val_ = val
+
+    @property
+    def empty(self):
+        return self.prev_ is None
 
     def __add__(self, pair: t.Tuple[Symbol, T]):
         return Env(prev=self, sym=pair[0], val=pair[1])
 
     def __getitem__(self, sym: Symbol) -> Optional[T]:
         env = self
-        while env._sym is not None:
-            if env._sym is sym:
-                return env._val
+        while env.sym_ is not None:
+            if env.sym_ is sym:
+                return env.val_
             else:
-                env = env._prev
+                env = env.prev_
         return None
 
     def __contains__(self, sym: Symbol) -> bool:
         return self[sym] is not None
+
+    def __iter__(self):
+        return EnvIter(self)
+
+
+class EnvIter(Iterator[T]):
+    def __init__(self, env: Env[T]):
+        self.ref = env
+
+    def __next__(self):
+        if self.ref.empty:
+            raise StopIteration()
+        else:
+            pair = unwrap(self.ref.sym_), unwrap(self.ref.val_)
+            self.ref = self.ref.prev_
+            return pair
+
+    def __iter__(self):
+        return self
 
 
 class ArithOp(Enum):
@@ -432,3 +460,13 @@ class GetAttr(Expr):
 
 def a(name: str):
     return GetAttr(name)
+
+
+class Dummy(Expr):
+    """
+    Indicate unknown expression.
+    """
+    kind = ExprKind.DUMMY
+
+    def __init__(self):
+        super().__init__([])
