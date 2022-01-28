@@ -1,5 +1,5 @@
 from io import StringIO
-from typing import Callable, TypeVar, Optional, List, Iterable, Tuple, Any, cast
+from typing import Callable, TypeVar, Optional, List, Iterable, Tuple, cast
 
 from colorama import Fore
 
@@ -66,41 +66,41 @@ class CodeBuffer:
     def indent(self):
         return _Indent(self)
 
-    def write_pos(self, items: List[Tuple[Any, Callable[[Any], None]]],
+    def write_pos(self, items: List[Callable[[], None]],
                   sep: str = ', ', prefix: str = '(', suffix: str = ')'):
         self.write(prefix)
-        for i, (obj, fmt) in enumerate(items):
+        for i, callback in enumerate(items):
             if i != 0:
                 self.write(sep)
-            fmt(obj)
+            callback()
         self.write(suffix)
 
-    def write_pos_multi(self, items: List[Tuple[Any, Callable[[Any], None]]],
+    def write_pos_multi(self, items: List[Callable[[], None]],
                         sep: str = ',', prefix: str = '(', suffix: str = ')'):
         self.writeln(prefix)
         with self.indent():
-            for i, (obj, fmt) in enumerate(items):
-                fmt(obj)
+            for i, callback in enumerate(items):
+                callback()
                 self.writeln(sep)
         self.write(suffix)
 
-    def write_named(self, items: List[Tuple[str, Any, Callable[[Any], None]]],
+    def write_named(self, items: List[Tuple[str, Callable[[], None]]],
                     sep: str = ', ', prefix: str = '(', suffix: str = ')'):
         self.write(prefix)
-        for i, (name, obj, fmt) in enumerate(items):
+        for i, (name, callback) in enumerate(items):
             if i != 0:
                 self.write(sep)
             self.write(f'{name}=')
-            fmt(obj)
+            callback()
         self.write(suffix)
 
-    def write_named_multi(self, items: List[Tuple[str, Any, Callable[[Any], None]]],
+    def write_named_multi(self, items: List[Tuple[str, Callable[[], None]]],
                           sep: str = ',', prefix: str = '(', suffix: str = ')'):
         self.writeln(prefix)
         with self.indent():
-            for i, (name, obj, fmt) in enumerate(items):
+            for i, (name, callback) in enumerate(items):
                 self.write(f'{name}=')
-                fmt(obj)
+                callback()
                 self.writeln(sep)
         self.write(suffix)
 

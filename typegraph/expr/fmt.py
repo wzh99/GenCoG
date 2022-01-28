@@ -31,26 +31,26 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
     def visit_const(self, const: Const, env: Env[str]):
         self._buf.write(str(const.val_))
 
-    _id_mask = 2 ** 16 - 1
+    _id_mask = (1 << 16) - 1
 
     def visit_var(self, var: Var, env: Env[str]):
         self._write_cls(var)
-        items = [
-            ('id', var, lambda v: self._buf.write(hex(id(v) & self._id_mask)))
+        items: t.List[t.Tuple[str, Callable[[], None]]] = [
+            ('id', lambda: self._buf.write(hex(id(var) & self._id_mask)))
         ]
         if var.type_ is not None:
-            items.append(('ty', var.type_, lambda ty: self._buf.write(str(ty))))
+            items.append(('ty', lambda: self._buf.write(str(var.type_))))
         if var.ran_ is not None:
-            items.append(('ran', var.ran_, lambda ran: self.visit(ran, env)))
+            items.append(('ran', lambda: self.visit(var.ran_, env)))
         self._write_named(items)
 
     def visit_range(self, ran: Range, env: Env[str]):
         self._write_cls(ran)
-        items = []
+        items: t.List[t.Tuple[str, Callable[[], None]]] = []
         if ran.begin_ is not None:
-            items.append(('begin', ran.begin_, lambda beg: self.visit(beg, env)))
+            items.append(('begin', lambda: self.visit(ran.begin_, env)))
         if ran.end_ is not None:
-            items.append(('end', ran.end_, lambda end: self.visit(end, env)))
+            items.append(('end', lambda: self.visit(ran.end_, env)))
         self._write_named(items)
 
     def visit_symbol(self, sym: Symbol, env: Env[str]):
@@ -71,9 +71,9 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
         color = self._next_color()
         self._write_pos(
             [
-                (arith.lhs_, lambda lhs: self.visit(lhs, env)),
-                (arith.op_, lambda op: self._buf.write(op.value)),
-                (arith.rhs_, lambda rhs: self.visit(rhs, env))
+                lambda: self.visit(arith.lhs_, env),
+                lambda: self._buf.write(arith.op_.value),
+                lambda: self.visit(arith.rhs_, env)
             ],
             sep=' ',
             prefix=colored_text('(', color),
@@ -84,9 +84,9 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
         color = self._next_color()
         self._write_pos(
             [
-                (cmp.lhs_, lambda lhs: self.visit(lhs, env)),
-                (cmp.op_, lambda op: self._buf.write(op.value)),
-                (cmp.rhs_, lambda rhs: self.visit(rhs, env))
+                lambda: self.visit(cmp.lhs_, env),
+                lambda: self._buf.write(cmp.op_.value),
+                lambda: self.visit(cmp.rhs_, env)
             ],
             sep=' ',
             prefix=colored_text('(', color),
@@ -99,27 +99,27 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
 
     def visit_and(self, a: And, env: Env[str]):
         self._write_cls(a)
-        self._write_pos_multi([(cl, lambda c: self.visit(c, env)) for cl in a.clauses_])
+        self._write_pos_multi(list(map(lambda c: lambda: self.visit(c, env), a.clauses_)))
 
     def visit_or(self, o: Or, env: Env[str]):
         self._write_cls(o)
-        self._write_pos_multi([(cl, lambda c: self.visit(c, env)) for cl in o.clauses_])
+        self._write_pos_multi(list(map(lambda c: lambda: self.visit(c, env), o.clauses_)))
 
     def visit_forall(self, forall: ForAll, env: Env[str]):
         nested_env = self._gen_nested_env(env, forall.idx_)
         self._write_cls(forall)
         self._write_named_multi([
-            ('ran', forall.ran_, lambda ran: self.visit(ran, env)),
-            ('idx', forall.idx_, lambda idx: self.visit_symbol(idx, nested_env)),
-            ('body', forall.body_, lambda body: self.visit(body, nested_env))
+            ('ran', lambda: self.visit(forall.ran_, env)),
+            ('idx', lambda: self.visit_symbol(forall.idx_, nested_env)),
+            ('body', lambda: self.visit(forall.body_, nested_env))
         ])
 
     def visit_cond(self, cond: Cond, env: Env[str]):
         self._write_cls(cond)
         self._write_named_multi([
-            ('pred', cond.pred_, lambda pred: self.visit(pred, env)),
-            ('tr_br', cond.tr_br_, lambda br: self.visit(br, env)),
-            ('fls_br', cond.fls_br_, lambda br: self.visit(br, env))
+            ('pred', lambda: self.visit(cond.pred_, env)),
+            ('tr_br', lambda: self.visit(cond.tr_br_, env)),
+            ('fls_br', lambda: self.visit(cond.fls_br_, env))
         ])
 
     def visit_attr(self, attr: GetAttr, env: Env[str]):
@@ -147,82 +147,82 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
 
     def visit_tuple(self, tup: Tuple, env: Env[str]):
         self._write_cls(tup)
-        self._write_pos([(f, lambda f: self.visit(f, env)) for f in tup.fields_])
+        self._write_pos(list(map(lambda f: lambda: self.visit(f, env), tup.fields_)))
 
     def visit_list(self, lst: List, env: Env[str]):
         nested_env = self._gen_nested_env(env, lst.idx_)
         self._write_cls(lst)
         self._write_named_multi([
-            ('len', lst.len_, lambda l: self.visit(l, env)),
-            ('idx', lst.idx_, lambda idx: self.visit_symbol(idx, nested_env)),
-            ('body', lst.body_, lambda body: self.visit(body, nested_env))
+            ('len', lambda: self.visit(lst.len_, env)),
+            ('idx', lambda: self.visit_symbol(lst.idx_, nested_env)),
+            ('body', lambda: self.visit(lst.body_, nested_env))
         ])
 
     def visit_getitem(self, getitem: GetItem, env: Env[str]):
         self.visit(getitem.arr_, env)
-        self._write_pos([(getitem.idx_, lambda idx: self.visit(idx, env))], prefix='[', suffix=']')
+        self._write_pos([lambda: self.visit(getitem.idx_, env)], prefix='[', suffix=']')
 
     def visit_len(self, ln: Len, env: Env[str]):
         self._write_cls(ln)
-        self._write_pos([(ln.arr_, lambda arr: self.visit(arr, env))])
+        self._write_pos([lambda: self.visit(ln.arr_, env)])
 
     def visit_concat(self, concat: Concat, env: Env[str]):
         self._write_cls(concat)
-        self._write_pos_multi([(arr, lambda arr: self.visit(arr, env)) for arr in concat.arrays_])
+        self._write_pos_multi(list(map(lambda arr: lambda: self.visit(arr, env), concat.arrays_)))
 
     def visit_slice(self, slc: Slice, env: Env[str]):
         self.visit(slc.arr_, env)
-        self._write_pos([(slc.ran_, lambda ran: self.visit(ran, env))], prefix='[', suffix=']')
+        self._write_pos([lambda: self.visit(slc.ran_, env)], prefix='[', suffix=']')
 
     def visit_map(self, m: Map, env: Env[str]):
         nested_env = self._gen_nested_env(env, m.sym_)
         self._write_cls(m)
         self._write_named_multi([
-            ('arr', m.arr_, lambda arr: self.visit(arr, env)),
-            ('sym', m.sym_, lambda sym: self.visit(sym, nested_env)),
-            ('body', m.body_, lambda body: self.visit(body, nested_env))
+            ('arr', lambda: self.visit(m.arr_, env)),
+            ('sym', lambda: self.visit(m.sym_, nested_env)),
+            ('body', lambda: self.visit(m.body_, nested_env))
         ])
 
     def visit_reduce_array(self, red: ReduceArray, env: Env[str]):
         self._write_cls(red)
         self._write_named_multi([
-            ('arr', red.arr_, lambda arr: self.visit(arr, env)),
-            ('op', red.op_, lambda op: self._buf.write(op.value)),
-            ('init', red.init_, lambda init: self.visit(init, env))
+            ('arr', lambda: self.visit(red.arr_, env)),
+            ('op', lambda: self._buf.write(red.op_.value)),
+            ('init', lambda: self.visit(red.init_, env))
         ])
 
     def visit_reduce_index(self, red: ReduceIndex, env: Env[str]):
         nested_env = self._gen_nested_env(env, red.idx_)
         self._write_cls(red)
         self._write_named_multi([
-            ('ran', red.ran_, lambda ran: self.visit(red.ran_, env)),
-            ('op', red.op_, lambda op: self._buf.write(op.value)),
-            ('idx', red.idx_, lambda idx: self.visit(idx, nested_env)),
-            ('body', red.body_, lambda body: self.visit(body, nested_env)),
-            ('init', red.init_, lambda init: self.visit(init, env))
+            ('ran', lambda: self.visit(red.ran_, env)),
+            ('op', lambda: self._buf.write(red.op_.value)),
+            ('idx', lambda: self.visit(red.idx_, nested_env)),
+            ('body', lambda: self.visit(red.body_, nested_env)),
+            ('init', lambda: self.visit(red.init_, env))
         ])
 
     def visit_filter(self, flt: Filter, env: Env[str]):
         nested_env = self._gen_nested_env(env, flt.sym_)
         self._write_cls(flt)
         self._write_named_multi([
-            ('arr', flt.arr_, lambda arr: self.visit(arr, env)),
-            ('sym', flt.sym_, lambda sym: self.visit(sym, nested_env)),
-            ('pred', flt.pred_, lambda pred: self.visit(pred, nested_env))
+            ('arr', lambda: self.visit(flt.arr_, env)),
+            ('sym', lambda: self.visit(flt.sym_, nested_env)),
+            ('pred', lambda: self.visit(flt.pred_, nested_env))
         ])
 
     def visit_inset(self, inset: InSet, env: Env[str]):
         self._write_cls(inset)
         self._write_named_multi([
-            ('elem', inset.elem_, lambda elem: self.visit(elem, env)),
-            ('set', inset.set_, lambda s: self.visit(s, env))
+            ('elem', lambda: self.visit(inset.elem_, env)),
+            ('set', lambda: self.visit(inset.set_, env))
         ])
 
     def visit_subset(self, subset: Subset, env: Env[str]):
         self._write_cls(subset)
         self._write_named_multi([
-            ('sub', subset.sub_, lambda sub: self.visit(sub, env)),
-            ('sup', subset.sup_, lambda sup: self.visit(sup, env))
+            ('sub', lambda: self.visit(subset.sub_, env)),
+            ('sup', lambda: self.visit(subset.sup_, env))
         ])
 
     def _gen_nested_env(self, env: Env[str], sym: Symbol):
@@ -232,19 +232,19 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
     def _write_cls(self, e: Expr):
         self._buf.write(cls_name(e))
 
-    def _write_pos(self, items: t.List[t.Tuple[Any, Callable[[Any], None]]],
+    def _write_pos(self, items: t.List[Callable[[], None]],
                    sep: str = ', ', prefix: str = '(', suffix: str = ')'):
         self._buf.write_pos(items, sep=sep, prefix=prefix, suffix=suffix)
 
-    def _write_pos_multi(self, items: t.List[t.Tuple[Any, Callable[[Any], None]]],
+    def _write_pos_multi(self, items: t.List[Callable[[], None]],
                          sep: str = ',', prefix: str = '(', suffix: str = ')'):
         self._buf.write_pos_multi(items, sep=sep, prefix=prefix, suffix=suffix)
 
-    def _write_named(self, items: t.List[t.Tuple[str, Any, Callable[[Any], None]]],
+    def _write_named(self, items: t.List[t.Tuple[str, Callable[[], None]]],
                      sep: str = ', ', prefix: str = '(', suffix: str = ')'):
         self._buf.write_named(items, sep=sep, prefix=prefix, suffix=suffix)
 
-    def _write_named_multi(self, items: t.List[t.Tuple[str, Any, Callable[[Any], None]]],
+    def _write_named_multi(self, items: t.List[t.Tuple[str, Callable[[], None]]],
                            sep: str = ',', prefix: str = '(', suffix: str = ')'):
         self._buf.write_named_multi(items, sep=sep, prefix=prefix, suffix=suffix)
 

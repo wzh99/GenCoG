@@ -210,25 +210,25 @@ class ConstraintSpec:
         buf.write(cls_name(self))
 
         def print_fn(e: Expr):
-            print_expr(e, buf, [])
+            return lambda: print_expr(e, buf, [])
 
         buf.write_named_multi([
-            ('attr', self.attrs, lambda attrs: buf.write_named_multi(
-                [(a.name_, a, lambda a: print_fn(a.expr_)) for a in attrs],
+            ('attr', lambda: buf.write_named_multi(
+                [(a.name_, print_fn(a.expr_)) for a in self.attrs],
                 prefix='[', suffix=']'
             )),
-            ('in_num', self.in_num, print_fn),
-            ('in_ranks', self.in_ranks, print_fn),
-            ('in_dtypes', self.in_dtypes, print_fn),
-            ('in_shapes', self.in_shapes, print_fn),
-            ('extra', self.extra, lambda extra: buf.write_pos_multi(
-                [(cmp, print_fn) for cmp in extra],
+            ('in_num', print_fn(self.in_num)),
+            ('in_ranks', print_fn(self.in_ranks)),
+            ('in_dtypes', print_fn(self.in_dtypes)),
+            ('in_shapes', print_fn(self.in_shapes)),
+            ('extra', lambda: buf.write_pos_multi(
+                [print_fn(cmp) for cmp in self.extra],
                 prefix='[', suffix=']'
             )),
-            ('out_num', self.out_num, print_fn),
-            ('out_ranks', self.out_ranks, print_fn),
-            ('out_dtypes', self.out_dtypes, print_fn),
-            ('out_shapes', self.out_shapes, print_fn),
+            ('out_num', print_fn(self.out_num)),
+            ('out_ranks', print_fn(self.out_ranks)),
+            ('out_dtypes', print_fn(self.out_dtypes)),
+            ('out_shapes', print_fn(self.out_shapes)),
         ])
 
         return str(buf)
@@ -257,6 +257,7 @@ class Op:
                 f'{err.msg_}\n'
                 f'{err.name_}={err.code_}'
             )
+        print(spec)
         OpRegistry.register(self)
 
 

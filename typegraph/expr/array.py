@@ -11,7 +11,7 @@ class Tuple(Expr):
     kind = ExprKind.TUPLE
 
     def __init__(self, *fields: ExprLike, ty: Optional[Type] = None):
-        self.fields_ = list(to_expr(f) for f in fields)
+        self.fields_ = [to_expr(f) for f in fields]
         super().__init__(self.fields_, ty=ty)
 
 
