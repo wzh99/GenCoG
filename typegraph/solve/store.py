@@ -3,10 +3,12 @@ from typing import Optional, List, cast
 
 from ..expr import Expr, Const
 from ..expr.array import Tuple
-from ..expr.basic import Dummy
+from ..expr.basic import ExprKind, Dummy
 from ..expr.tensor import TensorKind
 from ..expr.ty import Type, ValueType
+from ..expr.fmt import print_expr
 from ..spec import Attr
+from ..util import CodeBuffer, cls_name
 
 
 class NodeKind(IntEnum):
@@ -27,8 +29,12 @@ class StoreNode:
     kind: NodeKind
 
     @staticmethod
-    def create(ty: Type) -> 'StoreNode':
+    def create_undefined(ty: Type) -> 'StoreNode':
         return ScalarNode() if ty.is_scalar else ArrayNode()
+
+    @staticmethod
+    def create_defined(expr: Expr) -> 'StoreNode':
+        return ScalarNode(expr=expr) if expr.type_.is_scalar else ArrayNode(expr=expr)
 
     @property
     def defined(self) -> bool:
@@ -45,6 +51,9 @@ class StoreNode:
     def value(self) -> Optional[ValueType]:
         raise NotImplemented
 
+    def print(self, buf: CodeBuffer):
+        raise NotImplemented
+
 
 class ScalarNode(StoreNode):
     """
@@ -52,9 +61,11 @@ class ScalarNode(StoreNode):
     """
     kind = NodeKind.SCALAR
 
-    def __init__(self):
+    def __init__(self, expr: Optional[Expr] = None):
         self.status_ = ValueStatus.UNDEFINED
         self.expr_: Optional[Expr] = None
+        if expr is not None:
+            self.set_defined(expr)
         self.value_: Optional[ValueType] = None
 
     @property
@@ -82,6 +93,15 @@ class ScalarNode(StoreNode):
     def value(self) -> Optional[ValueType]:
         return self.value_
 
+    def print(self, buf: CodeBuffer):
+        buf.write(cls_name(self))
+        items = [('status', lambda: buf.write(self.status_.name))]
+        if self.expr_ is not None:
+            items.append(('expr', lambda: print_expr(self.expr_, buf, [])))
+        if self.value_ is not None:
+            items.append(('value', lambda: buf.write(str(self.value_))))
+        buf.write_named_multi(items)
+
 
 class ArrayNode(StoreNode):
     """
@@ -89,10 +109,12 @@ class ArrayNode(StoreNode):
     """
     kind = NodeKind.ARRAY
 
-    def __init__(self):
+    def __init__(self, expr: Optional[Expr] = None):
         self.len_ = ScalarNode()
         self.expr_ = None
-        self.nodes_: List[StoreNode] = []
+        self.children_: List[StoreNode] = []
+        if expr is not None:
+            self.set_expr_defined(expr)
 
     @property
     def len_defined(self):
@@ -104,7 +126,7 @@ class ArrayNode(StoreNode):
 
     @property
     def defined(self) -> bool:
-        return self.expr_defined
+        return self.expr_defined and self.len_defined
 
     @property
     def len_solved(self):
@@ -112,13 +134,17 @@ class ArrayNode(StoreNode):
 
     @property
     def elem_defined(self):
-        return self.len_solved and (len(self.nodes_) == 0 or self.nodes_[0].defined)
+        return self.len_solved and all(map(lambda c: c.defined, self.children_))
 
     def set_len_defined(self, expr: Expr):
         self.len_.set_defined(expr)
+        if expr.kind == ExprKind.CONST and self.expr_defined:
+            self.set_len_solved(cast(Const, expr).val_)
 
     def set_expr_defined(self, expr: Expr):
         self.expr_ = expr
+        if expr.kind == ExprKind.TUPLE:
+            self.set_elem_defined(cast(Tuple, expr))
 
     def set_defined(self, expr: Expr):
         self.set_expr_defined(expr)
@@ -126,19 +152,20 @@ class ArrayNode(StoreNode):
     def set_len_solved(self, length: int):
         assert self.expr_defined
         self.len_.set_solved(length)
-        self.nodes_ = [StoreNode.create(self.expr_.type_.elem_type) for _ in range(length)]
+        self.children_ = [StoreNode.create_undefined(self.expr_.type_.elem_type)
+                          for _ in range(length)]
 
     def set_elem_defined(self, tup: Tuple):
         if not self.len_solved:
             self.set_len_solved(len(tup.fields_))
         assert self.len_.value == len(tup.fields_)
-        for (node, expr) in zip(self.nodes_, tup.fields_):
+        for (node, expr) in zip(self.children_, tup.fields_):
             node.set_defined(expr)
 
     @property
     def expr(self) -> Expr:
         if self.len_solved:
-            return Tuple(*(n.expr for n in self.nodes_))
+            return Tuple(*(n.expr for n in self.children_))
         else:
             return Dummy()
 
@@ -146,7 +173,20 @@ class ArrayNode(StoreNode):
     def value(self) -> Optional[ValueType]:
         if not self.len_solved:
             return None
-        return [node.value for node in self.nodes_]  # some elements can be None
+        return [node.value for node in self.children_]  # some elements can be None
+
+    def print(self, buf: CodeBuffer):
+        buf.write(cls_name(self))
+        items = [('len', lambda: self.len_.print(buf))]
+        if self.expr_ is not None:
+            items.append(('expr', lambda: print_expr(self.expr_, buf, [])))
+        items.append(
+            ('children', lambda: buf.write_pos_multi(
+                list(map(lambda n: lambda: n.print(buf), self.children_)),
+                prefix='[', suffix=']'
+            ))
+        )
+        buf.write_named_multi(items)
 
 
 class ValueStore:
@@ -155,14 +195,15 @@ class ValueStore:
     """
 
     def __init__(self, attrs: List[Attr]):
-        self.attrs_ = dict((a.name_, StoreNode.create(a.expr_.type_)) for a in attrs)
-        self.in_dtypes_ = ArrayNode()
+        self.attrs_ = list((a.name_, StoreNode.create_defined(a.expr_)) for a in attrs)
+        self._attr_dict = dict(self.attrs_)
         self.in_shapes_ = ArrayNode()
-        self.out_dtypes_ = ArrayNode()
+        self.in_dtypes_ = ArrayNode()
         self.out_shapes_ = ArrayNode()
+        self.out_dtypes_ = ArrayNode()
 
     def query_attr(self, name: str, *ind: int):
-        return self._query_node(self.attrs_[name], *ind)
+        return self._query_node(self._attr_dict[name], *ind)
 
     def query_shape(self, kind: TensorKind, *ind: int):
         if kind == TensorKind.input:
@@ -196,5 +237,22 @@ class ValueStore:
             arr_node = cast(ArrayNode, node)
             if not arr_node.len_solved:
                 return None
-            node = arr_node.nodes_[idx]
+            if idx >= len(arr_node.children_):
+                return None
+            node = arr_node.children_[idx]
         return node
+
+    def __str__(self):
+        buf = CodeBuffer()
+        buf.write(cls_name(self))
+        buf.write_named_multi([
+            ('attrs', lambda: buf.write_named_multi(
+                list(map(lambda p: (p[0], lambda: p[1].print(buf)), self.attrs_)),
+                prefix='[', suffix=']'
+            )),
+            ('in_shapes', lambda: self.in_shapes_.print(buf)),
+            ('in_dtypes', lambda: self.in_dtypes_.print(buf)),
+            ('out_shapes', lambda: self.out_shapes_.print(buf)),
+            ('out_dtypes', lambda: self.out_dtypes_.print(buf))
+        ])
+        return str(buf)

@@ -7,14 +7,14 @@ from .store import ValueStore, ArrayNode
 from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
     Filter, InSet, Subset
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, \
-    ForAll, Cond, GetAttr, to_expr
+    ForAll, Cond, GetAttr, Dummy, to_expr
 from ..expr.tensor import Num, Shape, Rank, GetDType, TensorKind
 from ..expr.ty import ValueType
 from ..expr.visitor import ExprVisitor
 from ..util import map_opt
 
 
-class EvalFailed(Exception):
+class EvalError(Exception):
     """
     Current expression cannot be evaluated. This exception is for early exit when evaluation is not
     feasible. It is usually not serious.
@@ -43,18 +43,18 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         v = super().visit(e, env)
         if v is None:
             # Only query from value store will produce None.
-            raise EvalFailed(e, 'Cannot query from value store.')
+            raise EvalError(e, 'Cannot query from value store.')
         return v
 
     def visit_const(self, const: Const, env: Env[ValueType]) -> ResultType:
         return const.val_
 
     def visit_var(self, var: Var, env: Env[ValueType]) -> ResultType:
-        raise EvalFailed(var, 'Variable cannot be evaluated.')
+        raise EvalError(var, 'Variable cannot be evaluated.')
 
     def visit_symbol(self, sym: Symbol, env: Env[ValueType]) -> ResultType:
         if sym not in env:
-            raise EvalFailed(sym, 'Symbol is not found in environment.')
+            raise EvalError(sym, 'Symbol is not found in environment.')
         return env[sym]
 
     def visit_range(self, ran: Range, env: Env[ValueType]) -> RangeType:
@@ -91,6 +91,9 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
     def visit_attr(self, attr: GetAttr, env: Env[ValueType]) -> ResultType:
         return self._store.query_attr(attr.name_).value
 
+    def visit_dummy(self, dum: Dummy, env: Env[ValueType]) -> ResultType:
+        raise EvalError(dum, 'Dummy expression cannot be evaluated.')
+
     def visit_num(self, num: Num, env: Env[ValueType]) -> ResultType:
         node = self._store.query_shape(num.t_kind_)
         return cast(ArrayNode, node).len_.value
@@ -108,7 +111,7 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
     def _get_tensor_shape_node(self, kind: TensorKind, idx: int, e: Expr):
         node = self._store.query_shape(kind, idx)
         if node is None:
-            raise EvalFailed(
+            raise EvalError(
                 e, f'Shape of {kind.name} tensor {idx} is undefined.'
             )
         return cast(ArrayNode, node)
@@ -118,7 +121,7 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         idx = self.visit(dtype.tensor_.idx_, env)
         node = self._store.query_dtype(kind, idx)
         if node is None:
-            raise EvalFailed(
+            raise EvalError(
                 dtype, f'Data type of {kind.name} tensor {idx} is undefined.'
             )
         return node
@@ -134,7 +137,7 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         arr = tuple(self.visit(getitem.arr_, env))
         idx = self.visit(getitem.idx_, env)
         if idx >= len(arr):
-            raise EvalFailed(getitem, 'Index out of bound.')
+            raise EvalError(getitem, 'Index out of bound.')
         return arr[idx]
 
     def visit_len(self, ln: Len, env: Env[ValueType]) -> ResultType:
@@ -244,6 +247,9 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
     def visit_attr(self, attr: GetAttr, env: Env[Expr]) -> Expr:
         return self._store.query_attr(attr.name_).expr
 
+    def visit_dummy(self, dum: Dummy, env: Env[Expr]) -> Expr:
+        return dum
+
     def visit_num(self, num: Num, env: Env[Expr]) -> Expr:
         node = self._store.query_shape(num.t_kind_)
         return cast(ArrayNode, node).len_.expr
@@ -338,7 +344,7 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
     def _try_eval(self, expr: Expr, env: Env[Expr]) -> Optional[ValueType]:
         try:
             return self._eval.visit(expr, self._cvt_env(env))
-        except EvalFailed:
+        except EvalError:
             return None
 
     def _try_fold(self, expr: Expr, env: Env[Expr], default: Callable[[], Expr]) -> Expr:
@@ -347,7 +353,7 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
             if not expr.type_.is_scalar:
                 v = tuple(v)
             return to_expr(v)
-        except EvalFailed:
+        except EvalError:
             return default()
 
     @staticmethod

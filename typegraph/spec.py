@@ -257,7 +257,6 @@ class Op:
                 f'{err.msg_}\n'
                 f'{err.name_}={err.code_}'
             )
-        print(spec)
         OpRegistry.register(self)
 
 

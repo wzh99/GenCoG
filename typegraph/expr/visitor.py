@@ -31,6 +31,7 @@ class ExprVisitor(Generic[A, R]):
             ExprKind.FORALL: self.visit_forall,
             ExprKind.COND: self.visit_cond,
             ExprKind.ATTR: self.visit_attr,
+            ExprKind.DUMMY: self.visit_dummy,
             ExprKind.NUM: self.visit_num,
             ExprKind.SHAPE: self.visit_shape,
             ExprKind.RANK: self.visit_rank,
