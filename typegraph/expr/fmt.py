@@ -9,19 +9,19 @@ from .basic import Expr, Const, Var, Range, Symbol, Env, Arith, Cmp, Not, And, O
     GetAttr, Dummy
 from .tensor import Num, TensorDesc, Shape, Rank, GetDType
 from .visitor import ExprVisitor
-from ..util import CodeBuffer, NameGenerator, cls_name, colored_text
+from ..util import CodeBuffer, NameGenerator, Ref, cls_name, colored_text
 
 
 class ExprPrinter(ExprVisitor[Env[str], Any]):
     def __init__(self, buf: CodeBuffer, highlights: t.List[Expr]):
         super().__init__()
         self._buf = buf
-        self._high_ids = set(id(e) for e in highlights)
+        self._high = set(Ref(e) for e in highlights)
         self._name_gen = NameGenerator('_s', [])
         self._color_idx = 0
 
     def visit(self, expr: Expr, env: Env[str]):
-        high = id(expr) in self._high_ids
+        high = Ref(expr) in self._high
         if high:
             self._buf.write(Back.RED + Fore.BLACK)
         super().visit(expr, env)
@@ -147,7 +147,7 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
 
     def visit_tuple(self, tup: Tuple, env: Env[str]):
         self._write_cls(tup)
-        self._write_pos(list(map(lambda f: lambda: self.visit(f, env), tup.fields_)))
+        self._write_pos_multi(list(map(lambda f: lambda: self.visit(f, env), tup.fields_)))
 
     def visit_list(self, lst: List, env: Env[str]):
         nested_env = self._gen_nested_env(env, lst.idx_)

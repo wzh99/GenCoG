@@ -1,5 +1,5 @@
 from io import StringIO
-from typing import Callable, TypeVar, Optional, List, Iterable, Tuple, cast
+from typing import Callable, TypeVar, Optional, List, Iterable, Tuple, Generic, cast
 
 from colorama import Fore
 
@@ -30,6 +30,27 @@ def unwrap_or(o: Optional[T], default: T) -> T:
 
 def filter_none(lst: List[Optional[T]]) -> List[T]:
     return list(filter(lambda e: e is not None, lst))
+
+
+# Reference
+
+class Ref(Generic[T]):
+    """
+    Wrapper for object that support equality and hashing w.r.t. its reference (id), no matter
+    whether it overrides `__eq__` and `__hash__` or not.
+    """
+
+    def __init__(self, obj: T):
+        self.obj_ = obj
+
+    def get(self):
+        return self.obj_
+
+    def __eq__(self, other: 'Ref[T]'):
+        return self.obj_ is other.obj_
+
+    def __hash__(self):
+        return hash(id(self.obj_))
 
 
 # Format
