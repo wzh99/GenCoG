@@ -10,7 +10,7 @@ def _create_reduce():
 
     return ConstraintSpec(
         attrs=[
-            Attr('axis', List(Var(), lambda _: Var(INT))),
+            Attr('axis', List(Var(), lambda _: Var(INT, tmpl=True))),
             Attr('keepdims', Var(BOOL)),
             Attr('exclude', Var(BOOL))
         ],

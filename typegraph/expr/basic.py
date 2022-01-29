@@ -203,10 +203,11 @@ class Var(Expr):
     """
     kind = ExprKind.VAR
 
-    def __init__(self, ty: Optional[Type] = None, ran: Optional[Range] = None):
+    def __init__(self, ty: Optional[Type] = None, ran: Optional[Range] = None, tmpl: bool = False):
         self.ran_ = ran
         super().__init__(filter_none([self.ran_]))
         self.type_ = ty
+        self.tmpl_ = tmpl
 
 
 class Symbol(Expr):

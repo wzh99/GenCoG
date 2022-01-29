@@ -11,8 +11,8 @@ def _create_bcast():
         in_ranks=[Var(), Var()],
         in_dtypes=[Var(), Var()],
         in_shapes=[
-            List(m, lambda _: Var()),
-            List(n, lambda _: Var())
+            List(m, lambda _: Var(tmpl=True)),
+            List(n, lambda _: Var(tmpl=True))
         ],
         extra=[
             IN[0].dtype == IN[1].dtype,

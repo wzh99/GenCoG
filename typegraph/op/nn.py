@@ -12,7 +12,7 @@ _conv2d = ConstraintSpec(
         Attr('kernel_size', [Var(INT), Var(INT)]),
         Attr('channels', Var(INT)),
         Attr('strides', [Var(INT), Var(INT)]),
-        Attr('padding', List(4, lambda _: Var(INT))),
+        Attr('padding', List(4, lambda _: Var(INT, tmpl=True))),
         Attr('dilation', [Var(INT), Var(INT)]),
         Attr('groups', Var(INT)),
     ],
