@@ -36,7 +36,8 @@ class ExprPrinter(ExprVisitor[Env[str], Any]):
     def visit_var(self, var: Var, env: Env[str]):
         self._write_cls(var)
         items: t.List[t.Tuple[str, Callable[[], None]]] = [
-            ('id', lambda: self._buf.write(hex(id(var) & self._id_mask)))
+            ('id', lambda: self._buf.write(hex(id(var) & self._id_mask))),
+            ('tmpl', lambda: self._buf.write(str(var.tmpl_))),
         ]
         if var.type_ is not None:
             items.append(('ty', lambda: self._buf.write(str(var.type_))))

@@ -43,9 +43,6 @@ class Ref(Generic[T]):
     def __init__(self, obj: T):
         self.obj_ = obj
 
-    def get(self):
-        return self.obj_
-
     def __eq__(self, other: 'Ref[T]'):
         return self.obj_ is other.obj_
 

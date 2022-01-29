@@ -195,8 +195,13 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         return const
 
     def visit_var(self, var: Var, env: Env[Expr]) -> Expr:
-        return var if env.empty else Var(
-            ty=var.type_, ran=map_opt(lambda ran: self.visit_range(ran, env), var.ran_))
+        if var.tmpl_:  # create new variable for template
+            return Var(ty=var.type_,
+                       ran=map_opt(lambda ran: self.visit_range(ran, env), var.ran_))
+        else:
+            if var.ran_ is not None:  # non-template variable must keep its original object id
+                var.ran_ = self.visit_range(var.ran_, env)
+            return var
 
     def visit_symbol(self, sym: Symbol, env: Env[Expr]) -> Expr:
         return env[sym]
@@ -336,10 +341,10 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         return self._try_fold(flt, env, lambda: flt)
 
     def visit_inset(self, inset: InSet, env: Env[Expr]) -> Expr:
-        return self._visit_sub(inset, env)
+        return inset
 
     def visit_subset(self, subset: Subset, env: Env[Expr]) -> Expr:
-        return self._visit_sub(subset, env)
+        return subset
 
     def _try_eval(self, expr: Expr, env: Env[Expr]) -> Optional[ValueType]:
         try:

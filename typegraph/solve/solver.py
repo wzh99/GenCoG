@@ -1,9 +1,10 @@
 from typing import cast
 
-from .eval import PartialEval, EvalExpr, EvalError
+from .eval import PartialEval, EvalExpr
 from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode
 from ..expr.array import Tuple
 from ..expr.basic import ExprKind, Env
+from ..expr.visitor import StructuralEq
 from ..spec import ConstraintSpec
 from ..util import Ref
 
@@ -29,6 +30,7 @@ class ConstraintSolver:
         self._store = ValueStore(spec.attrs)
         self._partial = PartialEval(self._store)
         self._eval = EvalExpr(self._store)
+        self._eq = StructuralEq()
         self._extra = set(Ref(e) for e in spec.extra)
 
         # Set input expressions
@@ -59,7 +61,7 @@ class ConstraintSolver:
     def _solve_shapes(self, root: ArrayNode) -> bool:
         # Solve number
         if not root.len_solved:
-            return self._solve_len(root)
+            return self._solve_len(root, by_elem=False)
 
         # Solve tensors
         if not root.elem_defined:
@@ -104,7 +106,7 @@ class ConstraintSolver:
             # Solve rank
             tensor = cast(ArrayNode, tensor)
             if not tensor.len_solved:
-                if self._solve_len(tensor):
+                if self._solve_len(tensor, by_elem=False):
                     changed = True
                 else:
                     continue
@@ -140,12 +142,10 @@ class ConstraintSolver:
     def _solve_scalar(self, node: ScalarNode) -> bool:
         if node.status_ != ValueStatus.DEFINED:
             return False  # undefined or solved node cannot be processes
-        try:
-            v = self._eval.visit(node.expr_, Env())
-            node.set_solved(v)
-            return True
-        except EvalError:
-            return False
+        pre = node.expr_
+        post = self._partial.visit(pre, Env())
+        node.expr_ = post
+        return not self._eq.visit(pre, post)
 
     def _solve_array(self, node: ArrayNode) -> bool:
         # Solve array length
@@ -165,13 +165,13 @@ class ConstraintSolver:
 
         return changed
 
-    def _solve_len(self, node: ArrayNode) -> bool:
+    def _solve_len(self, node: ArrayNode, by_elem: bool = True) -> bool:
         # Solve length directly
         if node.len_defined and self._solve_scalar(node.len_):
             return True
 
         # Solve length through partial evaluation of array expression
-        if node.expr_defined:
+        if node.expr_defined and by_elem:
             return self._solve_arr_elem(node)
 
         return False

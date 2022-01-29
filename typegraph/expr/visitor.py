@@ -1,10 +1,11 @@
-from typing import Generic, TypeVar, Dict, Callable, Any
+import typing as t
+from typing import Generic, TypeVar, Dict, Callable, Any, Iterable, Optional, cast
 
 from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
     InSet, Subset
 from .basic import Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, ForAll, \
     Cond, GetAttr, Dummy
-from .tensor import Num, Shape, Rank, GetDType
+from .tensor import Num, Shape, Rank, GetDType, TensorDesc
 from .ty import Type, TypeKind, BoolType, IntType, FloatType, StrType, DType, TupleType, ListType, \
     TyVar
 
@@ -163,8 +164,8 @@ class TypeVisitor(Generic[A, R]):
             TypeKind.var: self.visit_var,
         }
 
-    def visit(self, t: Type, arg: A) -> R:
-        return self._methods[t.kind](t, arg)
+    def visit(self, ty: Type, arg: A) -> R:
+        return self._methods[ty.kind](ty, arg)
 
     def visit_bool(self, b: BoolType, arg: A) -> R:
         pass
@@ -182,8 +183,8 @@ class TypeVisitor(Generic[A, R]):
         pass
 
     def visit_tuple(self, tup: TupleType, arg: A) -> R:
-        for t in tup.field_ty_:
-            self.visit(t, arg)
+        for ty in tup.field_ty_:
+            self.visit(ty, arg)
         return None
 
     def visit_list(self, lst: ListType, arg: A) -> R:
@@ -192,3 +193,160 @@ class TypeVisitor(Generic[A, R]):
 
     def visit_var(self, var: TyVar, arg: A) -> R:
         pass
+
+
+class StructuralEq(ExprVisitor[Expr, bool]):
+    """
+    Whether two expressions are structurally equal.
+    """
+
+    def visit(self, this: Expr, other: Expr) -> bool:
+        if this.kind != other.kind:
+            return False
+        return super().visit(this, other)
+
+    def visit_const(self, const: Const, other: Expr) -> bool:
+        other = cast(Const, other)
+        return const.val_ == other.val_
+
+    def visit_var(self, var: Var, other: Expr) -> bool:
+        other = cast(Var, other)
+        if var.tmpl_ != other.tmpl_:
+            return False
+        return self._cmp_opt([(var.ran_, other.ran_)])
+
+    def visit_symbol(self, sym: Symbol, other: Expr) -> bool:
+        return sym is other
+
+    def visit_range(self, ran: Range, other: Expr) -> bool:
+        other = cast(Range, other)
+        return self._cmp_opt([(ran.begin_, other.begin_), (ran.end_, other.end_)])
+
+    def visit_arith(self, arith: Arith, other: Expr) -> bool:
+        other = cast(Arith, other)
+        if arith.op_ != other.op_:
+            return False
+        return self._cmp_expr([(arith.lhs_, other.lhs_), (arith.rhs_, other.rhs_)])
+
+    def visit_cmp(self, cmp: Cmp, other: Expr) -> bool:
+        other = cast(Cmp, other)
+        if cmp.op_ != other.op_:
+            return False
+        return self._cmp_expr([(cmp.lhs_, other.lhs_), (cmp.rhs_, other.rhs_)])
+
+    def visit_not(self, n: Not, other: Expr) -> bool:
+        other = cast(Not, other)
+        return self._cmp_expr([(n.prop_, other.prop_)])
+
+    def visit_and(self, a: And, other: Expr) -> bool:
+        other = cast(And, a)
+        return self._cmp_list(a.clauses_, other.clauses_)
+
+    def visit_or(self, o: Or, other: Expr) -> bool:
+        other = cast(Or, o)
+        return self._cmp_list(o.clauses_, other.clauses_)
+
+    def visit_forall(self, forall: ForAll, other: Expr) -> bool:
+        other = cast(ForAll, other)
+        return self._cmp_expr([(forall.ran_, other.ran_), (forall.body_, other.body_)])
+
+    def visit_cond(self, cond: Cond, other: Expr) -> bool:
+        other = cast(Cond, cond)
+        return self._cmp_expr([(cond.pred_, other.pred_), (cond.tr_br_, other.tr_br_),
+                               (cond.fls_br_, other.fls_br_)])
+
+    def visit_attr(self, attr: GetAttr, other: Expr) -> bool:
+        other = cast(GetAttr, other)
+        return attr.name_ == other.name_
+
+    def visit_dummy(self, dum: Dummy, other: Expr) -> bool:
+        return True
+
+    def visit_num(self, num: Num, other: Expr) -> bool:
+        other = cast(Num, num)
+        return num.t_kind_ == other.t_kind_
+
+    def visit_shape(self, shape: Shape, other: Expr) -> bool:
+        other = cast(Shape, other)
+        return self._cmp_tensor(shape.tensor_, other.tensor_)
+
+    def visit_rank(self, rank: Rank, other: Expr) -> bool:
+        other = cast(Rank, other)
+        return self._cmp_tensor(rank.tensor_, other.tensor_)
+
+    def visit_dtype(self, dtype: GetDType, other: Expr) -> bool:
+        other = cast(GetDType, other)
+        return self._cmp_tensor(dtype.tensor_, other.tensor_)
+
+    def visit_tuple(self, tup: Tuple, other: Expr) -> bool:
+        other = cast(Tuple, tup)
+        return self._cmp_list(tup.fields_, other.fields_)
+
+    def visit_list(self, lst: List, other: Expr) -> bool:
+        other = cast(List, lst)
+        return self._cmp_expr([(lst.len_, other.len_), (lst.body_, other.type_)])
+
+    def visit_getitem(self, getitem: GetItem, other: Expr) -> bool:
+        other = cast(GetItem, other)
+        return self._cmp_expr([(getitem.arr_, other.arr_), (getitem.idx_, other.idx_)])
+
+    def visit_len(self, ln: Len, other: Expr) -> bool:
+        other = cast(Len, ln)
+        return self._cmp_expr([(ln.arr_, other.arr_)])
+
+    def visit_concat(self, concat: Concat, other: Expr) -> bool:
+        other = cast(Concat, concat)
+        return self._cmp_list(concat.arrays_, other.arrays_)
+
+    def visit_slice(self, slc: Slice, other: Expr) -> bool:
+        other = cast(Slice, other)
+        return self._cmp_expr([(slc.arr_, other.arr_), (slc.ran_, other.ran_)])
+
+    def visit_map(self, m: Map, other: Expr) -> bool:
+        other = cast(Map, other)
+        return self._cmp_expr([(m.arr_, other.arr_), (m.body_, other.body_)])
+
+    def visit_reduce_array(self, red: ReduceArray, other: Expr) -> bool:
+        other = cast(ReduceArray, other)
+        if red.op_ != other.op_:
+            return False
+        return self._cmp_expr([(red.arr_, other.arr_), (red.init_, other.init_)])
+
+    def visit_reduce_index(self, red: ReduceIndex, other: Expr) -> bool:
+        other = cast(ReduceIndex, other)
+        if red.op_ != other.op_:
+            return False
+        return self._cmp_expr([(red.ran_, other.ran_), (red.body_, other.body_),
+                               (red.init_, other.init_)])
+
+    def visit_filter(self, flt: Filter, other: Expr) -> bool:
+        other = cast(Filter, flt)
+        return self._cmp_expr([(flt.arr_, other.arr_), (flt.pred_, other.pred_)])
+
+    def visit_inset(self, inset: InSet, other: Expr) -> bool:
+        other = cast(InSet, other)
+        return self._cmp_expr([(inset.elem_, other.elem_), (inset.set_, other.set_)])
+
+    def visit_subset(self, subset: Subset, other: Expr) -> bool:
+        other = cast(Subset, subset)
+        return self._cmp_expr([(subset.sub_, other.sub_), (subset.sup_, other.sup_)])
+
+    def _cmp_opt(self, pairs: Iterable[t.Tuple[Optional[Expr], Optional[Expr]]]):
+        real_pairs: t.List[t.Tuple[Expr, Expr]] = []
+        for this, other in pairs:
+            if (this is not None and other is None) or (this is None and other is not None):
+                return False
+            if (this is not None) and (other is not None):
+                real_pairs.append((this, other))
+        return self._cmp_expr(real_pairs)
+
+    def _cmp_list(self, this: t.List[Expr], other: t.List[Expr]):
+        if len(this) != len(other):
+            return False
+        return self._cmp_expr(zip(this, other))
+
+    def _cmp_expr(self, pairs: Iterable[t.Tuple[Expr, Expr]]):
+        return all(map(lambda p: self.visit(p[0], p[1]), pairs))
+
+    def _cmp_tensor(self, this: TensorDesc, other: TensorDesc):
+        return this.kind_ == other.kind_ and self.visit(this.idx_, other.idx_)
