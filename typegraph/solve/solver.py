@@ -3,7 +3,7 @@ from typing import cast
 from .eval import PartialEval, EvalExpr, EvalError
 from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode
 from ..expr.array import Tuple
-from ..expr.basic import ExprKind, Env
+from ..expr.basic import ExprKind
 from ..expr.visitor import CopyExpr
 from ..spec import ConstraintSpec
 from ..util import Ref
@@ -35,12 +35,13 @@ class ConstraintSolver:
         cp = CopyExpr()
         self._in_ranks = cp.copy(spec.in_ranks)
         self._extra = set(Ref(cp.copy(e)) for e in spec.extra)
-        in_shapes = self._store.in_shapes_
-        in_shapes.set_len_defined(cp.copy(spec.in_num))
-        in_shapes.set_expr_defined(cp.copy(spec.in_shapes))
-        in_dtypes = self._store.in_dtypes_
-        in_dtypes.set_len_defined(cp.copy(spec.in_num))
-        in_dtypes.set_expr_defined(cp.copy(spec.in_dtypes))
+        shape_root = self._store.in_shapes_
+        in_num = cp.copy(spec.in_num)
+        shape_root.set_len_defined(in_num)
+        shape_root.set_expr_defined(cp.copy(spec.in_shapes))
+        dtype_root = self._store.in_dtypes_
+        dtype_root.set_len_defined(in_num)
+        dtype_root.set_expr_defined(cp.copy(spec.in_dtypes))
 
     def solve(self):
         # Solve attributes and inputs
@@ -56,6 +57,7 @@ class ConstraintSolver:
 
         # Solve inputs
         changed |= self._solve_shapes(self._store.in_shapes_)
+        changed |= self._solve_dtypes(self._store.in_dtypes_)
         print(self._store)
         return changed
 
@@ -67,7 +69,7 @@ class ConstraintSolver:
         # Solve tensors
         if not root.elem_defined:
             # Partially evaluate ranks
-            ranks = self._partial.visit(self._in_ranks, Env())
+            ranks = self._partial.transform(self._in_ranks)
             if ranks.kind != ExprKind.TUPLE:
                 return False
             ranks = cast(Tuple, ranks)
@@ -84,7 +86,7 @@ class ConstraintSolver:
                 tensor.set_len_defined(rank)
 
             # Partially evaluate shapes
-            shapes = self._partial.visit(root.expr_, Env())
+            shapes = self._partial.transform(root.expr_)
             if shapes.kind != ExprKind.TUPLE:
                 return False
             shapes = cast(Tuple, shapes)
@@ -114,7 +116,7 @@ class ConstraintSolver:
 
             # Partially evaluate dimensions
             if not tensor.elem_defined:
-                shape = self._partial.visit(tensor.expr_, Env())
+                shape = self._partial.transform(tensor.expr_)
                 if shape.kind != ExprKind.TUPLE:
                     continue
                 shape = cast(Tuple, shape)
@@ -131,6 +133,38 @@ class ConstraintSolver:
             # Solve dimensions
             for dim in tensor.children_:
                 changed |= self._solve_scalar(cast(ScalarNode, dim))
+
+        return changed
+
+    def _solve_dtypes(self, root: ArrayNode) -> bool:
+        # Solve number
+        if not root.len_solved:
+            self._solve_len(root, by_elem=False)
+
+        # Solve tensors
+        if not root.elem_defined:
+            # Partially evaluate data types
+            dtypes = self._partial.transform(root.expr_)
+            if dtypes.kind != ExprKind.TUPLE:
+                return False
+            dtypes = cast(Tuple, dtypes)
+            if root.len_.value != len(dtypes.fields_):
+                raise SolveError(
+                    self,
+                    f'Length of input rank array {len(dtypes.fields_)} is not consistent with '
+                    f'input number {root.len_.value}. '
+                )
+
+            # Define data type for each tensor
+            for tensor, dtype in zip(root.children_, dtypes):
+                tensor.set_defined(dtype)
+
+            return True
+
+        # Solve data types
+        changed = False
+        for dtype in root.children_:
+            changed |= self._solve_scalar(cast(ScalarNode, dtype))
 
         return changed
 
@@ -180,7 +214,7 @@ class ConstraintSolver:
         return False
 
     def _solve_arr_elem(self, node: ArrayNode) -> bool:
-        tup = self._partial.visit(node.expr_, Env())
+        tup = self._partial.transform(node.expr_)
         if tup.kind != ExprKind.TUPLE:
             return False
         node.set_elem_defined(cast(Tuple, tup))

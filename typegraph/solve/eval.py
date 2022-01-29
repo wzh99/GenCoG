@@ -127,7 +127,7 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
             raise EvalError(
                 dtype, f'Data type of {kind.name} tensor {idx} is undefined.'
             )
-        return node
+        return node.value
 
     def visit_tuple(self, tup: Tuple, env: Env[ValueType]) -> ResultType:
         return (self.visit(f, env) for f in tup.fields_)
@@ -189,6 +189,9 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         super().__init__()
         self._store = store
         self._eval = EvalExpr(self._store)
+
+    def transform(self, e: Expr) -> Expr:
+        return self.visit(e, Env())
 
     def visit(self, pre: Expr, env: Env[Expr]) -> Expr:
         post = cast(Expr, super().visit(pre, env))
