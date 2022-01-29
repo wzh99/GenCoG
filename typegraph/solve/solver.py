@@ -1,10 +1,11 @@
-from typing import cast
+from typing import Dict, cast
 
 from .eval import PartialEval, EvalExpr, EvalError
 from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode
 from ..expr.array import Tuple
 from ..expr.basic import ExprKind
 from ..expr.visitor import CopyExpr
+from ..expr.ty import TensorType
 from ..spec import ConstraintSpec
 from ..util import Ref
 
@@ -24,10 +25,11 @@ class ConstraintSolver:
     Solver of constraint specification.
     """
 
-    def __init__(self, spec: ConstraintSpec):
+    def __init__(self, spec: ConstraintSpec, known: Dict[int, TensorType]):
         # Initialize value store and expression visitors
         self._spec = spec
         self._store = ValueStore(spec.attrs)
+        self._known = known
         self._partial = PartialEval(self._store)
         self._eval = EvalExpr(self._store)
 
@@ -105,11 +107,14 @@ class ConstraintSolver:
 
         # Solve shapes
         changed = False
-        for idx, tensor in enumerate(root.children_):
+        for t_idx, tensor in enumerate(root.children_):
             # Solve rank
             tensor = cast(ArrayNode, tensor)
             if not tensor.len_solved:
-                if self._solve_len(tensor, by_elem=False):
+                if t_idx in self._known:
+                    tensor.set_len_defined(self._known[t_idx].rank)
+                    changed = True
+                elif self._solve_len(tensor, by_elem=False):
                     changed = True
                 else:
                     continue
@@ -123,7 +128,7 @@ class ConstraintSolver:
                 if tensor.len_.value != len(shape.fields_):
                     raise SolveError(
                         self,
-                        f'Length of input shape {len(shape.fields_)} for tensor {idx} is not '
+                        f'Length of input shape {len(shape.fields_)} for tensor {t_idx} is not '
                         f'consistent with rank {tensor.len_.value}. '
                     )
                 for dim, expr in zip(tensor.children_, shape.fields_):
@@ -131,7 +136,19 @@ class ConstraintSolver:
                 changed = True
 
             # Solve dimensions
-            for dim in tensor.children_:
+            for d_idx, dim in enumerate(tensor.children_):
+                dim = cast(ScalarNode, dim)
+                if dim.solved:
+                    continue
+                if t_idx in self._known:
+                    known_shape = self._known[t_idx].shape_
+                    if d_idx >= len(known_shape):
+                        raise SolveError(
+                            self,
+                            f'Expect dimension {d_idx} from tensor {t_idx}, got only '
+                            f'{len(known_shape)} dimensions.'
+                        )
+                    dim.set_solved(known_shape[d_idx])
                 changed |= self._solve_scalar(cast(ScalarNode, dim))
 
         return changed
@@ -163,8 +180,14 @@ class ConstraintSolver:
 
         # Solve data types
         changed = False
-        for dtype in root.children_:
-            changed |= self._solve_scalar(cast(ScalarNode, dtype))
+        for t_idx, dtype in enumerate(root.children_):
+            dtype = cast(ScalarNode, dtype)
+            if dtype.solved:
+                continue
+            elif t_idx in self._known:
+                dtype.set_solved(self._known[t_idx].dtype_)
+            else:
+                changed |= self._solve_scalar(cast(ScalarNode, dtype))
 
         return changed
 

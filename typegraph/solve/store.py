@@ -23,6 +23,12 @@ class ValueStatus(IntEnum):
     SOLVED = auto()  # Exact value is worked out.
 
 
+class StoreError(Exception):
+    def __init__(self, store: 'StoreNode', msg: str):
+        self.store_ = store
+        self.msg_ = msg
+
+
 class StoreNode:
     """
     Node in a value store.
@@ -73,11 +79,21 @@ class ScalarNode(StoreNode):
     def defined(self) -> bool:
         return self.status_ != ValueStatus.UNDEFINED
 
+    @property
+    def solved(self):
+        return self.status_ == ValueStatus.SOLVED
+
     def set_defined(self, expr: Expr):
         self.status_ = ValueStatus.DEFINED
         self.expr_ = expr
 
     def set_solved(self, value: ValueType):
+        if self.solved and value != self.value_:
+            raise StoreError(
+                self,
+                f'Newly provided value {value} is not consistent with last solved value '
+                f'{self.value_}.'
+            )
         self.status_ = ValueStatus.SOLVED
         self.value_ = value
 

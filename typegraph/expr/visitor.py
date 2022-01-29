@@ -1,14 +1,13 @@
 import typing as t
 from typing import Generic, TypeVar, Dict, Callable, Any, Iterable, Optional, cast
 
-from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
-    InSet, Subset
+from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
+    Filter, InSet, Subset
 from .basic import Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, ForAll, \
     Cond, GetAttr, Dummy, Env
 from .tensor import Num, Shape, Rank, GetDType, TensorDesc
 from .ty import Type, TypeKind, BoolType, IntType, FloatType, StrType, DType, TupleType, ListType, \
     TyVar
-
 from ..util import map_opt
 
 A = TypeVar('A')
@@ -143,10 +142,9 @@ class ExprVisitor(Generic[A, R]):
     def visit_subset(self, subset: Subset, arg: A) -> R:
         return self._visit_sub(subset, arg)
 
-    def _visit_sub(self, expr: Expr, arg: A) -> R:
+    def _visit_sub(self, expr: Expr, arg: A):
         for s in expr.sub_expr_:
             self.visit(s, arg)
-        return R()
 
 
 class TypeVisitor(Generic[A, R]):
