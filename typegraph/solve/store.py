@@ -1,5 +1,5 @@
 from enum import IntEnum, auto
-from typing import Optional, List, cast
+from typing import Optional, List, TypeVar, Generic, Callable, Dict, Any, cast
 
 from ..expr import Expr, Const
 from ..expr.array import Tuple
@@ -93,15 +93,6 @@ class ScalarNode(StoreNode):
     @property
     def value(self) -> Optional[ValueType]:
         return self.value_
-
-    def print(self, buf: CodeBuffer):
-        buf.write(cls_name(self))
-        items = [('status', lambda: buf.write(self.status_.name))]
-        if self.expr_ is not None:
-            items.append(('expr', lambda: print_expr(self.expr_, buf, [])))
-        if self.value_ is not None:
-            items.append(('value', lambda: buf.write(str(self.value_))))
-        buf.write_named_multi(items)
 
 
 class ArrayNode(StoreNode):
@@ -245,16 +236,62 @@ class ValueStore:
         return node
 
     def __str__(self):
+        printer = StorePrinter()
         buf = CodeBuffer()
         buf.write(cls_name(self))
         buf.write_named_multi([
             ('attrs', lambda: buf.write_named_multi(
-                list(map(lambda p: (p[0], lambda: p[1].print(buf)), self.attrs_)),
+                list(map(lambda p: (p[0], lambda: printer.visit(p[1], buf)), self.attrs_)),
                 prefix='[', suffix=']'
             )),
-            ('in_shapes', lambda: self.in_shapes_.print(buf)),
-            ('in_dtypes', lambda: self.in_dtypes_.print(buf)),
-            ('out_shapes', lambda: self.out_shapes_.print(buf)),
-            ('out_dtypes', lambda: self.out_dtypes_.print(buf))
+            ('in_shapes', lambda: printer.visit(self.in_shapes_, buf)),
+            ('in_dtypes', lambda: printer.visit(self.in_dtypes_, buf)),
+            ('out_shapes', lambda: printer.visit(self.out_shapes_, buf)),
+            ('out_dtypes', lambda: printer.visit(self.out_dtypes_, buf))
         ])
         return str(buf)
+
+
+A = TypeVar('A')
+R = TypeVar('R')
+
+
+class StoreVisitor(Generic[A, R]):
+    def __init__(self):
+        self._methods: Dict[NodeKind, Callable[[Any, A], R]] = {
+            NodeKind.SCALAR: self.visit_scalar,
+            NodeKind.ARRAY: self.visit_array,
+        }
+
+    def visit(self, node: StoreNode, arg: A) -> R:
+        return self._methods[node.kind](node, arg)
+
+    def visit_scalar(self, node: ScalarNode, arg: A) -> R:
+        pass
+
+    def visit_array(self, node: ArrayNode, arg: A) -> R:
+        pass
+
+
+class StorePrinter(StoreVisitor[CodeBuffer, None]):
+    def visit_scalar(self, node: ScalarNode, buf: CodeBuffer):
+        buf.write(cls_name(node))
+        items = [('status', lambda: buf.write(node.status_.name))]
+        if node.expr_ is not None:
+            items.append(('expr', lambda: print_expr(node.expr_, buf, [])))
+        if node.value_ is not None:
+            items.append(('value', lambda: buf.write(str(node.value_))))
+        buf.write_named_multi(items)
+
+    def visit_array(self, node: ArrayNode, buf: CodeBuffer):
+        buf.write(cls_name(node))
+        items = [('len', lambda: self.visit(node.len_, buf))]
+        if node.expr_ is not None:
+            items.append(('expr', lambda: print_expr(node.expr_, buf, [])))
+        items.append(
+            ('children', lambda: buf.write_pos_multi(
+                list(map(lambda n: lambda: self.visit(n, buf), node.children_)),
+                prefix='[', suffix=']'
+            ))
+        )
+        buf.write_named_multi(items)
