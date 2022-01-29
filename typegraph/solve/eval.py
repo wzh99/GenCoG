@@ -39,6 +39,9 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         super().__init__()
         self._store = store
 
+    def evaluate(self, e: Expr):
+        return self.visit(e, Env())
+
     def visit(self, e: Expr, env: Env[ValueType]) -> ResultType:
         v = super().visit(e, env)
         if v is None:

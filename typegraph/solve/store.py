@@ -4,6 +4,7 @@ from typing import Optional, List, cast
 from ..expr import Expr, Const
 from ..expr.array import Tuple
 from ..expr.basic import ExprKind, Dummy
+from ..expr.visitor import CopyExpr
 from ..expr.tensor import TensorKind
 from ..expr.ty import Type, ValueType
 from ..expr.fmt import print_expr
@@ -195,7 +196,8 @@ class ValueStore:
     """
 
     def __init__(self, attrs: List[Attr]):
-        self.attrs_ = list((a.name_, StoreNode.create_defined(a.expr_)) for a in attrs)
+        cp = CopyExpr()
+        self.attrs_ = list((a.name_, StoreNode.create_defined(cp.copy(a.expr_))) for a in attrs)
         self._attr_dict = dict(self.attrs_)
         self.in_shapes_ = ArrayNode()
         self.in_dtypes_ = ArrayNode()

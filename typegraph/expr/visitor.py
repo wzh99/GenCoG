@@ -4,10 +4,12 @@ from typing import Generic, TypeVar, Dict, Callable, Any, Iterable, Optional, ca
 from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
     InSet, Subset
 from .basic import Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, ForAll, \
-    Cond, GetAttr, Dummy
+    Cond, GetAttr, Dummy, Env
 from .tensor import Num, Shape, Rank, GetDType, TensorDesc
 from .ty import Type, TypeKind, BoolType, IntType, FloatType, StrType, DType, TupleType, ListType, \
     TyVar
+
+from ..util import map_opt
 
 A = TypeVar('A')
 R = TypeVar('R')
@@ -141,10 +143,10 @@ class ExprVisitor(Generic[A, R]):
     def visit_subset(self, subset: Subset, arg: A) -> R:
         return self._visit_sub(subset, arg)
 
-    def _visit_sub(self, expr: Expr, arg: A):
+    def _visit_sub(self, expr: Expr, arg: A) -> R:
         for s in expr.sub_expr_:
             self.visit(s, arg)
-        return None
+        return R()
 
 
 class TypeVisitor(Generic[A, R]):
@@ -350,3 +352,117 @@ class StructuralEq(ExprVisitor[Expr, bool]):
 
     def _cmp_tensor(self, this: TensorDesc, other: TensorDesc):
         return this.kind_ == other.kind_ and self.visit(this.idx_, other.idx_)
+
+
+class CopyExpr(ExprVisitor[Env[Symbol], Expr]):
+    def copy(self, expr: Expr):
+        return self.visit(expr, Env())
+
+    def visit_const(self, const: Const, env: Env[Symbol]) -> Expr:
+        return Const(const.val_)
+
+    def visit_var(self, var: Var, env: Env[Symbol]) -> Expr:
+        return Var(ty=var.type_, ran=map_opt(lambda ran: self.visit(ran, env), var.ran_),
+                   tmpl=var.tmpl_)
+
+    def visit_symbol(self, sym: Symbol, env: Env[Symbol]) -> Expr:
+        return env[sym]
+
+    def visit_range(self, ran: Range, env: Env[Symbol]) -> Range:
+        return Range(begin=map_opt(lambda beg: self.visit(beg, env), ran.begin_),
+                     end=map_opt(lambda end: self.visit(end, env), ran.end_),
+                     ty=ran.type_)
+
+    def visit_arith(self, arith: Arith, env: Env[Symbol]) -> Expr:
+        return Arith(arith.op_, self.visit(arith.lhs_, env), self.visit(arith.rhs_, env),
+                     ty=arith.type_)
+
+    def visit_cmp(self, cmp: Cmp, env: Env[Symbol]) -> Expr:
+        return Cmp(cmp.op_, self.visit(cmp.lhs_, env), self.visit(cmp.rhs_, env))
+
+    def visit_not(self, n: Not, env: Env[Symbol]) -> Expr:
+        return Not(self.visit(n.prop_, env))
+
+    def visit_and(self, a: And, env: Env[Symbol]) -> Expr:
+        return And(*(self.visit(c, env) for c in a.clauses_))
+
+    def visit_or(self, o: Or, env: Env[Symbol]) -> Expr:
+        return Or(*(self.visit(c, env) for c in o.clauses_))
+
+    def visit_forall(self, forall: ForAll, env: Env[Symbol]) -> Expr:
+        idx = Symbol()
+        return ForAll(ran=self.visit_range(forall.ran_, env), idx=idx,
+                      body=self.visit(forall.body_, env + (forall.idx_, idx)))
+
+    def visit_cond(self, cond: Cond, env: Env[Symbol]) -> Expr:
+        return Cond(self.visit(cond.pred_, env), self.visit(cond.tr_br_, env),
+                    self.visit(cond.fls_br_, env), ty=cond.type_)
+
+    def visit_attr(self, attr: GetAttr, env: Env[Symbol]) -> Expr:
+        return GetAttr(attr.name_, ty=attr.type_)
+
+    def visit_dummy(self, dum: Dummy, env: Env[Symbol]) -> Expr:
+        return Dummy()
+
+    def visit_num(self, num: Num, env: Env[Symbol]) -> Expr:
+        return Num(num.t_kind_)
+
+    def visit_shape(self, shape: Shape, env: Env[Symbol]) -> Expr:
+        return Shape(self._cp_tensor(shape.tensor_, env))
+
+    def visit_rank(self, rank: Rank, env: Env[Symbol]) -> Expr:
+        return Rank(self._cp_tensor(rank.tensor_, env))
+
+    def visit_dtype(self, dtype: GetDType, env: Env[Symbol]) -> Expr:
+        return GetDType(self._cp_tensor(dtype.tensor_, env))
+
+    def _cp_tensor(self, tensor: TensorDesc, env: Env[Symbol]):
+        return TensorDesc(tensor.kind_, self.visit(tensor.idx_, env))
+
+    def visit_tuple(self, tup: Tuple, env: Env[Symbol]) -> Expr:
+        return Tuple(*(self.visit(e, env) for e in tup.fields_), ty=tup.type_)
+
+    def visit_list(self, lst: List, env: Env[Symbol]) -> Expr:
+        idx = Symbol()
+        return List(self.visit(lst.len_, env), idx=idx,
+                    body=self.visit(lst.body_, env + (lst.idx_, idx)), ty=lst.type_)
+
+    def visit_getitem(self, getitem: GetItem, env: Env[Symbol]) -> Expr:
+        return GetItem(self.visit(getitem.arr_, env), self.visit(getitem.idx_, env),
+                       ty=getitem.type_)
+
+    def visit_len(self, ln: Len, env: Env[Symbol]) -> Expr:
+        return Len(self.visit(ln.arr_, env))
+
+    def visit_concat(self, concat: Concat, env: Env[Symbol]) -> Expr:
+        return Concat(*(self.visit(arr, env) for arr in concat.arrays_), ty=concat.type_)
+
+    def visit_slice(self, slc: Slice, env: Env[Symbol]) -> Expr:
+        return Slice(self.visit(slc.arr_, env), self.visit_range(slc.ran_, env), ty=slc.type_)
+
+    def visit_map(self, m: Map, env: Env[Symbol]) -> Expr:
+        sym = Symbol()
+        return Map(self.visit(m.arr_, env), sym=sym, body=self.visit(m.body_, env + (m.sym_, sym)),
+                   ty=m.type_)
+
+    def visit_reduce_array(self, red: ReduceArray, env: Env[Symbol]) -> Expr:
+        return ReduceArray(self.visit(red.arr_, env), red.op_, self.visit(red.init_, env),
+                           ty=red.type_)
+
+    def visit_reduce_index(self, red: ReduceIndex, env: Env[Symbol]) -> Expr:
+        idx = Symbol()
+        return ReduceIndex(
+            self.visit_range(red.ran_, env), red.op_, self.visit(red.init_, env), idx=idx,
+            body=self.visit(red.body_, env + (red.idx_, idx)), ty=red.type_
+        )
+
+    def visit_filter(self, flt: Filter, env: Env[Symbol]) -> Expr:
+        sym = Symbol()
+        return Filter(self.visit(flt.arr_, env), sym=sym,
+                      pred=self.visit(flt.pred_, env + (flt.sym_, sym)), ty=flt.type_)
+
+    def visit_inset(self, inset: InSet, env: Env[Symbol]) -> Expr:
+        return InSet(self.visit(inset.elem_, env), self.visit(inset.set_, env))
+
+    def visit_subset(self, subset: Subset, env: Env[Symbol]) -> Expr:
+        return Subset(self.visit(subset.sub_, env), self.visit(subset.sup_, env))

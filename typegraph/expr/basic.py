@@ -427,11 +427,17 @@ class ForAll(Expr):
     """
     kind = ExprKind.FORALL
 
-    def __init__(self, ran: Range, body_f: Callable[[Symbol], ExprLike]):
+    def __init__(self, ran: Range, body_f: Optional[Callable[[Symbol], ExprLike]] = None,
+                 idx: Optional[Symbol] = None, body: Optional[Expr] = None):
         ran.require_both()
         self.ran_ = ran
-        self.idx_ = Symbol()
-        self.body_ = to_expr(body_f(self.idx_))
+        if body_f is not None:
+            self.idx_ = Symbol()
+            self.body_ = to_expr(body_f(self.idx_))
+        else:
+            assert idx is not None and body is not None
+            self.idx_ = idx
+            self.body_ = body
         super().__init__([self.ran_, self.idx_, self.body_], ty=BOOL)
 
 

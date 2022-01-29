@@ -1,10 +1,10 @@
 from typing import cast
 
-from .eval import PartialEval, EvalExpr
+from .eval import PartialEval, EvalExpr, EvalError
 from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode
 from ..expr.array import Tuple
 from ..expr.basic import ExprKind, Env
-from ..expr.visitor import StructuralEq
+from ..expr.visitor import CopyExpr
 from ..spec import ConstraintSpec
 from ..util import Ref
 
@@ -25,21 +25,22 @@ class ConstraintSolver:
     """
 
     def __init__(self, spec: ConstraintSpec):
-        # Initialize fields
+        # Initialize value store and expression visitors
         self._spec = spec
         self._store = ValueStore(spec.attrs)
         self._partial = PartialEval(self._store)
         self._eval = EvalExpr(self._store)
-        self._eq = StructuralEq()
-        self._extra = set(Ref(e) for e in spec.extra)
 
-        # Set input expressions
+        # Copy expressions to avoid polluting original specification
+        cp = CopyExpr()
+        self._in_ranks = cp.copy(spec.in_ranks)
+        self._extra = set(Ref(cp.copy(e)) for e in spec.extra)
         in_shapes = self._store.in_shapes_
-        in_shapes.set_len_defined(spec.in_num)
-        in_shapes.set_expr_defined(spec.in_shapes)
+        in_shapes.set_len_defined(cp.copy(spec.in_num))
+        in_shapes.set_expr_defined(cp.copy(spec.in_shapes))
         in_dtypes = self._store.in_dtypes_
-        in_dtypes.set_len_defined(spec.in_num)
-        in_dtypes.set_expr_defined(spec.in_dtypes)
+        in_dtypes.set_len_defined(cp.copy(spec.in_num))
+        in_dtypes.set_expr_defined(cp.copy(spec.in_dtypes))
 
     def solve(self):
         # Solve attributes and inputs
@@ -66,7 +67,7 @@ class ConstraintSolver:
         # Solve tensors
         if not root.elem_defined:
             # Partially evaluate ranks
-            ranks = self._partial.visit(self._spec.in_ranks, Env())
+            ranks = self._partial.visit(self._in_ranks, Env())
             if ranks.kind != ExprKind.TUPLE:
                 return False
             ranks = cast(Tuple, ranks)
@@ -142,10 +143,12 @@ class ConstraintSolver:
     def _solve_scalar(self, node: ScalarNode) -> bool:
         if node.status_ != ValueStatus.DEFINED:
             return False  # undefined or solved node cannot be processes
-        pre = node.expr_
-        post = self._partial.visit(pre, Env())
-        node.expr_ = post
-        return not self._eq.visit(pre, post)
+        try:
+            v = self._eval.evaluate(node.expr_)
+            node.set_solved(v)
+            return True
+        except EvalError:
+            return False
 
     def _solve_array(self, node: ArrayNode) -> bool:
         # Solve array length

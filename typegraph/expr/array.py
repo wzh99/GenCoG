@@ -21,11 +21,17 @@ class List(Expr):
     """
     kind = ExprKind.LIST
 
-    def __init__(self, length: ExprLike, body_f: Callable[[Symbol], ExprLike],
+    def __init__(self, length: ExprLike, body_f: Optional[Callable[[Symbol], ExprLike]] = None,
+                 idx: Optional[Symbol] = None, body: Optional[Expr] = None,
                  ty: Optional[Type] = None):
         self.len_ = to_expr(length)
-        self.idx_ = Symbol()
-        self.body_ = to_expr(body_f(self.idx_))
+        if body_f is not None:
+            self.idx_ = Symbol()
+            self.body_ = to_expr(body_f(self.idx_))
+        else:
+            assert idx is not None and body is not None
+            self.idx_ = idx
+            self.body_ = body
         super().__init__([self.len_, self.idx_, self.body_], ty=ty)
 
 
@@ -86,10 +92,17 @@ class Map(Expr):
     """
     kind = ExprKind.MAP
 
-    def __init__(self, arr: ExprLike, f: Callable[[Symbol], ExprLike], ty: Optional[Type] = None):
+    def __init__(self, arr: ExprLike, body_f: Optional[Callable[[Symbol], ExprLike]] = None,
+                 sym: Optional[Symbol] = None, body: Optional[Expr] = None,
+                 ty: Optional[Type] = None):
         self.arr_ = to_expr(arr)
-        self.sym_ = Symbol()
-        self.body_ = to_expr(f(self.sym_))
+        if body_f is not None:
+            self.sym_ = Symbol()
+            self.body_ = to_expr(body_f(self.sym_))
+        else:
+            assert sym is not None and body is not None
+            self.sym_ = sym
+            self.body_ = body
         super().__init__([self.arr_, self.sym_, self.body_], ty=ty)
 
 
@@ -124,8 +137,10 @@ class ReduceIndex(Expr):
     """
     kind = ExprKind.REDUCE_INDEX
 
-    def __init__(self, ran: Range, op: ArithOp, body_f: Callable[[Symbol], ExprLike],
-                 init: ExprLike, ty: Optional[Type] = None):
+    def __init__(self, ran: Range, op: ArithOp, init: ExprLike,
+                 body_f: Optional[Callable[[Symbol], ExprLike]] = None,
+                 idx: Optional[Symbol] = None, body: Optional[Expr] = None,
+                 ty: Optional[Type] = None):
         ran.require_both()
         self.ran_ = ran
         if op not in REDUCE_OPS:
@@ -133,9 +148,14 @@ class ReduceIndex(Expr):
                 f'Operator {op} cannot be used for reduction.'
             )
         self.op_ = op
-        self.idx_ = Symbol()
-        self.body_ = to_expr(body_f(self.idx_))
         self.init_ = to_expr(init)
+        if body_f is not None:
+            self.idx_ = Symbol()
+            self.body_ = to_expr(body_f(self.idx_))
+        else:
+            assert idx is not None and body is not None
+            self.idx_ = idx
+            self.body_ = body
         super().__init__([self.idx_, self.body_, self.init_], ty=ty)
 
 
@@ -145,11 +165,17 @@ class Filter(Expr):
     """
     kind = ExprKind.FILTER
 
-    def __init__(self, arr: ExprLike, pred_f: Callable[[Symbol], ExprLike],
+    def __init__(self, arr: ExprLike, pred_f: Optional[Callable[[Symbol], ExprLike]] = None,
+                 sym: Optional[Symbol] = None, pred: Optional[Expr] = None,
                  ty: Optional[Type] = None):
         self.arr_ = to_expr(arr)
-        self.sym_ = Symbol()
-        self.pred_ = to_expr(pred_f(self.sym_))
+        if pred_f is not None:
+            self.sym_ = Symbol()
+            self.pred_ = to_expr(pred_f(self.sym_))
+        else:
+            assert sym is not None and pred is not None
+            self.sym_ = sym
+            self.pred_ = pred
         super().__init__([self.arr_, self.sym_, self.pred_], ty=ty)
 
 
