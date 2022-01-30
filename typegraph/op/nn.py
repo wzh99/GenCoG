@@ -18,7 +18,7 @@ _conv2d = ConstraintSpec(
     ],
     in_num=2,
     in_ranks=[4, 4],
-    in_dtypes=[Var(), IN[0].dtype],
+    in_dtypes=List(2, lambda _: Var()),
     in_shapes=[
         [Var(), Var(), Var(), Var()],  # NCHW
         Concat([a('channels'), IN[0].shape[1] // a('groups')], a('kernel_size'))  # OIHW

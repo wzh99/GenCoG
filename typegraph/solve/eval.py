@@ -53,7 +53,10 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         return const.val_
 
     def visit_var(self, var: Var, env: Env[ValueType]) -> ResultType:
-        raise EvalError(var, 'Variable cannot be evaluated.')
+        v = self._store.query_var(var)
+        if v is None:
+            raise EvalError(var, 'Variable not solved before.')
+        return v
 
     def visit_symbol(self, sym: Symbol, env: Env[ValueType]) -> ResultType:
         if sym not in env:

@@ -156,7 +156,7 @@ class ConstraintSolver:
     def _solve_dtypes(self, root: ArrayNode) -> bool:
         # Solve number
         if not root.len_solved:
-            self._solve_len(root, by_elem=False)
+            return self._solve_len(root, by_elem=False)
 
         # Solve tensors
         if not root.elem_defined:
@@ -165,6 +165,7 @@ class ConstraintSolver:
             if dtypes.kind != ExprKind.TUPLE:
                 return False
             dtypes = cast(Tuple, dtypes)
+            root.set_elem_defined(dtypes)
             if root.len_.value != len(dtypes.fields_):
                 raise SolveError(
                     self,
@@ -173,7 +174,7 @@ class ConstraintSolver:
                 )
 
             # Define data type for each tensor
-            for tensor, dtype in zip(root.children_, dtypes):
+            for tensor, dtype in zip(root.children_, dtypes.fields_):
                 tensor.set_defined(dtype)
 
             return True
@@ -228,6 +229,7 @@ class ConstraintSolver:
     def _solve_len(self, node: ArrayNode, by_elem: bool = True) -> bool:
         # Solve length directly
         if node.len_defined and self._solve_scalar(node.len_):
+            node.set_len_solved(node.len_.value)
             return True
 
         # Solve length through partial evaluation of array expression

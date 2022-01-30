@@ -3,13 +3,13 @@ from typing import Optional, List, TypeVar, Generic, Callable, Dict, Any, cast
 
 from ..expr import Expr, Const
 from ..expr.array import Tuple
-from ..expr.basic import ExprKind, Dummy
+from ..expr.basic import ExprKind, Var, Dummy
 from ..expr.visitor import CopyExpr
 from ..expr.tensor import TensorKind
 from ..expr.ty import Type, ValueType
 from ..expr.fmt import print_expr
 from ..spec import Attr
-from ..util import CodeBuffer, cls_name
+from ..util import CodeBuffer, Ref, cls_name
 
 
 class NodeKind(IntEnum):
@@ -24,8 +24,9 @@ class ValueStatus(IntEnum):
 
 
 class StoreError(Exception):
-    def __init__(self, store: 'StoreNode', msg: str):
+    def __init__(self, store: 'ValueStore', node: Optional['StoreNode'], msg: str, ):
         self.store_ = store
+        self.node_ = node
         self.msg_ = msg
 
 
@@ -35,13 +36,17 @@ class StoreNode:
     """
     kind: NodeKind
 
-    @staticmethod
-    def create_undefined(ty: Type) -> 'StoreNode':
-        return ScalarNode() if ty.is_scalar else ArrayNode()
+    def __init__(self, store: 'ValueStore'):
+        self.store_ = store
 
     @staticmethod
-    def create_defined(expr: Expr) -> 'StoreNode':
-        return ScalarNode(expr=expr) if expr.type_.is_scalar else ArrayNode(expr=expr)
+    def create_undefined(store: 'ValueStore', ty: Type) -> 'StoreNode':
+        return ScalarNode(store) if ty.is_scalar else ArrayNode(store)
+
+    @staticmethod
+    def create_defined(store: 'ValueStore', expr: Expr) -> 'StoreNode':
+        return ScalarNode(store, expr=expr) if expr.type_.is_scalar \
+            else ArrayNode(store, expr=expr)
 
     @property
     def defined(self) -> bool:
@@ -58,9 +63,6 @@ class StoreNode:
     def value(self) -> Optional[ValueType]:
         raise NotImplemented
 
-    def print(self, buf: CodeBuffer):
-        raise NotImplemented
-
 
 class ScalarNode(StoreNode):
     """
@@ -68,7 +70,8 @@ class ScalarNode(StoreNode):
     """
     kind = NodeKind.SCALAR
 
-    def __init__(self, expr: Optional[Expr] = None):
+    def __init__(self, store: 'ValueStore', expr: Optional[Expr] = None):
+        super().__init__(store)
         self.status_ = ValueStatus.UNDEFINED
         self.expr_: Optional[Expr] = None
         if expr is not None:
@@ -90,12 +93,15 @@ class ScalarNode(StoreNode):
     def set_solved(self, value: ValueType):
         if self.solved and value != self.value_:
             raise StoreError(
-                self,
+                self.store_, self,
                 f'Newly provided value {value} is not consistent with last solved value '
                 f'{self.value_}.'
             )
         self.status_ = ValueStatus.SOLVED
         self.value_ = value
+        if self.expr_ is not None and self.expr_.kind == ExprKind.VAR:
+            var = cast(Var, self.expr_)
+            self.store_.set_var_solved(var, value, self)
 
     @property
     def expr(self) -> Expr:
@@ -117,8 +123,9 @@ class ArrayNode(StoreNode):
     """
     kind = NodeKind.ARRAY
 
-    def __init__(self, expr: Optional[Expr] = None):
-        self.len_ = ScalarNode()
+    def __init__(self, store: 'ValueStore', expr: Optional[Expr] = None):
+        super().__init__(store)
+        self.len_ = ScalarNode(store)
         self.expr_ = None
         self.children_: List[StoreNode] = []
         if expr is not None:
@@ -160,7 +167,7 @@ class ArrayNode(StoreNode):
     def set_len_solved(self, length: int):
         assert self.expr_defined
         self.len_.set_solved(length)
-        self.children_ = [StoreNode.create_undefined(self.expr_.type_.elem_type)
+        self.children_ = [StoreNode.create_undefined(self.store_, self.expr_.type_.elem_type)
                           for _ in range(length)]
 
     def set_elem_defined(self, tup: Tuple):
@@ -183,19 +190,6 @@ class ArrayNode(StoreNode):
             return None
         return [node.value for node in self.children_]  # some elements can be None
 
-    def print(self, buf: CodeBuffer):
-        buf.write(cls_name(self))
-        items = [('len', lambda: self.len_.print(buf))]
-        if self.expr_ is not None:
-            items.append(('expr', lambda: print_expr(self.expr_, buf, [])))
-        items.append(
-            ('children', lambda: buf.write_pos_multi(
-                list(map(lambda n: lambda: n.print(buf), self.children_)),
-                prefix='[', suffix=']'
-            ))
-        )
-        buf.write_named_multi(items)
-
 
 class ValueStore:
     """
@@ -204,14 +198,20 @@ class ValueStore:
 
     def __init__(self, attrs: List[Attr]):
         cp = CopyExpr()
-        self.attrs_ = list((a.name_, StoreNode.create_defined(cp.copy(a.expr_))) for a in attrs)
+        self.attrs_ = list(
+            (a.name_, StoreNode.create_defined(self, cp.copy(a.expr_))) for a in attrs)
         self._attr_dict = dict(self.attrs_)
-        self.in_shapes_ = ArrayNode()
-        self.in_dtypes_ = ArrayNode()
-        self.out_shapes_ = ArrayNode()
-        self.out_dtypes_ = ArrayNode()
+        self._solved_var_: Dict[Ref[Var], ValueType] = {}
+        self.in_shapes_ = ArrayNode(self)
+        self.in_dtypes_ = ArrayNode(self)
+        self.out_shapes_ = ArrayNode(self)
+        self.out_dtypes_ = ArrayNode(self)
 
     def query_attr(self, name: str, *ind: int):
+        if name not in self._attr_dict:
+            raise StoreError(
+                self, None, f'Attribute {name} not defined.'
+            )
         return self._query_node(self._attr_dict[name], *ind)
 
     def query_shape(self, kind: TensorKind, *ind: int):
@@ -250,6 +250,21 @@ class ValueStore:
                 return None
             node = arr_node.children_[idx]
         return node
+
+    def set_var_solved(self, var: Var, value: ValueType, node: StoreNode):
+        var_ref = Ref(var)
+        if var_ref not in self._solved_var_:
+            self._solved_var_.update()
+            self._solved_var_[var_ref] = value
+        elif self._solved_var_[var_ref] != value:
+            raise StoreError(
+                self, node,
+                f'Solved value {value} is not consistent with its previous result '
+                f'{self._solved_var_[var_ref]}.'
+            )
+
+    def query_var(self, var: Var) -> Optional[ValueType]:
+        return self._solved_var_.get(Ref(var))
 
     def __str__(self):
         printer = StorePrinter()
