@@ -1,11 +1,11 @@
 from typing import Dict, cast
 
-from .eval import PartialEval, EvalExpr, EvalError
+from .eval import PartialEval, EvalExpr
 from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode
 from ..expr.array import Tuple
-from ..expr.basic import ExprKind
-from ..expr.visitor import CopyExpr
+from ..expr.basic import ExprKind, Const
 from ..expr.ty import TensorType
+from ..expr.visitor import CopyExpr, StructuralEq
 from ..spec import ConstraintSpec
 from ..util import Ref
 
@@ -32,6 +32,7 @@ class ConstraintSolver:
         self._known = known
         self._partial = PartialEval(self._store)
         self._eval = EvalExpr(self._store)
+        self._eq = StructuralEq()
 
         # Copy expressions to avoid polluting original specification
         cp = CopyExpr()
@@ -50,6 +51,7 @@ class ConstraintSolver:
         while True:
             if not self._solve_one_iter():
                 break
+        print(self._store)
 
     def _solve_one_iter(self):
         # Solve attributes
@@ -60,7 +62,6 @@ class ConstraintSolver:
         # Solve inputs
         changed |= self._solve_shapes(self._store.in_shapes_)
         changed |= self._solve_dtypes(self._store.in_dtypes_)
-        print(self._store)
         return changed
 
     def _solve_shapes(self, root: ArrayNode) -> bool:
@@ -112,7 +113,7 @@ class ConstraintSolver:
             tensor = cast(ArrayNode, tensor)
             if not tensor.len_solved:
                 if t_idx in self._known:
-                    tensor.set_len_defined(self._known[t_idx].rank)
+                    tensor.set_len_solved(self._known[t_idx].rank)
                     changed = True
                 elif self._solve_len(tensor, by_elem=False):
                     changed = True
@@ -200,13 +201,15 @@ class ConstraintSolver:
 
     def _solve_scalar(self, node: ScalarNode) -> bool:
         if node.status_ != ValueStatus.DEFINED:
-            return False  # undefined or solved node cannot be processes
-        try:
-            v = self._eval.evaluate(node.expr_)
-            node.set_solved(v)
+            return False  # undefined or solved node cannot be processed
+        post = self._partial.transform(node.expr_)
+        if post.kind == ExprKind.CONST:
+            node.set_solved(cast(Const, post).val_)
             return True
-        except EvalError:
-            return False
+        else:
+            pre = node.expr_
+            node.expr_ = post
+            return not self._eq.visit(pre, post)
 
     def _solve_array(self, node: ArrayNode) -> bool:
         # Solve array length

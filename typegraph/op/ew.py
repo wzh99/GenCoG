@@ -9,7 +9,7 @@ def _create_bcast():
         attrs=[],
         in_num=2,
         in_ranks=[Var(), Var()],
-        in_dtypes=[Var(), Var()],
+        in_dtypes=List(2, lambda _: Var()),
         in_shapes=[
             List(m, lambda _: Var(tmpl=True)),
             List(n, lambda _: Var(tmpl=True))

@@ -238,10 +238,26 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         return self._try_fold(n, env, lambda: Not(self.visit(n.prop_, env)))
 
     def visit_and(self, a: And, env: Env[Expr]) -> Expr:
-        return self._try_fold(a, env, lambda: And(*(self.visit(c, env) for c in a.clauses_)))
+        clauses = []
+        for c in a.clauses_:
+            post = self._try_fold(c, env, lambda: self.visit(c, env))
+            if post.kind == Const:
+                const = cast(Const, post)
+                if const.val_ is False:
+                    return Const(False)
+            clauses.append(post)
+        return And(*clauses)
 
     def visit_or(self, o: Or, env: Env[Expr]) -> Expr:
-        return self._try_fold(o, env, lambda: Or(*(self.visit(c, env) for c in o.clauses_)))
+        clauses = []
+        for c in o.clauses_:
+            post = self._try_fold(c, env, lambda: self.visit(c, env))
+            if post.kind == Const:
+                const = cast(Const, post)
+                if const.val_ is True:
+                    return Const(True)
+            clauses.append(post)
+        return Or(*clauses)
 
     def visit_forall(self, forall: ForAll, env: Env[Expr]) -> Expr:
         ran = self._try_eval(forall.ran_, env)
@@ -254,8 +270,7 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
     def visit_cond(self, cond: Cond, env: Env[Expr]) -> Expr:
         pred = self._try_eval(cond.pred_, env)
         if pred is None:
-            return Cond(self.visit(cond.pred_, env), self.visit(cond.tr_br_, env),
-                        self.visit(cond.fls_br_, env))
+            return cond
         return self.visit(cond.tr_br_, env) if pred else self.visit(cond.fls_br_, env)
 
     def visit_attr(self, attr: GetAttr, env: Env[Expr]) -> Expr:
@@ -341,19 +356,42 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         return Tuple(*(self.visit(m.body_, env + (m.sym_, e)) for e in tup.fields_), ty=m.type_)
 
     def visit_reduce_array(self, red: ReduceArray, env: Env[Expr]) -> Expr:
-        return self._try_fold(red, env, lambda: red)
+        return self._try_fold(
+            red, env, lambda: ReduceArray(
+                self.visit(red.arr_, env), red.op_, self.visit(red.init_, env), ty=red.type_
+            )
+        )
 
     def visit_reduce_index(self, red: ReduceIndex, env: Env[Expr]) -> Expr:
-        return self._try_fold(red, env, lambda: red)
+        return self._try_fold(
+            red, env, lambda: ReduceIndex(
+                self.visit_range(red.ran_, env), red.op_, self.visit(red.init_, env),
+                idx=red.idx_, body=self.visit(red.body_, env + (red.idx_, red.idx_)),
+                ty=red.type_
+            )
+        )
 
     def visit_filter(self, flt: Filter, env: Env[Expr]) -> Expr:
-        return self._try_fold(flt, env, lambda: flt)
+        return self._try_fold(
+            flt, env, lambda: Filter(
+                self.visit(flt.arr_, env), sym=flt.sym_,
+                pred=self.visit(flt.pred_, env + (flt.sym_, flt.sym_))
+            )
+        )
 
     def visit_inset(self, inset: InSet, env: Env[Expr]) -> Expr:
-        return inset
+        return self._try_fold(
+            inset, env, lambda: InSet(
+                self.visit(inset.elem_, env), self.visit(inset.set_, env)
+            )
+        )
 
     def visit_subset(self, subset: Subset, env: Env[Expr]) -> Expr:
-        return subset
+        return self._try_fold(
+            subset, env, lambda: Subset(
+                self.visit(subset.sub_, env), self.visit(subset.sup_, env)
+            )
+        )
 
     def _try_eval(self, expr: Expr, env: Env[Expr]) -> Optional[ValueType]:
         try:

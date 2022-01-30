@@ -4,10 +4,10 @@ from typing import Optional, List, TypeVar, Generic, Callable, Dict, Any, cast
 from ..expr import Expr, Const
 from ..expr.array import Tuple
 from ..expr.basic import ExprKind, Var, Dummy
-from ..expr.visitor import CopyExpr
+from ..expr.fmt import print_expr
 from ..expr.tensor import TensorKind
 from ..expr.ty import Type, ValueType
-from ..expr.fmt import print_expr
+from ..expr.visitor import CopyExpr
 from ..spec import Attr
 from ..util import CodeBuffer, Ref, cls_name
 
