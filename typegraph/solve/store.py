@@ -252,7 +252,7 @@ class ValueStore:
             node = arr_node.children_[idx]
         return node
 
-    def set_var_solved(self, var: Var, value: ValueType, node: StoreNode):
+    def set_var_solved(self, var: Var, value: ValueType, node: Optional[StoreNode] = None):
         var_ref = Ref(var)
         if var_ref not in self._solved_var_:
             self._solved_var_.update()
@@ -305,7 +305,10 @@ class StoreVisitor(Generic[A, R]):
         pass
 
     def visit_array(self, node: ArrayNode, arg: A) -> R:
-        pass
+        self.visit(node.len_, arg)
+        for child in node.children_:
+            self.visit(child, arg)
+        return
 
 
 class StorePrinter(StoreVisitor[CodeBuffer, None]):

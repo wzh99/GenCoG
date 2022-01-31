@@ -69,7 +69,7 @@ class Shape(Expr):
     kind = ExprKind.SHAPE
 
     def __init__(self, tensor: TensorDesc):
-        super().__init__([], ty=ListType(INT))
+        super().__init__([tensor.idx_], ty=ListType(INT))
         self.tensor_ = tensor
 
 
@@ -80,7 +80,7 @@ class Rank(Expr):
     kind = ExprKind.RANK
 
     def __init__(self, tensor: TensorDesc):
-        super().__init__([], ty=INT)
+        super().__init__([tensor.idx_], ty=INT)
         self.tensor_ = tensor
 
 
@@ -91,5 +91,5 @@ class GetDType(Expr):
     kind = ExprKind.DTYPE
 
     def __init__(self, tensor: TensorDesc):
-        super().__init__([], ty=DTYPE)
+        super().__init__([tensor.idx_], ty=DTYPE)
         self.tensor_ = tensor

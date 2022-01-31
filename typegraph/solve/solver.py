@@ -1,11 +1,14 @@
 from typing import Dict, List, cast
 
+from numpy.random import Generator
+
 from .eval import PartialEval, EvalExpr
 from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode
+from .valid import find_valid
 from ..expr.array import Tuple
-from ..expr.basic import Expr, ExprKind, Const, And
+from ..expr.basic import Expr, ExprKind, Const, And, Var
 from ..expr.fmt import print_expr
-from ..expr.ty import TensorType
+from ..expr.ty import TensorType, BOOL, INT, FLOAT
 from ..expr.visitor import CopyExpr, StructuralEq
 from ..spec import ConstraintSpec
 from ..util import CodeBuffer
@@ -26,11 +29,12 @@ class ConstraintSolver:
     Solver of constraint specification.
     """
 
-    def __init__(self, spec: ConstraintSpec, known: Dict[int, TensorType]):
+    def __init__(self, spec: ConstraintSpec, known: Dict[int, TensorType], rng: Generator):
         # Initialize value store and expression visitors
         self._spec = spec
         self._store = ValueStore(spec.attrs)
         self._known = known
+        self._rng = rng
         self._partial = PartialEval(self._store)
         self._eval = EvalExpr(self._store)
         self._eq = StructuralEq()
@@ -68,7 +72,8 @@ class ConstraintSolver:
         # Solve extra constraints
         changed |= self._solve_extra()
 
-        # Find all valid constraints
+        # Solve with SMT
+        self._solve_smt()
 
         return changed
 
@@ -210,6 +215,48 @@ class ConstraintSolver:
 
         self._extra = new_extra
         return changed
+
+    def _solve_smt(self):
+        # Find all valid variables and constraints with union-find
+        union = find_valid(self._store, self._extra)
+        all_valid = list(union.all_valid())
+        if len(all_valid) == 0:
+            return False
+
+        # Sample variables that are not bounded by other constraints
+        for e in all_valid:
+            if e.kind != ExprKind.VAR:
+                continue
+            if union.has_use(e):
+                continue  # if it has use, it is bounded by other constraints
+            self._try_sample(cast(Var, e))
+            pass
+        return True
+
+    def _try_sample(self, var: Var):
+        # Directly sample boolean values
+        if var.type_ == BOOL:
+            v = bool(self._rng.integers(2))
+            self._store.set_var_solved(var, v)
+
+        # Get range for numeric values
+        if var.ran_ is None:
+            return
+        ran = var.ran_
+        if ran.begin_ is None or ran.begin_.kind != ExprKind.CONST:
+            return
+        low = cast(Const, ran.begin_).val_
+        if ran.end_ is None or ran.end_.kind != ExprKind.CONST:
+            return
+        high = cast(Const, ran.end_).val_
+
+        # Sample numeric values
+        if var.type_ == INT:
+            v = int(self._rng.integers(low=low, high=high))
+            self._store.set_var_solved(var, v)
+        elif var.type_ == FLOAT:
+            v = float(self._rng.uniform(low=low, high=high))
+            self._store.set_var_solved(var, v)
 
     def _solve_node(self, node: StoreNode) -> bool:
         if node.kind == NodeKind.SCALAR:
