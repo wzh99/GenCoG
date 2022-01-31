@@ -17,7 +17,7 @@ def _create_conv2d():
             Attr('kernel_size', List(2, lambda _: Var(INT, ran=Range(begin=1, end=8), tmpl=True))),
             Attr('channels', Var(INT, ran=Range(begin=1, end=129))),
             Attr('strides', List(2, lambda _: Var(INT, ran=Range(begin=1, end=3), tmpl=True))),
-            Attr('padding', List(4, lambda _: Var(INT, tmpl=True))),
+            Attr('padding', List(4, lambda _: Var(INT, ran=Range(end=9), tmpl=True))),
             Attr('dilation', List(2, lambda _: Var(INT, ran=Range(end=3), tmpl=True))),
             Attr('groups', Var(INT)),
         ],

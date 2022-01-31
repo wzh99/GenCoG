@@ -397,10 +397,6 @@ class And(Expr):
     kind = ExprKind.AND
 
     def __init__(self, *clauses: ExprLike):
-        if len(clauses) <= 1:
-            raise ValueError(
-                f'Expect at least two clauses, got {len(clauses)}.'
-            )
         self.clauses_ = list(to_expr(e) for e in clauses)
         super().__init__(self.clauses_, ty=BOOL)
 
@@ -413,12 +409,8 @@ class Or(Expr):
     kind = ExprKind.OR
 
     def __init__(self, *clauses: ExprLike):
-        if len(clauses) <= 1:
-            raise ValueError(
-                f'Expect at least two clauses, got {len(clauses)}.'
-            )
         self.clauses_ = list(to_expr(e) for e in clauses)
-        super().__init__(self.clauses_)
+        super().__init__(self.clauses_, ty=BOOL)
 
 
 class ForAll(Expr):

@@ -35,7 +35,7 @@ class ConstraintSolver:
         self._store = ValueStore(spec.attrs)
         self._known = known
         self._rng = rng
-        self._partial = PartialEval(self._store)
+        self._partial = PartialEval(self._store, rng)
         self._eval = EvalExpr(self._store)
         self._eq = StructuralEq()
 

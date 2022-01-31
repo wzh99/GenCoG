@@ -3,11 +3,13 @@ from functools import reduce
 from itertools import chain, islice
 from typing import Union, Iterator, Optional, Callable, cast
 
+from numpy.random import Generator
+
 from .store import ValueStore, ArrayNode
 from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
     Filter, InSet, Subset
-from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, \
-    ForAll, Cond, GetAttr, Dummy, to_expr
+from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, CmpOp, Not, \
+    And, Or, ForAll, Cond, GetAttr, Dummy, to_expr
 from ..expr.tensor import Num, Shape, Rank, GetDType, TensorKind
 from ..expr.ty import ValueType
 from ..expr.visitor import ExprVisitor
@@ -185,13 +187,14 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
 class PartialEval(ExprVisitor[Env[Expr], Expr]):
     """
     Perform partial evaluation on a constraint expression to make it suitable for constraint
-    solving.
+    solving. For some special expressions, sampling is done at this time.
     """
 
-    def __init__(self, store: ValueStore):
+    def __init__(self, store: ValueStore, rng: Generator):
         super().__init__()
         self._store = store
         self._eval = EvalExpr(self._store)
+        self._rng = rng
 
     def transform(self, e: Expr) -> Expr:
         return self.visit(e, Env())
@@ -328,10 +331,15 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         return cast(Tuple, tup).fields_[idx]
 
     def visit_len(self, ln: Len, env: Env[Expr]) -> Expr:
-        tup = self.visit(ln.arr_, env)
-        if tup.kind != ExprKind.TUPLE:
-            return ln
-        return Const(len(cast(Tuple, tup).fields_))
+        arr = self.visit(ln.arr_, env)
+        if arr.kind == ExprKind.TUPLE:
+            return Const(len(cast(Tuple, arr).fields_))
+        elif arr.kind == ExprKind.LIST:
+            return cast(List, arr).len_
+        elif arr.kind == ExprKind.MAP:
+            return Len(cast(Map, arr).arr_)
+        else:
+            return Len(arr)
 
     def visit_concat(self, concat: Concat, env: Env[Expr]) -> Expr:
         fields = []
@@ -383,17 +391,48 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         )
 
     def visit_inset(self, inset: InSet, env: Env[Expr]) -> Expr:
-        return self._try_fold(
+        # Try folding expression
+        inset = self._try_fold(
             inset, env, lambda: InSet(
                 self.visit(inset.elem_, env), self.visit(inset.set_, env)
             )
         )
+        if inset.kind == ExprKind.CONST:
+            return inset
+
+        # Check if the expression can be sampled
+        inset = cast(InSet, inset)
+        if inset.set_.kind != ExprKind.TUPLE:
+            return inset
+        tup = cast(Tuple, inset.set_)
+
+        # Sample one element from tuple
+        idx = self._rng.choice(len(tup.fields_))
+        return Cmp(CmpOp.EQ, inset.elem_, tup.fields_[idx])
 
     def visit_subset(self, subset: Subset, env: Env[Expr]) -> Expr:
-        return self._try_fold(
+        # Try folding expression
+        subset = self._try_fold(
             subset, env, lambda: Subset(
                 self.visit(subset.sub_, env), self.visit(subset.sup_, env)
             )
+        )
+        if subset.kind == ExprKind.CONST:
+            return subset
+
+        # Check if the expression can be sampled
+        subset = cast(Subset, subset)
+        if subset.sup_.kind != ExprKind.TUPLE:
+            return subset
+        sup = cast(Tuple, subset.sup_)
+
+        # Sample each element in superset to create subset
+        sub = subset.sub_
+        sub_sp = [e for e in sup.fields_ if self._rng.uniform() > 0.5]
+        return And(
+            Cmp(CmpOp.EQ, Len(sub), len(sub_sp)),
+            *(Cmp(CmpOp.EQ, GetItem(sub, i, ty=sub.type_.elem_type), e)
+              for i, e in enumerate(sub_sp))
         )
 
     def _try_eval(self, expr: Expr, env: Env[Expr]) -> Optional[ValueType]:
