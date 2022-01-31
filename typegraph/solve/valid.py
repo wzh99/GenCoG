@@ -1,8 +1,10 @@
-from typing import List, Iterable, Dict
+from typing import List, Iterable, Dict, Callable, Any
 
 from .store import ValueStore, StoreNode, ScalarNode, StoreVisitor, ValueStatus
 from ..expr import Expr, Var
-from ..expr.basic import ExprKind, Dummy
+from ..expr.array import GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
+    InSet, Subset
+from ..expr.basic import ExprKind, ForAll, Dummy
 from ..expr.tensor import Num, Rank, Shape, GetDType
 from ..expr.visitor import ExprVisitor
 from ..util import Ref
@@ -31,51 +33,6 @@ def find_valid(store: ValueStore, extra: List[Expr]) -> 'UnionFind':
 
     # Return union-find result
     return union
-
-
-class StoreVarFinder(StoreVisitor[None, None]):
-    def __init__(self, expr_find: 'ExprVarFinder'):
-        super().__init__()
-        self._find = expr_find
-
-    def find(self, node: StoreNode):
-        self.visit(node, None)
-
-    def visit_scalar(self, node: ScalarNode, arg: None):
-        if node.status_ != ValueStatus.DEFINED:
-            return  # do not care undefined and solved nodes
-        if node.expr_.kind != ExprKind.VAR:
-            return  # non-variable expression cannot be solved for nodes in store
-        self._find.visit(node.expr_, node.expr_)
-
-
-class ExprVarFinder(ExprVisitor[Expr, None]):
-    def __init__(self, union: 'UnionFind'):
-        super().__init__()
-        self._union = union
-
-    def visit_var(self, var: Var, use: Expr):
-        self._union.union(var, use)
-        if var.ran_ is not None:
-            self.visit(var.ran_, var)
-
-    def visit_dummy(self, dum: Dummy, use: Expr):
-        self._union.set_invalid(use)
-
-    def visit_num(self, num: Num, use: Expr):
-        self._union.set_invalid(use)
-
-    def visit_rank(self, rank: Rank, use: Expr):
-        self._union.set_invalid(use)
-        super().visit_rank(rank, use)
-
-    def visit_shape(self, shape: Shape, use: Expr):
-        self._union.set_invalid(use)
-        super().visit_shape(shape, use)
-
-    def visit_dtype(self, dtype: GetDType, use: Expr):
-        self._union.set_invalid(use)
-        super().visit_dtype(dtype, use)
 
 
 class UnionFind:
@@ -142,3 +99,92 @@ class UnionFind:
         self._root.append(idx)
         self._valid.append(True)
         return idx
+
+
+class StoreVarFinder(StoreVisitor[None, None]):
+    def __init__(self, expr_find: 'ExprVarFinder'):
+        super().__init__()
+        self._find = expr_find
+
+    def find(self, node: StoreNode):
+        self.visit(node, None)
+
+    def visit_scalar(self, node: ScalarNode, arg: None):
+        if node.status_ != ValueStatus.DEFINED:
+            return  # do not care undefined and solved nodes
+        if node.expr_.kind != ExprKind.VAR:
+            return  # non-variable expression cannot be solved for nodes in store
+        self._find.visit(node.expr_, node.expr_)
+
+
+class ExprVarFinder(ExprVisitor[Expr, None]):
+    """
+    Find all valid variables in a specification.
+    """
+
+    def __init__(self, union: 'UnionFind', ):
+        super().__init__()
+        self._union = union
+
+    def visit_var(self, var: Var, use: Expr):
+        self._union.union(var, use)
+        if var.ran_ is not None:
+            self.visit(var.ran_, var)
+
+    def visit_forall(self, forall: ForAll, use: Expr):
+        self._set_invalid(forall, use, super().visit_forall)
+
+    def visit_dummy(self, dum: Dummy, use: Expr):
+        self._union.set_invalid(use)
+
+    def visit_num(self, num: Num, use: Expr):
+        self._union.set_invalid(use)
+
+    def visit_rank(self, rank: Rank, use: Expr):
+        self._set_invalid(rank, use, super().visit_rank)
+
+    def visit_shape(self, shape: Shape, use: Expr):
+        self._set_invalid(shape, use, super().visit_shape)
+
+    def visit_dtype(self, dtype: GetDType, use: Expr):
+        self._set_invalid(dtype, use, super().visit_dtype)
+
+    def visit_getitem(self, getitem: GetItem, use: Expr):
+        self._set_invalid(getitem, use, super().visit_getitem)
+
+    def visit_len(self, ln: Len, use: Expr):
+        self._set_invalid(ln, use, super().visit_len)
+
+    def visit_concat(self, concat: Concat, use: Expr):
+        self._set_invalid(concat, use, super().visit_concat)
+
+    def visit_slice(self, slc: Slice, use: Expr):
+        self._set_invalid(slc, use, super().visit_slice)
+
+    def visit_map(self, m: Map, use: Expr):
+        self._set_invalid(m, use, super().visit_map)
+
+    def visit_reduce_array(self, red: ReduceArray, use: Expr):
+        if red.arr_.kind != ExprKind.TUPLE:
+            # non-tuple array cannot be translated
+            self._union.set_invalid(use)
+        super().visit_reduce_array(red, use)
+
+    def visit_reduce_index(self, red: ReduceIndex, use: Expr):
+        ran = red.ran_
+        if ran.begin_.kind != ExprKind.CONST or ran.end_.kind != ExprKind.CONST:
+            self._union.set_invalid(use)
+        super().visit_reduce_index(red, use)
+
+    def visit_filter(self, flt: Filter, use: Expr):
+        self._set_invalid(flt, use, super().visit_filter)
+
+    def visit_inset(self, inset: InSet, use: Expr):
+        self._set_invalid(inset, use, super().visit_inset)
+
+    def visit_subset(self, subset: Subset, use: Expr):
+        self._set_invalid(subset, use, super().visit_inset)
+
+    def _set_invalid(self, e: Expr, use: Expr, post_f: Callable[[Any, Any], Any]):
+        self._union.set_invalid(use)
+        post_f(e, use)
