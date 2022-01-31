@@ -84,7 +84,7 @@ class CodeBuffer:
     def indent(self):
         return _Indent(self)
 
-    def write_pos(self, items: List[Callable[[], None]],
+    def write_pos(self, items: Iterable[Callable[[], None]],
                   sep: str = ', ', prefix: str = '(', suffix: str = ')'):
         self.write(prefix)
         for i, callback in enumerate(items):
@@ -93,7 +93,7 @@ class CodeBuffer:
             callback()
         self.write(suffix)
 
-    def write_pos_multi(self, items: List[Callable[[], None]],
+    def write_pos_multi(self, items: Iterable[Callable[[], None]],
                         sep: str = ',', prefix: str = '(', suffix: str = ')'):
         self.writeln(prefix)
         with self.indent():
@@ -102,7 +102,7 @@ class CodeBuffer:
                 self.writeln(sep)
         self.write(suffix)
 
-    def write_named(self, items: List[Tuple[str, Callable[[], None]]],
+    def write_named(self, items: Iterable[Tuple[str, Callable[[], None]]],
                     sep: str = ', ', prefix: str = '(', suffix: str = ')'):
         self.write(prefix)
         for i, (name, callback) in enumerate(items):
@@ -112,7 +112,7 @@ class CodeBuffer:
             callback()
         self.write(suffix)
 
-    def write_named_multi(self, items: List[Tuple[str, Callable[[], None]]],
+    def write_named_multi(self, items: Iterable[Tuple[str, Callable[[], None]]],
                           sep: str = ',', prefix: str = '(', suffix: str = ')'):
         self.writeln(prefix)
         with self.indent():

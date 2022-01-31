@@ -208,6 +208,9 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
             return Var(ty=var.type_,
                        ran=map_opt(lambda ran: self.visit_range(ran, env), var.ran_))
         else:
+            v = self._store.query_var(var)
+            if v is not None:
+                return Const(v)
             if var.ran_ is not None:  # non-template variable must keep its original object id
                 var.ran_ = self.visit_range(var.ran_, env)
             return var

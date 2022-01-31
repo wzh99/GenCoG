@@ -1,13 +1,14 @@
-from typing import Dict, cast
+from typing import Dict, List, cast
 
 from .eval import PartialEval, EvalExpr
 from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode
 from ..expr.array import Tuple
-from ..expr.basic import ExprKind, Const
+from ..expr.basic import Expr, ExprKind, Const, And
+from ..expr.fmt import print_expr
 from ..expr.ty import TensorType
 from ..expr.visitor import CopyExpr, StructuralEq
 from ..spec import ConstraintSpec
-from ..util import Ref
+from ..util import CodeBuffer
 
 
 class SolveError(Exception):
@@ -37,7 +38,7 @@ class ConstraintSolver:
         # Copy expressions to avoid polluting original specification
         cp = CopyExpr()
         self._in_ranks = cp.copy(spec.in_ranks)
-        self._extra = set(Ref(cp.copy(e)) for e in spec.extra)
+        self._extra = [cp.copy(e) for e in spec.extra]
         shape_root = self._store.in_shapes_
         in_num = cp.copy(spec.in_num)
         shape_root.set_len_defined(in_num)
@@ -52,6 +53,7 @@ class ConstraintSolver:
             if not self._solve_one_iter():
                 break
         print(self._store)
+        _print_extra(self._extra)
 
     def _solve_one_iter(self):
         # Solve attributes
@@ -62,6 +64,12 @@ class ConstraintSolver:
         # Solve inputs
         changed |= self._solve_shapes(self._store.in_shapes_)
         changed |= self._solve_dtypes(self._store.in_dtypes_)
+
+        # Solve extra constraints
+        changed |= self._solve_extra()
+
+        # Find all valid constraints
+
         return changed
 
     def _solve_shapes(self, root: ArrayNode) -> bool:
@@ -101,9 +109,7 @@ class ConstraintSolver:
                 )
 
             # Define shapes for each input tensor
-            for tensor, shape in zip(root.children_, shapes.fields_):
-                tensor.set_defined(shape)
-
+            root.set_elem_defined(shapes)
             return True
 
         # Solve shapes
@@ -111,14 +117,13 @@ class ConstraintSolver:
         for t_idx, tensor in enumerate(root.children_):
             # Solve rank
             tensor = cast(ArrayNode, tensor)
+            prev_solved = tensor.len_solved
+            if t_idx in self._known:
+                tensor.set_len_solved(self._known[t_idx].rank)
+            changed |= self._solve_len(tensor, by_elem=False)
+            changed |= prev_solved != tensor.len_solved
             if not tensor.len_solved:
-                if t_idx in self._known:
-                    tensor.set_len_solved(self._known[t_idx].rank)
-                    changed = True
-                elif self._solve_len(tensor, by_elem=False):
-                    changed = True
-                else:
-                    continue
+                continue
 
             # Partially evaluate dimensions
             if not tensor.elem_defined:
@@ -132,25 +137,18 @@ class ConstraintSolver:
                         f'Length of input shape {len(shape.fields_)} for tensor {t_idx} is not '
                         f'consistent with rank {tensor.len_.value}. '
                     )
-                for dim, expr in zip(tensor.children_, shape.fields_):
-                    dim.set_defined(expr)
+                tensor.set_elem_defined(shape)
                 changed = True
 
             # Solve dimensions
             for d_idx, dim in enumerate(tensor.children_):
                 dim = cast(ScalarNode, dim)
-                if dim.solved:
-                    continue
+                prev_solved = dim.solved
                 if t_idx in self._known:
                     known_shape = self._known[t_idx].shape_
-                    if d_idx >= len(known_shape):
-                        raise SolveError(
-                            self,
-                            f'Expect dimension {d_idx} from tensor {t_idx}, got only '
-                            f'{len(known_shape)} dimensions.'
-                        )
                     dim.set_solved(known_shape[d_idx])
                 changed |= self._solve_scalar(cast(ScalarNode, dim))
+                changed |= prev_solved != dim.solved
 
         return changed
 
@@ -175,22 +173,42 @@ class ConstraintSolver:
                 )
 
             # Define data type for each tensor
-            for tensor, dtype in zip(root.children_, dtypes.fields_):
-                tensor.set_defined(dtype)
-
+            root.set_elem_defined(dtypes)
             return True
 
         # Solve data types
         changed = False
         for t_idx, dtype in enumerate(root.children_):
             dtype = cast(ScalarNode, dtype)
-            if dtype.solved:
-                continue
-            elif t_idx in self._known:
+            prev_solved = dtype.solved
+            if t_idx in self._known:
                 dtype.set_solved(self._known[t_idx].dtype_)
-            else:
-                changed |= self._solve_scalar(cast(ScalarNode, dtype))
+            changed |= self._solve_scalar(dtype)
+            changed |= prev_solved != dtype.solved
 
+        return changed
+
+    def _solve_extra(self) -> bool:
+        new_extra = []
+        changed = False
+
+        for e in self._extra:
+            post = self._partial.transform(e)
+            if post.kind == ExprKind.CONST:
+                const = cast(Const, post)
+                if const.val_ is False:
+                    raise SolveError(
+                        self, 'Extra constraint is not satisfiable.'
+                    )
+            elif post.kind == ExprKind.AND:
+                and_e = cast(And, post)
+                new_extra.extend(and_e.clauses_)
+                changed = True
+            else:
+                changed |= not self._eq.visit(e, post)
+                new_extra.append(post)
+
+        self._extra = new_extra
         return changed
 
     def _solve_node(self, node: StoreNode) -> bool:
@@ -200,12 +218,13 @@ class ConstraintSolver:
             return self._solve_array(cast(ArrayNode, node))
 
     def _solve_scalar(self, node: ScalarNode) -> bool:
-        if node.status_ != ValueStatus.DEFINED:
+        if node.status_ == ValueStatus.UNDEFINED:
             return False  # undefined or solved node cannot be processed
         post = self._partial.transform(node.expr_)
         if post.kind == ExprKind.CONST:
+            prev_solved = node.solved
             node.set_solved(cast(Const, post).val_)
-            return True
+            return not prev_solved
         else:
             pre = node.expr_
             node.expr_ = post
@@ -247,3 +266,12 @@ class ConstraintSolver:
             return False
         node.set_elem_defined(cast(Tuple, tup))
         return True
+
+
+def _print_extra(extra: List[Expr]):
+    buf = CodeBuffer()
+    buf.write_pos_multi(
+        map(lambda e: lambda: print_expr(e, buf, []), extra),
+        prefix='[', suffix=']'
+    )
+    print(buf)

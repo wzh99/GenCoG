@@ -167,8 +167,9 @@ class ArrayNode(StoreNode):
     def set_len_solved(self, length: int):
         assert self.expr_defined
         self.len_.set_solved(length)
-        self.children_ = [StoreNode.create_undefined(self.store_, self.expr_.type_.elem_type)
-                          for _ in range(length)]
+        if len(self.children_) == 0:
+            self.children_ = [StoreNode.create_undefined(self.store_, self.expr_.type_.elem_type)
+                              for _ in range(length)]
 
     def set_elem_defined(self, tup: Tuple):
         if not self.len_solved:
@@ -266,9 +267,8 @@ class ValueStore:
     def query_var(self, var: Var) -> Optional[ValueType]:
         return self._solved_var_.get(Ref(var))
 
-    def __str__(self):
+    def print(self, buf: CodeBuffer):
         printer = StorePrinter()
-        buf = CodeBuffer()
         buf.write(cls_name(self))
         buf.write_named_multi([
             ('attrs', lambda: buf.write_named_multi(
@@ -280,6 +280,10 @@ class ValueStore:
             ('out_shapes', lambda: printer.visit(self.out_shapes_, buf)),
             ('out_dtypes', lambda: printer.visit(self.out_dtypes_, buf))
         ])
+
+    def __str__(self):
+        buf = CodeBuffer()
+        self.print(buf)
         return str(buf)
 
 
