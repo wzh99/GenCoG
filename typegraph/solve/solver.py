@@ -1,12 +1,13 @@
-from typing import Dict, Set, cast
+from typing import Dict, Set, List, cast
 
 from numpy.random import Generator
 
 from .eval import PartialEval, EvalExpr
+from .smt import solve_smt
 from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode
 from .valid import validate
 from ..expr.array import Tuple
-from ..expr.basic import Expr, ExprKind, Const, And, Var
+from ..expr.basic import Expr, ExprKind, Const, And, Var, Cmp, CmpOp
 from ..expr.fmt import print_expr
 from ..expr.ty import TensorType, BOOL, INT, FLOAT
 from ..expr.visitor import CopyExpr, StructuralEq
@@ -81,15 +82,18 @@ class ConstraintSolver:
 
     def _solve_shapes(self, root: ArrayNode) -> bool:
         # Solve number
+        changed = False
         if not root.len_solved:
-            return self._solve_len(root, by_elem=False)
+            changed |= self._solve_len(root, by_elem=False)
+            if not root.len_solved:
+                return changed
 
         # Solve tensors
         if not root.elem_defined:
             # Partially evaluate ranks
             ranks = self._partial.transform(self._in_ranks)
             if ranks.kind != ExprKind.TUPLE:
-                return False
+                return changed
             ranks = cast(Tuple, ranks)
             if root.len_.value != len(ranks.fields_):
                 raise SolveError(
@@ -106,7 +110,7 @@ class ConstraintSolver:
             # Partially evaluate shapes
             shapes = self._partial.transform(root.expr_)
             if shapes.kind != ExprKind.TUPLE:
-                return False
+                return changed
             shapes = cast(Tuple, shapes)
             if root.len_.value != len(shapes.fields_):
                 raise SolveError(
@@ -117,10 +121,9 @@ class ConstraintSolver:
 
             # Define shapes for each input tensor
             root.set_elem_defined(shapes)
-            return True
+            changed = True
 
         # Solve shapes
-        changed = False
         for t_idx, tensor in enumerate(root.children_):
             # Solve rank
             tensor = cast(ArrayNode, tensor)
@@ -161,15 +164,18 @@ class ConstraintSolver:
 
     def _solve_dtypes(self, root: ArrayNode) -> bool:
         # Solve number
+        changed = False
         if not root.len_solved:
-            return self._solve_len(root, by_elem=False)
+            changed |= self._solve_len(root, by_elem=False)
+            if not root.len_solved:
+                return changed
 
         # Solve tensors
         if not root.elem_defined:
             # Partially evaluate data types
             dtypes = self._partial.transform(root.expr_)
             if dtypes.kind != ExprKind.TUPLE:
-                return False
+                return changed
             dtypes = cast(Tuple, dtypes)
             root.set_elem_defined(dtypes)
             if root.len_.value != len(dtypes.fields_):
@@ -181,10 +187,9 @@ class ConstraintSolver:
 
             # Define data type for each tensor
             root.set_elem_defined(dtypes)
-            return True
+            changed = True
 
         # Solve data types
-        changed = False
         for t_idx, dtype in enumerate(root.children_):
             dtype = cast(ScalarNode, dtype)
             prev_solved = dtype.solved
@@ -208,13 +213,24 @@ class ConstraintSolver:
                         self, 'Extra constraint is not satisfiable.'
                     )
                 changed = True
+                continue
             elif post.kind == ExprKind.AND:
                 and_e = cast(And, post)
                 new_extra.extend(and_e.clauses_)
                 changed = True
-            else:
-                changed |= not self._eq.visit(e, post)
-                new_extra.append(post)
+                continue
+            elif post.kind == ExprKind.CMP:
+                cmp = cast(Cmp, post)
+                if cmp.op_ == CmpOp.EQ and cmp.lhs_.kind == ExprKind.VAR and \
+                        cmp.rhs_.kind == ExprKind.CONST:
+                    lhs = cast(Var, cmp.lhs_)
+                    rhs = cast(Const, cmp.rhs_)
+                    self._store.set_var_solved(lhs, rhs.val_)
+                    changed = True
+                    continue
+
+            changed |= not self._eq.visit(e, post)
+            new_extra.append(post)
 
         self._extra = new_extra
         return changed
@@ -228,8 +244,8 @@ class ConstraintSolver:
 
         # Filter out all unused variables
         cand_vars = set(Ref(var) for var in all_valid if var.kind == ExprKind.VAR)
-        used_vars = []
-        constrs = []
+        used_vars: Set[Ref[Var]] = set()
+        constrs: List[Expr] = []
         for e in all_valid:
             if e.kind == ExprKind.VAR:
                 continue
@@ -239,15 +255,16 @@ class ConstraintSolver:
             for ref in e_vars:
                 if ref not in cand_vars:
                     raise SolveError(self, 'Variable used but not detected.')
-                used_vars.append(ref.obj_)
+                used_vars.add(ref)
 
         # Sample variables that are not bounded by other constraints
         for var in used_vars:
-            if union.has_use(var):
+            if union.has_use(var.obj_):
                 continue  # if it has use, it is bounded by other constraints
-            self._try_sample(var)
-            pass
-        return True
+            self._try_sample(var.obj_)
+
+        # Solve by SMT
+        return solve_smt(used_vars, constrs, self._store, self._rng)
 
     def _try_sample(self, var: Var):
         # Directly sample boolean values
