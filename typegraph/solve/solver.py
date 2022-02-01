@@ -1,17 +1,17 @@
-from typing import Dict, List, cast
+from typing import Dict, Set, cast
 
 from numpy.random import Generator
 
 from .eval import PartialEval, EvalExpr
 from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode
-from .valid import find_valid
+from .valid import validate
 from ..expr.array import Tuple
 from ..expr.basic import Expr, ExprKind, Const, And, Var
 from ..expr.fmt import print_expr
 from ..expr.ty import TensorType, BOOL, INT, FLOAT
 from ..expr.visitor import CopyExpr, StructuralEq
 from ..spec import ConstraintSpec
-from ..util import CodeBuffer
+from ..util import CodeBuffer, Ref
 
 
 class SolveError(Exception):
@@ -56,8 +56,10 @@ class ConstraintSolver:
         while True:
             if not self._solve_one_iter():
                 break
+        # self._solve_one_iter()
+        # self._solve_one_iter()
         print(self._store)
-        _print_extra(self._extra)
+        self._print_extra()
 
     def _solve_one_iter(self):
         # Solve attributes
@@ -205,6 +207,7 @@ class ConstraintSolver:
                     raise SolveError(
                         self, 'Extra constraint is not satisfiable.'
                     )
+                changed = True
             elif post.kind == ExprKind.AND:
                 and_e = cast(And, post)
                 new_extra.extend(and_e.clauses_)
@@ -218,18 +221,31 @@ class ConstraintSolver:
 
     def _solve_smt(self):
         # Find all valid variables and constraints with union-find
-        union = find_valid(self._store, self._extra)
+        union = validate(self._store, self._extra)
         all_valid = list(union.all_valid())
         if len(all_valid) == 0:
             return False
 
-        # Sample variables that are not bounded by other constraints
+        # Filter out all unused variables
+        cand_vars = set(Ref(var) for var in all_valid if var.kind == ExprKind.VAR)
+        used_vars = []
+        constrs = []
         for e in all_valid:
-            if e.kind != ExprKind.VAR:
+            if e.kind == ExprKind.VAR:
                 continue
-            if union.has_use(e):
+            constrs.append(e)
+            e_vars = set()
+            _find_all_vars(e, e_vars)
+            for ref in e_vars:
+                if ref not in cand_vars:
+                    raise SolveError(self, 'Variable used but not detected.')
+                used_vars.append(ref.obj_)
+
+        # Sample variables that are not bounded by other constraints
+        for var in used_vars:
+            if union.has_use(var):
                 continue  # if it has use, it is bounded by other constraints
-            self._try_sample(cast(Var, e))
+            self._try_sample(var)
             pass
         return True
 
@@ -314,11 +330,18 @@ class ConstraintSolver:
         node.set_elem_defined(cast(Tuple, tup))
         return True
 
+    def _print_extra(self):
+        buf = CodeBuffer()
+        buf.write_pos_multi(
+            map(lambda e: lambda: print_expr(e, buf, []), self._extra),
+            prefix='[', suffix=']'
+        )
+        print(buf)
 
-def _print_extra(extra: List[Expr]):
-    buf = CodeBuffer()
-    buf.write_pos_multi(
-        map(lambda e: lambda: print_expr(e, buf, []), extra),
-        prefix='[', suffix=']'
-    )
-    print(buf)
+
+def _find_all_vars(e: Expr, s: Set[Ref[Var]]):
+    if e.kind == ExprKind.VAR:
+        s.add(Ref(cast(Var, e)))
+    else:
+        for sub in e.sub_expr_:
+            _find_all_vars(sub, s)

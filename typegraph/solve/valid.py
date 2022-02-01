@@ -1,16 +1,17 @@
-from typing import List, Iterable, Dict, Callable, Any
+import sys
+from typing import List, Dict, Callable, Iterable, Any, cast
 
-from .store import ValueStore, StoreNode, ScalarNode, StoreVisitor, ValueStatus
+from .store import ValueStore, NodeKind, StoreNode, ScalarNode, ArrayNode, StoreVisitor, ValueStatus
 from ..expr import Expr, Var
 from ..expr.array import GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
     InSet, Subset
-from ..expr.basic import ExprKind, ForAll, Dummy
+from ..expr.basic import ExprKind, Const, ForAll, GetAttr, Dummy
 from ..expr.tensor import Num, Rank, Shape, GetDType
 from ..expr.visitor import ExprVisitor
 from ..util import Ref
 
 
-def find_valid(store: ValueStore, extra: List[Expr]) -> 'UnionFind':
+def validate(store: ValueStore, extra: List[Expr]) -> 'UnionFind':
     """
     Find all valid (solvable) constraint expressions.
 
@@ -20,8 +21,8 @@ def find_valid(store: ValueStore, extra: List[Expr]) -> 'UnionFind':
     """
     # Initialize union-find and visitors
     union = UnionFind()
-    expr_find = ExprVarFinder(union)
-    store_find = StoreVarFinder(expr_find)
+    expr_find = ExprFinder(store, union)
+    store_find = StoreFinder(expr_find)
 
     # Visit stores and constraints
     for _, node in store.attrs_:
@@ -66,9 +67,6 @@ class UnionFind:
         self._root[di] = ui
         self._valid[ui] &= self._valid[di]
 
-    def check(self, e: Expr):
-        return self._valid[self._find_expr(e)]
-
     def set_invalid(self, e: Expr):
         self._valid[self._find_expr(e)] = False
 
@@ -101,8 +99,8 @@ class UnionFind:
         return idx
 
 
-class StoreVarFinder(StoreVisitor[None, None]):
-    def __init__(self, expr_find: 'ExprVarFinder'):
+class StoreFinder(StoreVisitor[None, None]):
+    def __init__(self, expr_find: 'ExprFinder'):
         super().__init__()
         self._find = expr_find
 
@@ -117,74 +115,123 @@ class StoreVarFinder(StoreVisitor[None, None]):
         self._find.visit(node.expr_, node.expr_)
 
 
-class ExprVarFinder(ExprVisitor[Expr, None]):
+class ExprFinder(ExprVisitor[Expr, None]):
     """
     Find all valid variables in a specification.
     """
 
-    def __init__(self, union: 'UnionFind', ):
+    def __init__(self, store: ValueStore, union: 'UnionFind'):
         super().__init__()
+        self._store = store
         self._union = union
 
-    def visit_var(self, var: Var, use: Expr):
-        self._union.union(var, use)
+    def visit_var(self, var: Var, root: Expr):
+        if var.tmpl_:
+            return
+        self._union.union(var, root)
         if var.ran_ is not None:
             self.visit(var.ran_, var)
 
-    def visit_forall(self, forall: ForAll, use: Expr):
-        self._set_invalid(forall, use, super().visit_forall)
+    def visit_forall(self, forall: ForAll, root: Expr):
+        self._set_invalid(forall, root, super().visit_forall)
 
-    def visit_dummy(self, dum: Dummy, use: Expr):
-        self._union.set_invalid(use)
+    def visit_attr(self, attr: GetAttr, root: Expr):
+        self._set_invalid(attr, attr, super().visit_attr)
+        node = self._store.query_attr(attr.name_)
+        self._union_store(node, root, sys.maxsize)
 
-    def visit_num(self, num: Num, use: Expr):
-        self._union.set_invalid(use)
+    def visit_dummy(self, dum: Dummy, root: Expr):
+        self._union.set_invalid(root)
 
-    def visit_rank(self, rank: Rank, use: Expr):
-        self._set_invalid(rank, use, super().visit_rank)
+    def visit_num(self, num: Num, root: Expr):
+        self._union.set_invalid(root)
+        self._union_store(self._store.query_shape(num.kind), root, 1)
 
-    def visit_shape(self, shape: Shape, use: Expr):
-        self._set_invalid(shape, use, super().visit_shape)
+    def visit_rank(self, rank: Rank, root: Expr):
+        self._set_invalid(rank, root, super().visit_rank)
+        if rank.index.kind == ExprKind.CONST:
+            idx = cast(Const, rank.index).val_
+            node = self._store.query_in_shape(idx)
+            self._union_store(node, root, 1)
+        else:
+            node = self._store.in_shapes_
+            self._union_store(node, root, 2, include_len=False)
 
-    def visit_dtype(self, dtype: GetDType, use: Expr):
-        self._set_invalid(dtype, use, super().visit_dtype)
+    def visit_shape(self, shape: Shape, root: Expr):
+        self._set_invalid(shape, root, super().visit_shape)
+        if shape.index.kind == ExprKind.CONST:
+            idx = cast(Const, shape.index).val_
+            node = self._store.query_in_shape(idx)
+            self._union_store(node, root, 2)
+        else:
+            node = self._store.in_shapes_
+            self._union_store(node, root, 3, include_len=False)
 
-    def visit_getitem(self, getitem: GetItem, use: Expr):
-        self._set_invalid(getitem, use, super().visit_getitem)
+    def visit_dtype(self, dtype: GetDType, root: Expr):
+        self._set_invalid(dtype, root, super().visit_dtype)
+        if dtype.index.kind == ExprKind.CONST:
+            idx = cast(Const, dtype.index).val_
+            node = self._store.query_in_dtype(idx)
+            self._union_store(node, root, 1)
+        else:
+            node = self._store.in_dtypes_
+            self._union_store(node, root, 2, include_len=False)
 
-    def visit_len(self, ln: Len, use: Expr):
-        self._set_invalid(ln, use, super().visit_len)
+    def visit_getitem(self, getitem: GetItem, root: Expr):
+        self._set_invalid(getitem, root, super().visit_getitem)
 
-    def visit_concat(self, concat: Concat, use: Expr):
-        self._set_invalid(concat, use, super().visit_concat)
+    def visit_len(self, ln: Len, root: Expr):
+        self._set_invalid(ln, root, super().visit_len)
 
-    def visit_slice(self, slc: Slice, use: Expr):
-        self._set_invalid(slc, use, super().visit_slice)
+    def visit_concat(self, concat: Concat, root: Expr):
+        self._set_invalid(concat, root, super().visit_concat)
 
-    def visit_map(self, m: Map, use: Expr):
-        self._set_invalid(m, use, super().visit_map)
+    def visit_slice(self, slc: Slice, root: Expr):
+        self._set_invalid(slc, root, super().visit_slice)
 
-    def visit_reduce_array(self, red: ReduceArray, use: Expr):
+    def visit_map(self, m: Map, root: Expr):
+        self._set_invalid(m, root, super().visit_map)
+
+    def visit_reduce_array(self, red: ReduceArray, root: Expr):
         if red.arr_.kind != ExprKind.TUPLE:
             # non-tuple array cannot be translated
-            self._union.set_invalid(use)
-        super().visit_reduce_array(red, use)
+            self._union.set_invalid(root)
+        super().visit_reduce_array(red, root)
 
-    def visit_reduce_index(self, red: ReduceIndex, use: Expr):
+    def visit_reduce_index(self, red: ReduceIndex, root: Expr):
         ran = red.ran_
         if ran.begin_.kind != ExprKind.CONST or ran.end_.kind != ExprKind.CONST:
-            self._union.set_invalid(use)
-        super().visit_reduce_index(red, use)
+            self._union.set_invalid(root)
+        super().visit_reduce_index(red, root)
 
-    def visit_filter(self, flt: Filter, use: Expr):
-        self._set_invalid(flt, use, super().visit_filter)
+    def visit_filter(self, flt: Filter, root: Expr):
+        self._set_invalid(flt, root, super().visit_filter)
 
-    def visit_inset(self, inset: InSet, use: Expr):
-        self._set_invalid(inset, use, super().visit_inset)
+    def visit_inset(self, inset: InSet, root: Expr):
+        self._set_invalid(inset, root, super().visit_inset)
 
-    def visit_subset(self, subset: Subset, use: Expr):
-        self._set_invalid(subset, use, super().visit_inset)
+    def visit_subset(self, subset: Subset, root: Expr):
+        self._set_invalid(subset, root, super().visit_subset)
 
-    def _set_invalid(self, e: Expr, use: Expr, post_f: Callable[[Any, Any], Any]):
-        self._union.set_invalid(use)
-        post_f(e, use)
+    def _set_invalid(self, e: Expr, root: Expr, post_f: Callable[[Any, Any], Any]):
+        self._union.set_invalid(root)
+        post_f(e, root)
+
+    def _union_store(self, node: StoreNode, root: Expr, level: int, include_len: bool = True):
+        if level == 0:
+            return
+        if node.kind == NodeKind.SCALAR:
+            node = cast(ScalarNode, node)
+            if node.status_ != ValueStatus.DEFINED:
+                return
+            if node.expr_.kind != ExprKind.VAR:
+                return
+            self._union.union(cast(Var, node.expr_), root)
+        elif node.kind == NodeKind.ARRAY:
+            node = cast(ArrayNode, node)
+            if node.expr_defined and not node.elem_defined:
+                self.visit(node.expr_, root)
+            if include_len:
+                self._union_store(node.len_, root, level)
+            for child in node.children_:
+                self._union_store(child, root, level - 1)

@@ -72,6 +72,14 @@ class Shape(Expr):
         super().__init__([tensor.idx_], ty=ListType(INT))
         self.tensor_ = tensor
 
+    @property
+    def index(self):
+        return self.tensor_.idx_
+
+    @property
+    def tensor_kind(self):
+        return self.tensor_.kind_
+
 
 class Rank(Expr):
     """
@@ -83,6 +91,14 @@ class Rank(Expr):
         super().__init__([tensor.idx_], ty=INT)
         self.tensor_ = tensor
 
+    @property
+    def index(self):
+        return self.tensor_.idx_
+
+    @property
+    def tensor_kind(self):
+        return self.tensor_.kind_
+
 
 class GetDType(Expr):
     """
@@ -93,3 +109,11 @@ class GetDType(Expr):
     def __init__(self, tensor: TensorDesc):
         super().__init__([tensor.idx_], ty=DTYPE)
         self.tensor_ = tensor
+
+    @property
+    def index(self):
+        return self.tensor_.idx_
+
+    @property
+    def tensor_kind(self):
+        return self.tensor_.kind_

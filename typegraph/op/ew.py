@@ -15,7 +15,6 @@ def _create_bcast():
             List(n, lambda _: Var(tmpl=True))
         ],
         extra=[
-            IN[0].dtype == IN[1].dtype,
             ForAll(Range(end=m.min(n)), lambda i: Or(
                 IN[0].shape[m - i] == IN[1].shape[n - i],
                 IN[0].shape[m - i] == 1,
