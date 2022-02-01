@@ -5,16 +5,15 @@ _concat = ConstraintSpec(
     attrs=[
         Attr('axis', Var(ty=INT, ran=Range(1, IN[0].rank)))
     ],
-    in_num=Var(ran=Range(1, 7)),
+    in_num=Var(ran=Range(1, 5)),
     in_ranks=List(IN.num, lambda _: Var(ran=Range(1, 6))),
     in_dtypes=List(IN.num, lambda _: Var()),
-    in_shapes=List(IN.num, lambda _: List(
-        IN[0].rank, lambda j: Cond(
-            j == a('axis'),
-            Var(ran=Range(1, 129), tmpl=True),
-            Var(ran=Range(1, 129))
-        )
-    )),
+    in_shapes=Concat(
+        [List(IN[0].rank, lambda _: Var(ran=Range(1, 129), tmpl=True))],
+        List(IN.num - 1, lambda _: List(IN[0].rank, lambda j: Cond(
+            j == a('axis'), Var(ran=Range(1, 129), tmpl=True), IN[0].shape[j]
+        )))
+    ),
     extra=[],
     out_num=1,
     out_ranks=[IN[0].rank],
@@ -22,7 +21,7 @@ _concat = ConstraintSpec(
     out_shapes=[
         List(IN[0].rank, lambda j: Cond(
             j == a('axis'),
-            ReduceIndex(Range(end=IN.num), ArithOp.ADD, 0, body_f=lambda i: IN[i].shape[j]),
+            ReduceIndex(Range(end=IN.num), ArithOp.ADD, 0, lambda i: IN[i].shape[j]),
             IN[0].shape[j]
         ))
     ]
@@ -37,8 +36,7 @@ def _create_split():
         attrs=[
             Attr('axis', Var(ty=INT, ran=Range(1, IN[0].rank))),
             Attr('indices_or_sections',
-                 List(Var(ran=Range(begin=1, end=IN[0].shape[a('axis')])),
-                      lambda _: Var(INT, tmpl=True)))
+                 List(Var(ran=Range(begin=1, end=5)), lambda _: Var(INT, tmpl=True)))
         ],
         in_num=1,
         in_ranks=[Var(ran=Range(1, 6))],

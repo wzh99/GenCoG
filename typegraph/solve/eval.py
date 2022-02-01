@@ -281,10 +281,13 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         return self.visit(and_expr, env)
 
     def visit_cond(self, cond: Cond, env: Env[Expr]) -> Expr:
-        pred = self._try_eval(cond.pred_, env)
-        if pred is None:
-            return cond
-        return self.visit(cond.tr_br_, env) if pred else self.visit(cond.fls_br_, env)
+        pred = self.visit(cond.pred_, env)
+        if pred.kind == ExprKind.CONST:
+            v = cast(Const, pred).val_
+            return self.visit(cond.tr_br_, env) if v else self.visit(cond.fls_br_, env)
+        else:
+            return Cond(self.visit(cond.pred_, env), self.visit(cond.tr_br_, env),
+                        self.visit(cond.fls_br_, env), ty=cond.type_)
 
     def visit_attr(self, attr: GetAttr, env: Env[Expr]) -> Expr:
         return self._store.query_attr(attr.name_).expr

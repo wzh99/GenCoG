@@ -128,9 +128,9 @@ class ConstraintSolver:
             # Solve rank
             tensor = cast(ArrayNode, tensor)
             prev_solved = tensor.len_solved
+            changed |= self._solve_len(tensor, by_elem=False)
             if t_idx in self._known:
                 tensor.set_len_solved(self._known[t_idx].rank)
-            changed |= self._solve_len(tensor, by_elem=False)
             changed |= prev_solved != tensor.len_solved
             if not tensor.len_solved:
                 continue
@@ -154,10 +154,10 @@ class ConstraintSolver:
             for d_idx, dim in enumerate(tensor.children_):
                 dim = cast(ScalarNode, dim)
                 prev_solved = dim.solved
+                changed |= self._solve_scalar(cast(ScalarNode, dim))
                 if t_idx in self._known:
                     known_shape = self._known[t_idx].shape_
                     dim.set_solved(known_shape[d_idx])
-                changed |= self._solve_scalar(cast(ScalarNode, dim))
                 changed |= prev_solved != dim.solved
 
         return changed
