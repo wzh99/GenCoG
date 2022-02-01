@@ -247,10 +247,12 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         clauses = []
         for c in a.clauses_:
             post = self._try_fold(c, env, lambda: self.visit(c, env))
-            if post.kind == Const:
+            if post.kind == ExprKind.CONST:
                 const = cast(Const, post)
                 if const.val_ is False:
                     return Const(False)
+                else:
+                    continue
             clauses.append(post)
         return And(*clauses)
 
@@ -258,19 +260,24 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         clauses = []
         for c in o.clauses_:
             post = self._try_fold(c, env, lambda: self.visit(c, env))
-            if post.kind == Const:
+            if post.kind == ExprKind.CONST:
                 const = cast(Const, post)
                 if const.val_ is True:
                     return Const(True)
+                else:
+                    continue
             clauses.append(post)
         return Or(*clauses)
 
     def visit_forall(self, forall: ForAll, env: Env[Expr]) -> Expr:
-        ran = self._try_eval(forall.ran_, env)
-        if ran is None:
-            return forall
+        ran = self.visit_range(forall.ran_, env)
+        if ran.begin_.kind != ExprKind.CONST or ran.end_.kind != ExprKind.CONST:
+            return ForAll(ran, idx=forall.idx_,
+                          body=self.visit(forall.body_, env + (forall.idx_, forall.idx_)))
+        begin = cast(Const, ran.begin_).val_
+        end = cast(Const, ran.end_).val_
         and_expr = And(*(self.visit(forall.body_, env + (forall.idx_, Const(idx)))
-                         for idx in range(ran[0], ran[1])))
+                         for idx in range(begin, end)))
         return self.visit(and_expr, env)
 
     def visit_cond(self, cond: Cond, env: Env[Expr]) -> Expr:
@@ -294,6 +301,8 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         if idx is None:
             return shape
         node = self._store.query_shape(shape.tensor_.kind_, idx)
+        if node is None:
+            return shape
         return node.expr
 
     def visit_rank(self, rank: Rank, env: Env[Expr]) -> Expr:
@@ -301,6 +310,8 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         if idx is None:
             return rank
         node = self._store.query_shape(rank.tensor_.kind_, idx)
+        if node is None:
+            return rank
         return cast(ArrayNode, node).len_.expr
 
     def visit_dtype(self, dtype: GetDType, env: Env[Expr]) -> Expr:
@@ -308,6 +319,8 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         if idx is None:
             return dtype
         node = self._store.query_dtype(dtype.tensor_.kind_, idx)
+        if node is None:
+            return dtype
         return node.expr
 
     def visit_tuple(self, tup: Tuple, env: Env[Expr]) -> Expr:
@@ -336,8 +349,9 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
             return Const(len(cast(Tuple, arr).fields_))
         elif arr.kind == ExprKind.LIST:
             return cast(List, arr).len_
-        elif arr.kind == ExprKind.MAP:
-            return Len(cast(Map, arr).arr_)
+        elif arr.kind == ExprKind.ATTR:
+            node = self._store.query_attr(cast(GetAttr, arr).name_)
+            return cast(ArrayNode, node).len_.expr
         else:
             return Len(arr)
 

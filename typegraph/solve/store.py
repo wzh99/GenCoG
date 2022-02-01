@@ -1,8 +1,9 @@
+import typing as t
 from enum import IntEnum, auto
-from typing import Optional, List, TypeVar, Generic, Callable, Dict, Any, cast
+from typing import Optional, TypeVar, Generic, Callable, Dict, Any, Iterable, cast
 
 from ..expr import Expr, Const
-from ..expr.array import Tuple
+from ..expr.array import Tuple, List
 from ..expr.basic import ExprKind, Var, Dummy
 from ..expr.fmt import print_expr
 from ..expr.tensor import TensorKind
@@ -127,7 +128,7 @@ class ArrayNode(StoreNode):
         super().__init__(store)
         self.len_ = ScalarNode(store)
         self.expr_ = None
-        self.children_: List[StoreNode] = []
+        self.children_: t.List[StoreNode] = []
         if expr is not None:
             self.set_expr_defined(expr)
 
@@ -160,6 +161,9 @@ class ArrayNode(StoreNode):
         self.expr_ = expr
         if expr.kind == ExprKind.TUPLE:
             self.set_elem_defined(cast(Tuple, expr))
+        elif expr.kind == ExprKind.LIST and not self.len_defined and \
+                cast(List, expr).len_.kind == ExprKind.VAR:
+            self.set_len_defined(cast(List, expr).len_)
 
     def set_defined(self, expr: Expr):
         self.set_expr_defined(expr)
@@ -197,7 +201,7 @@ class ValueStore:
     Store solution status for each scalar value in layered fashion.
     """
 
-    def __init__(self, attrs: List[Attr]):
+    def __init__(self, attrs: Iterable[Attr]):
         cp = CopyExpr()
         self.attrs_ = list(
             (a.name_, StoreNode.create_defined(self, cp.copy(a.expr_))) for a in attrs)

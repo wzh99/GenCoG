@@ -3,13 +3,17 @@ from ..spec import Attr, ConstraintSpec, Op
 
 _concat = ConstraintSpec(
     attrs=[
-        Attr('axis', Var(ty=INT, ran=Range(0, IN[0].rank)))
+        Attr('axis', Var(ty=INT, ran=Range(1, IN[0].rank)))
     ],
-    in_num=Var(),
-    in_ranks=List(IN.num, lambda _: Var()),
+    in_num=Var(ran=Range(1, 7)),
+    in_ranks=List(IN.num, lambda _: Var(ran=Range(1, 6))),
     in_dtypes=List(IN.num, lambda _: Var()),
     in_shapes=List(IN.num, lambda _: List(
-        IN[0].rank, lambda j: Cond(j == a('axis'), Var(tmpl=True), Var())
+        IN[0].rank, lambda j: Cond(
+            j == a('axis'),
+            Var(ran=Range(1, 129), tmpl=True),
+            Var(ran=Range(1, 129))
+        )
     )),
     extra=[],
     out_num=1,
@@ -31,13 +35,13 @@ def _create_split():
     ind = a('indices_or_sections')
     return ConstraintSpec(
         attrs=[
-            Attr('axis', Var(ty=INT, ran=Range(0, IN[0].rank))),
+            Attr('axis', Var(ty=INT, ran=Range(1, IN[0].rank))),
             Attr('indices_or_sections',
                  List(Var(ran=Range(begin=1, end=IN[0].shape[a('axis')])),
                       lambda _: Var(INT, tmpl=True)))
         ],
         in_num=1,
-        in_ranks=[Var(ran=Range(begin=1))],
+        in_ranks=[Var(ran=Range(1, 6))],
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[

@@ -8,7 +8,7 @@ def _create_bcast():
     return ConstraintSpec(
         attrs=[],
         in_num=2,
-        in_ranks=[Var(), Var()],
+        in_ranks=List(2, lambda _: Var(ran=Range(2, 6), tmpl=True)),
         in_dtypes=List(2, lambda _: Var()),
         in_shapes=[
             List(m, lambda _: Var(tmpl=True)),
@@ -16,9 +16,9 @@ def _create_bcast():
         ],
         extra=[
             ForAll(Range(end=m.min(n)), lambda i: Or(
-                IN[0].shape[m - i] == IN[1].shape[n - i],
-                IN[0].shape[m - i] == 1,
-                IN[1].shape[n - i] == 1
+                IN[0].shape[m - i - 1] == IN[1].shape[n - i - 1],
+                IN[0].shape[m - i - 1] == 1,
+                IN[1].shape[n - i - 1] == 1
             ))
         ],
         out_num=1,

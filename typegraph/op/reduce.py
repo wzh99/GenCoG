@@ -18,7 +18,7 @@ def _create_reduce():
         in_ranks=[Var()],
         in_dtypes=[Var()],
         in_shapes=[
-            List(IN[0].rank, lambda _: Var())
+            List(IN[0].rank, lambda _: Var(tmpl=True))
         ],
         extra=[
             Subset(a('axis'), ind),
