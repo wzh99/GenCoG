@@ -1,11 +1,10 @@
-import sys
-from typing import List, Dict, Callable, Iterable, Any, cast
+from typing import List, Dict, Callable, Iterable, Any
 
-from .store import ValueStore, NodeKind, StoreNode, ScalarNode, ArrayNode, StoreVisitor, ValueStatus
-from ..expr import Expr, Var
+from .store import ValueStore, StoreNode, ScalarNode, StoreVisitor, ValueStatus
+from ..expr import Expr, Var, BOOL, INT, FLOAT
 from ..expr.array import GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
     InSet, Subset
-from ..expr.basic import ExprKind, Const, ForAll, GetAttr, Dummy
+from ..expr.basic import ExprKind, ForAll, GetAttr, Dummy
 from ..expr.tensor import Num, Rank, Shape, GetDType
 from ..expr.visitor import ExprVisitor
 from ..util import Ref
@@ -125,57 +124,37 @@ class ExprFinder(ExprVisitor[Expr, None]):
         self._store = store
         self._union = union
 
+    solvable_types = [BOOL, INT, FLOAT]
+
     def visit_var(self, var: Var, root: Expr):
         if var.tmpl_:
             return
+        if var.type_ not in self.solvable_types:
+            self._union.set_invalid(var)
         self._union.union(var, root)
         if var.ran_ is not None:
             self.visit(var.ran_, var)
 
     def visit_forall(self, forall: ForAll, root: Expr):
-        self._set_invalid(forall, root, super().visit_forall)
+        self.visit(forall.body_, root)
 
     def visit_attr(self, attr: GetAttr, root: Expr):
-        self._set_invalid(attr, attr, super().visit_attr)
-        node = self._store.query_attr(attr.name_)
-        self._union_store(node, root, sys.maxsize)
+        self._set_invalid(attr, root, super().visit_attr)
 
     def visit_dummy(self, dum: Dummy, root: Expr):
         self._union.set_invalid(root)
 
     def visit_num(self, num: Num, root: Expr):
         self._union.set_invalid(root)
-        self._union_store(self._store.query_shape(num.kind), root, 1)
 
     def visit_rank(self, rank: Rank, root: Expr):
         self._set_invalid(rank, root, super().visit_rank)
-        if rank.index.kind == ExprKind.CONST:
-            idx = cast(Const, rank.index).val_
-            node = self._store.query_in_shape(idx)
-            self._union_store(node, root, 1)
-        else:
-            node = self._store.in_shapes_
-            self._union_store(node, root, 2, include_len=False)
 
     def visit_shape(self, shape: Shape, root: Expr):
         self._set_invalid(shape, root, super().visit_shape)
-        if shape.index.kind == ExprKind.CONST:
-            idx = cast(Const, shape.index).val_
-            node = self._store.query_in_shape(idx)
-            self._union_store(node, root, 2)
-        else:
-            node = self._store.in_shapes_
-            self._union_store(node, root, 3, include_len=False)
 
     def visit_dtype(self, dtype: GetDType, root: Expr):
         self._set_invalid(dtype, root, super().visit_dtype)
-        if dtype.index.kind == ExprKind.CONST:
-            idx = cast(Const, dtype.index).val_
-            node = self._store.query_in_dtype(idx)
-            self._union_store(node, root, 1)
-        else:
-            node = self._store.in_dtypes_
-            self._union_store(node, root, 2, include_len=False)
 
     def visit_getitem(self, getitem: GetItem, root: Expr):
         self._set_invalid(getitem, root, super().visit_getitem)
@@ -216,22 +195,3 @@ class ExprFinder(ExprVisitor[Expr, None]):
     def _set_invalid(self, e: Expr, root: Expr, post_f: Callable[[Any, Any], Any]):
         self._union.set_invalid(root)
         post_f(e, root)
-
-    def _union_store(self, node: StoreNode, root: Expr, level: int, include_len: bool = True):
-        if level == 0:
-            return
-        if node.kind == NodeKind.SCALAR:
-            node = cast(ScalarNode, node)
-            if node.status_ != ValueStatus.DEFINED:
-                return
-            if node.expr_.kind != ExprKind.VAR:
-                return
-            self._union.union(cast(Var, node.expr_), root)
-        elif node.kind == NodeKind.ARRAY:
-            node = cast(ArrayNode, node)
-            if node.expr_defined and not node.elem_defined:
-                self.visit(node.expr_, root)
-            if include_len:
-                self._union_store(node.len_, root, level)
-            for child in node.children_:
-                self._union_store(child, root, level - 1)

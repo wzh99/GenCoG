@@ -76,7 +76,7 @@ class ConstraintSolver:
         changed |= self._solve_extra()
 
         # Solve with SMT
-        self._solve_smt()
+        changed |= self._solve_smt()
 
         return changed
 
@@ -237,59 +237,55 @@ class ConstraintSolver:
 
     def _solve_smt(self):
         # Find all valid variables and constraints with union-find
+        changed = False
         union = validate(self._store, self._extra)
         all_valid = list(union.all_valid())
         if len(all_valid) == 0:
             return False
 
         # Filter out all unused variables
-        cand_vars = set(Ref(var) for var in all_valid if var.kind == ExprKind.VAR)
-        used_vars: Set[Ref[Var]] = set()
-        constrs: List[Expr] = []
-        for e in all_valid:
-            if e.kind == ExprKind.VAR:
-                continue
-            constrs.append(e)
-            e_vars = set()
-            _find_all_vars(e, e_vars)
-            for ref in e_vars:
-                if ref not in cand_vars:
-                    raise SolveError(self, 'Variable used but not detected.')
-                used_vars.add(ref)
+        all_vars = set(Ref(cast(Var, var)) for var in all_valid if var.kind == ExprKind.VAR)
+        constrs: List[Expr] = [e for e in all_valid if e.kind != ExprKind.VAR]
 
         # Sample variables that are not bounded by other constraints
-        for var in used_vars:
-            if union.has_use(var.obj_):
+        for ref in all_vars:
+            if union.has_use(ref.obj_):
                 continue  # if it has use, it is bounded by other constraints
-            self._try_sample(var.obj_)
+            changed |= self._try_sample(ref.obj_)
 
         # Solve by SMT
-        return solve_smt(used_vars, constrs, self._store, self._rng)
+        changed |= solve_smt(all_vars, constrs, self._store, self._rng)
+        return changed
 
     def _try_sample(self, var: Var):
         # Directly sample boolean values
         if var.type_ == BOOL:
             v = bool(self._rng.integers(2))
             self._store.set_var_solved(var, v)
+            return True
 
         # Get range for numeric values
         if var.ran_ is None:
-            return
+            return False
         ran = var.ran_
         if ran.begin_ is None or ran.begin_.kind != ExprKind.CONST:
-            return
+            return False
         low = cast(Const, ran.begin_).val_
         if ran.end_ is None or ran.end_.kind != ExprKind.CONST:
-            return
+            return False
         high = cast(Const, ran.end_).val_
 
         # Sample numeric values
         if var.type_ == INT:
             v = int(self._rng.integers(low=low, high=high))
             self._store.set_var_solved(var, v)
+            return True
         elif var.type_ == FLOAT:
             v = float(self._rng.uniform(low=low, high=high))
             self._store.set_var_solved(var, v)
+            return True
+        else:
+            return False
 
     def _solve_node(self, node: StoreNode) -> bool:
         if node.kind == NodeKind.SCALAR:
