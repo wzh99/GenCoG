@@ -2,8 +2,8 @@ from typing import List, Dict, Callable, Iterable, Any
 
 from .store import ValueStore, StoreNode, ScalarNode, StoreVisitor, ValueStatus
 from ..expr import Expr, Var, BOOL, INT, FLOAT
-from ..expr.array import GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
-    InSet, Subset
+from ..expr.array import GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
+    Filter, InSet, Subset
 from ..expr.basic import ExprKind, ForAll, GetAttr, Dummy
 from ..expr.tensor import Num, Rank, Shape, GetDType
 from ..expr.visitor import ExprVisitor
@@ -136,6 +136,7 @@ class ExprFinder(ExprVisitor[Expr, None]):
             self.visit(var.ran_, var)
 
     def visit_forall(self, forall: ForAll, root: Expr):
+        self._union.set_invalid(root)
         self.visit(forall.body_, root)
 
     def visit_attr(self, attr: GetAttr, root: Expr):

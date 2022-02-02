@@ -14,12 +14,12 @@ def _create_conv2d():
                       a('padding')[3], a('strides')[1])
     return ConstraintSpec(
         attrs=[
-            Attr('kernel_size', List(2, lambda _: Var(INT, ran=Range(begin=1, end=8), tmpl=True))),
-            Attr('channels', Var(INT, ran=Range(begin=1, end=129))),
-            Attr('strides', List(2, lambda _: Var(INT, ran=Range(begin=1, end=3), tmpl=True))),
+            Attr('kernel_size', List(2, lambda _: Var(INT, ran=Range(1, 8), tmpl=True))),
+            Attr('channels', Var(INT, ran=Range(1, 129))),
+            Attr('strides', List(2, lambda _: Var(INT, ran=Range(1, 3), tmpl=True))),
             Attr('padding', List(4, lambda _: Var(INT, ran=Range(end=9), tmpl=True))),
-            Attr('dilation', List(2, lambda _: Var(INT, ran=Range(end=3), tmpl=True))),
-            Attr('groups', Var(INT)),
+            Attr('dilation', List(2, lambda _: Var(INT, ran=Range(1, 3), tmpl=True))),
+            Attr('groups', Var(INT, ran=Range(1, IN[0].shape[1] + 1))),
         ],
         in_num=2,
         in_ranks=[4, 4],

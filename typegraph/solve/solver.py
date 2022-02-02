@@ -1,4 +1,4 @@
-from typing import Dict, Set, List, cast
+from typing import Dict, List, cast
 
 from numpy.random import Generator
 
@@ -55,7 +55,9 @@ class ConstraintSolver:
     def solve(self):
         # Solve attributes and inputs
         while True:
-            if not self._solve_one_iter():
+            while self._solve_one_iter():
+                pass
+            if not self._solve_smt():
                 break
         # self._solve_one_iter()
         # self._solve_one_iter()
@@ -74,9 +76,6 @@ class ConstraintSolver:
 
         # Solve extra constraints
         changed |= self._solve_extra()
-
-        # Solve with SMT
-        changed |= self._solve_smt()
 
         return changed
 
@@ -245,16 +244,20 @@ class ConstraintSolver:
 
         # Filter out all unused variables
         all_vars = set(Ref(cast(Var, var)) for var in all_valid if var.kind == ExprKind.VAR)
-        constrs: List[Expr] = [e for e in all_valid if e.kind != ExprKind.VAR]
+        extra: List[Expr] = [e for e in all_valid if e.kind != ExprKind.VAR]
 
         # Sample variables that are not bounded by other constraints
+        sampled = set()
         for ref in all_vars:
             if union.has_use(ref.obj_):
                 continue  # if it has use, it is bounded by other constraints
-            changed |= self._try_sample(ref.obj_)
+            if self._try_sample(ref.obj_):
+                sampled.add(ref)
+                changed = True
+        all_vars.difference_update(sampled)
 
         # Solve by SMT
-        changed |= solve_smt(all_vars, constrs, self._store, self._rng)
+        changed |= solve_smt(all_vars, extra, self._store, self._rng)
         return changed
 
     def _try_sample(self, var: Var):
@@ -351,10 +354,8 @@ class ConstraintSolver:
         )
         print(buf)
 
-
-def _find_all_vars(e: Expr, s: Set[Ref[Var]]):
-    if e.kind == ExprKind.VAR:
-        s.add(Ref(cast(Var, e)))
-    else:
-        for sub in e.sub_expr_:
-            _find_all_vars(sub, s)
+    @staticmethod
+    def _print_expr(e: Expr):
+        buf = CodeBuffer()
+        print_expr(e, buf, [])
+        print(buf)

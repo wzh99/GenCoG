@@ -25,8 +25,7 @@ class ValueStatus(IntEnum):
 
 
 class StoreError(Exception):
-    def __init__(self, store: 'ValueStore', node: Optional['StoreNode'], msg: str, ):
-        self.store_ = store
+    def __init__(self, node: Optional['StoreNode'], msg: str, ):
         self.node_ = node
         self.msg_ = msg
 
@@ -94,7 +93,7 @@ class ScalarNode(StoreNode):
     def set_solved(self, value: ValueType):
         if self.solved and value != self.value_:
             raise StoreError(
-                self.store_, self,
+                self,
                 f'Newly provided value {value} is not consistent with last solved value '
                 f'{self.value_}.'
             )
@@ -215,7 +214,7 @@ class ValueStore:
     def query_attr(self, name: str, *ind: int):
         if name not in self._attr_dict:
             raise StoreError(
-                self, None, f'Attribute {name} not defined.'
+                None, f'Attribute {name} not defined.'
             )
         return self._query_node(self._attr_dict[name], *ind)
 
@@ -263,7 +262,7 @@ class ValueStore:
             self._solved_var_[var_ref] = value
         elif self._solved_var_[var_ref] != value:
             raise StoreError(
-                self, node,
+                node,
                 f'Solved value {value} is not consistent with its previous result '
                 f'{self._solved_var_[var_ref]}.'
             )
