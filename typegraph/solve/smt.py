@@ -5,6 +5,7 @@ import z3
 from numpy.random import Generator
 
 from .store import ValueStore
+from ..config import config
 from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
     Filter, InSet, Subset
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, \
@@ -60,16 +61,24 @@ def solve_smt(var_set: Set[Ref[Var]], extra: Iterable[Expr], store: ValueStore,
     for e in extra:
         solver.add(expr_gen.generate(e))
 
-    # Solve constraints
+    # Solve constraints multiple times
     z3.set_param('smt.random_seed', rng.integers(1024))
-    if solver.check() == z3.unsat:
-        raise Z3SolveError()
-    model = solver.model()
+    cand_models = []
+    for _ in range(config['solver.max_model_cand']):
+        if solver.check() != z3.sat:
+            break
+        model = solver.model()
+        cand_models.append(model)
+        exclude = z3.Not(z3.And(*(z3_var == model[z3_var] for z3_var in var_map.values())))
+        solver.add(exclude)
+
+    # Choose one possible model
+    model = cand_models[rng.choice(len(cand_models))]
 
     # Save results to value store
     for ref, z3_var in var_map.items():
         var = ref.obj_
-        result = model[z3_var]
+        result = model.eval(z3_var)
         store.set_var_solved(var, _z3_extract_funcs[var.type_](result))
 
     return True
