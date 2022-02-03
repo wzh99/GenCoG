@@ -69,7 +69,7 @@ def solve_smt(var_set: Set[Ref[Var]], extra: Iterable[Expr], store: ValueStore,
             break
         model = solver.model()
         cand_models.append(model)
-        exclude = z3.Not(z3.And(*(z3_var == model[z3_var] for z3_var in var_map.values())))
+        exclude = z3.Or(*(z3_var != model[z3_var] for z3_var in var_map.values()))
         solver.add(exclude)
 
     # Choose one possible model
@@ -78,6 +78,9 @@ def solve_smt(var_set: Set[Ref[Var]], extra: Iterable[Expr], store: ValueStore,
     # Save results to value store
     for ref, z3_var in var_map.items():
         var = ref.obj_
+        # noinspection PyTypeChecker
+        if model[z3_var] is None:
+            raise Z3SolveError()
         result = model.eval(z3_var)
         store.set_var_solved(var, _z3_extract_funcs[var.type_](result))
 

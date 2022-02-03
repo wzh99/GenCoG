@@ -5,7 +5,7 @@ from typing import Optional, TypeVar, Generic, Callable, Dict, Any, Iterable, ca
 from ..expr import Expr, Const
 from ..expr.array import Tuple, List
 from ..expr.basic import ExprKind, Var, Dummy
-from ..expr.fmt import print_expr
+from ..expr.fmt import ExprPrinter, print_expr
 from ..expr.tensor import TensorKind
 from ..expr.ty import Type, ValueType
 from ..expr.visitor import CopyExpr
@@ -53,6 +53,10 @@ class StoreNode:
         raise NotImplemented
 
     def set_defined(self, expr: Expr):
+        raise NotImplemented
+
+    @property
+    def solved(self) -> bool:
         raise NotImplemented
 
     @property
@@ -148,6 +152,12 @@ class ArrayNode(StoreNode):
         return self.len_.status_ == ValueStatus.SOLVED
 
     @property
+    def solved(self) -> bool:
+        if not self.len_solved:
+            return False
+        return all(c.solved for c in self.children_)
+
+    @property
     def elem_defined(self):
         return self.len_solved and all(map(lambda c: c.defined, self.children_))
 
@@ -167,11 +177,13 @@ class ArrayNode(StoreNode):
     def set_defined(self, expr: Expr):
         self.set_expr_defined(expr)
 
-    def set_len_solved(self, length: int):
-        assert self.expr_defined
+    def set_len_solved(self, length: int, elem_ty: Optional[Type] = None):
         self.len_.set_solved(length)
+        if self.expr_defined:
+            elem_ty = self.expr_.type_.elem_type
+        assert elem_ty is not None
         if len(self.children_) == 0:
-            self.children_ = [StoreNode.create_undefined(self.store_, self.expr_.type_.elem_type)
+            self.children_ = [StoreNode.create_undefined(self.store_, elem_ty)
                               for _ in range(length)]
 
     def set_elem_defined(self, tup: Tuple):
@@ -271,18 +283,30 @@ class ValueStore:
         return self._solved_var_.get(Ref(var))
 
     def print(self, buf: CodeBuffer):
-        printer = StorePrinter()
+        store_print = StorePrinter()
+        expr_print = ExprPrinter(buf, [])
         buf.write(cls_name(self))
         buf.write_named_multi([
             ('attrs', lambda: buf.write_named_multi(
-                list(map(lambda p: (p[0], lambda: printer.visit(p[1], buf)), self.attrs_)),
+                list(map(lambda p: (p[0], lambda: store_print.visit(p[1], buf)), self.attrs_)),
                 prefix='[', suffix=']'
             )),
-            ('in_shapes', lambda: printer.visit(self.in_shapes_, buf)),
-            ('in_dtypes', lambda: printer.visit(self.in_dtypes_, buf)),
-            ('out_shapes', lambda: printer.visit(self.out_shapes_, buf)),
-            ('out_dtypes', lambda: printer.visit(self.out_dtypes_, buf))
+            ('in_shapes', lambda: store_print.visit(self.in_shapes_, buf)),
+            ('in_dtypes', lambda: store_print.visit(self.in_dtypes_, buf)),
+            ('out_shapes', lambda: store_print.visit(self.out_shapes_, buf)),
+            ('out_dtypes', lambda: store_print.visit(self.out_dtypes_, buf)),
+            ('solved_vars', lambda: self._print_solved(expr_print, buf))
         ])
+
+    def _print_solved(self, printer: 'ExprPrinter', buf: CodeBuffer):
+        buf.writeln('{')
+        with buf.indent():
+            for ref, value in self._solved_var_.items():
+                printer.visit_var(ref.obj_, None)
+                buf.write('=')
+                buf.write(str(value))
+                buf.writeln(',')
+        buf.write('}')
 
     def __str__(self):
         buf = CodeBuffer()

@@ -94,6 +94,7 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
 
     def visit_cond(self, cond: Cond, env: Env[ValueType]) -> ResultType:
         pred = self.visit(cond.pred_, env)
+        assert type(pred) == bool
         return self.visit(cond.tr_br_, env) if pred else self.visit(cond.fls_br_, env)
 
     def visit_attr(self, attr: GetAttr, env: Env[ValueType]) -> ResultType:

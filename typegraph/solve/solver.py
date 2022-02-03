@@ -1,3 +1,4 @@
+import typing as t
 from typing import Dict, List, cast
 
 from numpy.random import Generator
@@ -9,10 +10,37 @@ from .valid import validate
 from ..expr.array import Tuple
 from ..expr.basic import Expr, ExprKind, Const, And, Var, Cmp, CmpOp
 from ..expr.fmt import print_expr
-from ..expr.ty import TensorType, BOOL, INT, FLOAT
+from ..expr.ty import TensorType, DataType, ValueType, BOOL, INT, FLOAT
 from ..expr.visitor import CopyExpr, StructuralEq
 from ..spec import ConstraintSpec
-from ..util import CodeBuffer, Ref
+from ..util import CodeBuffer, Ref, cls_name
+
+
+class OpTypeInfo:
+    def __init__(self, attrs: List[t.Tuple[str, ValueType]], in_types: List[TensorType],
+                 out_types: List[TensorType]):
+        self.attrs_ = attrs
+        self.in_types_ = in_types
+        self.out_types_ = out_types
+
+    def __str__(self):
+        buf = CodeBuffer()
+        buf.write(cls_name(self))
+        buf.write_named_multi([
+            ('attrs', lambda: buf.write_named_multi(
+                map(lambda p: (p[0], lambda: buf.write(str(p[1]))), self.attrs_),
+                prefix='[', suffix=']'
+            )),
+            ('in_types', lambda: buf.write_pos_multi(
+                map(lambda tt: lambda: buf.write(str(tt)), self.in_types_),
+                prefix='[', suffix=']'
+            )),
+            ('out_types', lambda: buf.write_pos_multi(
+                map(lambda tt: lambda: buf.write(str(tt)), self.out_types_),
+                prefix='[', suffix=']'
+            ))
+        ])
+        return str(buf)
 
 
 class SolveError(Exception):
@@ -23,6 +51,10 @@ class SolveError(Exception):
     def __init__(self, solver: 'ConstraintSolver', msg: str):
         self.solver_ = solver
         self.msg_ = msg
+
+    def __str__(self):
+        return f'{self.msg_}\n' \
+               f'{str(self.solver_)}'
 
 
 class ConstraintSolver:
@@ -59,10 +91,14 @@ class ConstraintSolver:
                 pass
             if not self._solve_smt():
                 break
-        # self._solve_one_iter()
-        # self._solve_one_iter()
-        print(self._store)
-        self._print_extra()
+
+        # Extract solved values from store
+        attrs, in_types = self._extract_solved()
+
+        # Evaluate output types
+        out_types = self._eval_out()
+
+        return OpTypeInfo(attrs, in_types, out_types)
 
     def _solve_one_iter(self):
         # Solve attributes
@@ -244,7 +280,7 @@ class ConstraintSolver:
 
         # Filter out all unused variables
         all_vars = set(Ref(cast(Var, var)) for var in all_valid if var.kind == ExprKind.VAR)
-        extra: List[Expr] = [e for e in all_valid if e.kind != ExprKind.VAR]
+        extra = [e for e in all_valid if e.kind != ExprKind.VAR]
 
         # Sample variables that are not bounded by other constraints
         sampled = set()
@@ -254,6 +290,10 @@ class ConstraintSolver:
             if self._try_sample(ref.obj_):
                 sampled.add(ref)
                 changed = True
+            else:
+                raise SolveError(
+                    self, 'Cannot solve unconstrained variable.'
+                )
         all_vars.difference_update(sampled)
 
         # Solve by SMT
@@ -289,6 +329,88 @@ class ConstraintSolver:
             return True
         else:
             return False
+
+    def _extract_solved(self):
+        # Extract attributes
+        attrs = []
+        for name, node in self._store.attrs_:
+            if not node.solved:
+                raise SolveError(
+                    self, 'Attribute \'{name}\' not solved.'
+                )
+            attrs.append((name, cast(ValueType, node.value)))
+
+        # Extract input types
+        if not self._store.in_shapes_.solved:
+            raise SolveError(
+                self, 'Input shapes not solved.'
+            )
+        in_shapes = cast(List[List[int]], self._store.in_shapes_.value)
+        if not self._store.in_dtypes_.solved:
+            raise SolveError(
+                self, 'Input data types not solved.'
+            )
+        in_dtypes = cast(List[DataType], self._store.in_dtypes_.value)
+        assert len(in_shapes) == len(in_dtypes)
+        in_types = [TensorType(shape, dtype) for shape, dtype in zip(in_shapes, in_dtypes)]
+
+        return attrs, in_types
+
+    def _eval_out(self):
+        # Evaluate output number
+        num_expr = self._spec.out_num
+        num = self._eval.evaluate(num_expr)
+        shapes_node = self._store.out_shapes_
+        dtypes_node = self._store.out_dtypes_
+        shapes_node.set_expr_defined(self._spec.out_shapes)
+        shapes_node.set_len_solved(num)
+        dtypes_node.set_expr_defined(self._spec.out_dtypes)
+        dtypes_node.set_len_solved(num)
+
+        # Evaluate output ranks
+        ranks: List[int] = list(self._eval.evaluate(self._spec.out_ranks))
+        if len(ranks) != num:
+            raise SolveError(
+                self,
+                f'Length of rank array {len(ranks)} is not consistent with input number {num}.'
+            )
+        for shape_node, rank in zip(shapes_node.children_, ranks):
+            cast(ArrayNode, shape_node).set_len_solved(rank, elem_ty=INT)
+
+        # Evaluate output shapes
+        shapes_iter = self._eval.evaluate(self._spec.out_shapes)
+        shapes: List[List[int]] = [list(shape) for shape in shapes_iter]
+        if len(shapes) != num:
+            raise SolveError(
+                self,
+                f'Length of shape array {len(shapes)} is not consistent with input number {num}.'
+            )
+        for t_idx, shape in enumerate(shapes):
+            if len(shape) != ranks[t_idx]:
+                raise SolveError(
+                    self,
+                    f'Shape length {len(shape)} of tensor {t_idx} is not consistent with rank '
+                    f'{ranks[t_idx]}.'
+                )
+            shape_node = cast(ArrayNode, shapes_node.children_[t_idx])
+            for d_idx, dim in enumerate(shape):
+                dim_node = cast(ScalarNode, shape_node.children_[d_idx])
+                dim_node.set_solved(dim)
+
+        # Evaluate output data types
+        dtypes: List[DataType] = list(self._eval.evaluate(self._spec.out_dtypes))
+        if len(dtypes) != num:
+            raise SolveError(
+                self,
+                f'Length of data type array {len(dtypes)} is not consistent with input number '
+                f'{num}.'
+            )
+        for dtype_node, dtype in zip(dtypes_node.children_, dtypes):
+            cast(ScalarNode, dtype_node).set_solved(dtype)
+
+        # Create output types
+        out_types = [TensorType(shape, dtype) for shape, dtype in zip(shapes, dtypes)]
+        return out_types
 
     def _solve_node(self, node: StoreNode) -> bool:
         if node.kind == NodeKind.SCALAR:
@@ -346,13 +468,20 @@ class ConstraintSolver:
         node.set_elem_defined(cast(Tuple, tup))
         return True
 
-    def _print_extra(self):
+    def __str__(self):
         buf = CodeBuffer()
+        buf.writeln('==== SOLVER DUMP BEGIN ====')
+        buf.writeln('---- Value Store ----')
+        self._store.print(buf)
+        buf.writeln()
+        buf.writeln('---- Extra Constraints ----')
         buf.write_pos_multi(
             map(lambda e: lambda: print_expr(e, buf, []), self._extra),
             prefix='[', suffix=']'
         )
-        print(buf)
+        buf.writeln()
+        buf.writeln('==== SOLVER DUMP END ====')
+        return str(buf)
 
     @staticmethod
     def _print_expr(e: Expr):

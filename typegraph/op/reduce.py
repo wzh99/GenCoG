@@ -33,7 +33,7 @@ def _create_reduce():
             Cond(
                 a('keepdims'),
                 List(IN[0].rank, lambda i: Cond(_is_reduce_axis(i), 1, IN[0].shape[i])),
-                Map(Filter(ind, lambda i: _is_reduce_axis(i)), lambda i: IN[0].shape[i])
+                Map(Filter(ind, lambda i: Not(_is_reduce_axis(i))), lambda i: IN[0].shape[i])
             )
         ]
     )

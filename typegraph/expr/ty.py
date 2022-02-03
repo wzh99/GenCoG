@@ -1,6 +1,6 @@
+import typing as t
 from enum import IntEnum, auto
 from typing import Union, Optional, Dict, List, Callable, cast
-import typing as t
 
 from .. import util
 
@@ -267,3 +267,6 @@ class TensorType:
 
     def __eq__(self, other: 'TensorType'):
         return self.shape_ == other.shape_ and self.dtype_ == other.dtype_
+
+    def __str__(self):
+        return f'TensorType<{self.shape_}, {self.dtype_}>'
