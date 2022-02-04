@@ -74,8 +74,9 @@ class UnionFind:
         return i != self._root[i]
 
     def all_valid(self) -> Iterable[Expr]:
+        items = sorted(self._idx_map.items(), key=lambda p: p[1])
         return map(lambda p: p[0].obj_,
-                   filter(lambda p: self._valid[p[1]], self._idx_map.items()))
+                   filter(lambda p: self._valid[p[1]], items))
 
     def _find_expr(self, e: Expr):
         return self._find_idx(self._get_idx(e))

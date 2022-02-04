@@ -1,5 +1,6 @@
+import typing as t
 from functools import reduce
-from typing import Dict, Callable, Set, Iterable, Union, cast
+from typing import Dict, Callable, Iterable, Union, cast
 
 import z3
 from numpy.random import Generator
@@ -37,17 +38,17 @@ _z3_extract_funcs: Dict[
 }
 
 
-def solve_smt(var_set: Set[Ref[Var]], extra: Iterable[Expr], store: ValueStore,
+def solve_smt(var_set: Iterable[Ref[Var]], extra: Iterable[Expr], store: ValueStore,
               rng: Generator) -> bool:
     # Create Z3 variables for all TypeGraph variables
-    name_gen = NameGenerator('_v', [])
-    var_map = dict((ref, _z3_var_funcs[ref.obj_.type_](name_gen.generate()))
+    name_gen = NameGenerator('_x', [])
+    var_map = list((ref, _z3_var_funcs[ref.obj_.type_](name_gen.generate()))
                    for ref in var_set)
 
     # Generate variable range constraints
     solver = z3.Solver()
     expr_gen = Z3ExprGen(var_map)
-    for ref, z3_var in var_map.items():
+    for ref, z3_var in var_map:
         var = ref.obj_
         if var.ran_ is None:
             continue
@@ -69,7 +70,7 @@ def solve_smt(var_set: Set[Ref[Var]], extra: Iterable[Expr], store: ValueStore,
             break
         model = solver.model()
         cand_models.append(model)
-        exclude = z3.Or(*(z3_var != model[z3_var] for z3_var in var_map.values()))
+        exclude = z3.Or(*(z3_var != model[z3_var] for _, z3_var in var_map))
         solver.add(exclude)
 
     # Choose one possible model
@@ -78,12 +79,12 @@ def solve_smt(var_set: Set[Ref[Var]], extra: Iterable[Expr], store: ValueStore,
     model = cand_models[rng.choice(len(cand_models))]
 
     # Save results to value store
-    for ref, z3_var in var_map.items():
+    for ref, z3_var in var_map:
         var = ref.obj_
         # noinspection PyTypeChecker
-        if model[z3_var] is None:
+        result = model[z3_var]
+        if result is None:
             raise Z3SolveError()
-        result = model.eval(z3_var)
         store.set_var_solved(var, _z3_extract_funcs[var.type_](result))
 
     return True
@@ -91,9 +92,9 @@ def solve_smt(var_set: Set[Ref[Var]], extra: Iterable[Expr], store: ValueStore,
 
 class Z3ExprGen(ExprVisitor[Env[z3.ExprRef], z3.ExprRef]):
 
-    def __init__(self, var_map: Dict[Ref[Var], z3.ExprRef]):
+    def __init__(self, var_map: Iterable[t.Tuple[Ref[Var], z3.ExprRef]]):
         super().__init__()
-        self._var_map = var_map
+        self._var_map = dict(var_map)
 
     def generate(self, e: Expr):
         return self.visit(e, Env())

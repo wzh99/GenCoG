@@ -278,23 +278,27 @@ class ConstraintSolver:
         if len(all_valid) == 0:
             return False
 
-        # Filter out all unused variables
-        all_vars = set(Ref(cast(Var, var)) for var in all_valid if var.kind == ExprKind.VAR)
-        extra = [e for e in all_valid if e.kind != ExprKind.VAR]
+        # Process valid expressions
+        all_vars = []
+        extra = []
+        for e in all_valid:
+            # Differentiate variables and constraints
+            if e.kind != ExprKind.VAR:
+                extra.append(e)
+                continue
+            var = cast(Var, e)
+            if Ref(var) in all_vars:
+                continue
 
-        # Sample variables that are not bounded by other constraints
-        sampled = set()
-        for ref in all_vars:
-            if union.has_use(ref.obj_):
-                continue  # if it has use, it is bounded by other constraints
-            if self._try_sample(ref.obj_):
-                sampled.add(ref)
+            # Try sample variables only bounded by its own range
+            if union.has_use(var):
+                all_vars.append(Ref(var))
+            elif self._try_sample(var):
                 changed = True
             else:
                 raise SolveError(
                     self, 'Cannot solve unconstrained variable.'
                 )
-        all_vars.difference_update(sampled)
 
         # Solve by SMT
         changed |= solve_smt(all_vars, extra, self._store, self._rng)

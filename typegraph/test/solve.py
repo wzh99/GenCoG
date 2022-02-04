@@ -1,4 +1,4 @@
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from typing import List, cast
 
 import numpy as np
@@ -8,6 +8,8 @@ from typegraph.expr import TensorType, DataType
 from typegraph.solve import ConstraintSolver
 from typegraph.spec import ConstraintSpec, OpRegistry
 from typegraph.util import Ref
+
+options = Namespace()
 
 
 def test_all_ops():
@@ -36,18 +38,21 @@ def _test_spec(spec: ConstraintSpec):
         print(solver.solve())
 
 
-if __name__ == '__main__':
+def _parse_args():
+    global options
     parser = ArgumentParser()
     parser.add_argument('-a')
     parser.add_argument('-name', type=str)
     parser.add_argument('-iter', type=int)
     parser.add_argument('-seed', type=int, default=42)
     options = parser.parse_args()
+
+
+if __name__ == '__main__':
+    _parse_args()
     if options.a:
         test_all_ops()
-        parser.exit()
     else:
         if options.name is None:
-            parser.error('Operator name not specified.')
+            raise ValueError('Operator name not specified.')
         test_one_op(options.name)
-        parser.exit()

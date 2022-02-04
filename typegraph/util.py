@@ -49,6 +49,9 @@ class Ref(Generic[T]):
     def __hash__(self):
         return hash(id(self.obj_))
 
+    def __str__(self):
+        return hex(id(self.obj_))
+
 
 # Format
 
