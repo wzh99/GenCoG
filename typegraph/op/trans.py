@@ -36,27 +36,37 @@ def _create_split():
         attrs=[
             Attr('axis', Var(ty=INT, ran=Range(1, IN[0].rank))),
             Attr('indices_or_sections',
-                 List(Var(ran=Range(begin=1, end=5)), lambda _: Var(INT, tmpl=True)))
+                 List(Var(ran=Range(begin=0, end=IN[0].shape[a('axis')].min(5))),
+                      lambda _: Var(INT, tmpl=True)))
         ],
         in_num=1,
         in_ranks=[Var(ran=Range(1, 6))],
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[
-            ind[0] > 0,
-            ForAll(Range(1, Len(ind)), lambda i: ind[i - 1] < ind[i]),
-            ind[-1] < IN[0].shape[a('axis')]
+            Or(
+                Len(ind) == 0,
+                And(
+                    ind[0] > 0,
+                    ForAll(Range(1, Len(ind)), lambda i: ind[i - 1] < ind[i]),
+                    ind[-1] < IN[0].shape[a('axis')]
+                ),
+            )
         ],
         out_num=Len(ind) + 1,
         out_ranks=List(OUT.num, lambda _: IN[0].rank),
         out_dtypes=List(OUT.num, lambda _: IN[0].dtype),
-        out_shapes=List(OUT.num, lambda i: List(IN[0].rank, lambda j: Cond(
-            j == a('axis'),
-            Cond(i == 0, ind[0],
-                 Cond(i == Len(ind), IN[0].shape[j] - ind[-1],
-                      ind[i] - ind[i - 1])),
-            IN[0].shape[j]
-        )))
+        out_shapes=Cond(
+            Len(ind) == 0,
+            [IN[0].shape],
+            List(OUT.num, lambda i: List(IN[0].rank, lambda j: Cond(
+                j == a('axis'),
+                Cond(i == 0, ind[0],
+                     Cond(i == Len(ind), IN[0].shape[j] - ind[-1],
+                          ind[i] - ind[i - 1])),
+                IN[0].shape[j]
+            )))
+        )
     )
 
 

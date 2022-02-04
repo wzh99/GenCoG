@@ -145,7 +145,7 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
     def visit_getitem(self, getitem: GetItem, env: Env[ValueType]) -> ResultType:
         arr = tuple(self.visit(getitem.arr_, env))
         idx = self.visit(getitem.idx_, env)
-        if idx >= len(arr):
+        if idx not in range(-len(arr), len(arr)):
             raise EvalError(getitem, 'Index out of bound.')
         return arr[idx]
 
@@ -247,7 +247,7 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
     def visit_and(self, a: And, env: Env[Expr]) -> Expr:
         clauses = []
         for c in a.clauses_:
-            post = self._try_fold(c, env, lambda: self.visit(c, env))
+            post = self.visit(c, env)
             if post.kind == ExprKind.CONST:
                 const = cast(Const, post)
                 if const.val_ is False:
@@ -260,7 +260,7 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
     def visit_or(self, o: Or, env: Env[Expr]) -> Expr:
         clauses = []
         for c in o.clauses_:
-            post = self._try_fold(c, env, lambda: self.visit(c, env))
+            post = self.visit(c, env)
             if post.kind == ExprKind.CONST:
                 const = cast(Const, post)
                 if const.val_ is True:
@@ -339,13 +339,17 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
                      ty=lst.type_)
 
     def visit_getitem(self, getitem: GetItem, env: Env[Expr]) -> Expr:
-        tup = self.visit(getitem.arr_, env)
-        if tup.kind != ExprKind.TUPLE:
-            return getitem
-        idx = self._try_eval(getitem.idx_, env)
-        if idx is None:
-            return getitem
-        return cast(Tuple, tup).fields_[idx]
+        arr = self.visit(getitem.arr_, env)
+        if arr.kind != ExprKind.TUPLE:
+            return GetItem(arr, getitem.idx_, ty=getitem.type_)
+        arr = cast(Tuple, arr)
+        idx_e = self.visit(getitem.idx_, env)
+        if idx_e.kind != ExprKind.CONST:
+            return GetItem(arr, idx_e, ty=getitem.type_)
+        idx = cast(Const, idx_e).val_
+        if idx not in range(-len(arr.fields_), len(arr.fields_)):
+            return GetItem(arr, idx_e, ty=getitem.type_)
+        return arr.fields_[idx]
 
     def visit_len(self, ln: Len, env: Env[Expr]) -> Expr:
         arr = self.visit(ln.arr_, env)

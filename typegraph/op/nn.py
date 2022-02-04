@@ -2,12 +2,19 @@ from ..expr import *
 from ..spec import Attr, ConstraintSpec, Op
 
 
+def _conv_dim_no_stride(data: Expr, weight: Expr, dilation: Expr, pad_b: Expr, pad_e: Expr):
+    return data + pad_b + pad_e - (weight - 1) * dilation - 1
+
+
 def _conv_dim(data: Expr, weight: Expr, dilation: Expr, pad_b: Expr, pad_e: Expr, stride: Expr):
-    dilated_kernel_size = (weight - 1) * dilation + 1
-    return (data + pad_b + pad_e - dilated_kernel_size) // stride + 1
+    return _conv_dim_no_stride(data, weight, dilation, pad_b, pad_e) // stride + 1
 
 
 def _create_conv2d():
+    out_h_ns = _conv_dim_no_stride(IN[0].shape[2], IN[1].shape[2], a('dilation')[0],
+                                   a('padding')[0], a('padding')[2])
+    out_w_ns = _conv_dim_no_stride(IN[0].shape[3], IN[1].shape[3], a('dilation')[1],
+                                   a('padding')[1], a('padding')[3])
     out_h = _conv_dim(IN[0].shape[2], IN[1].shape[2], a('dilation')[0], a('padding')[0],
                       a('padding')[2], a('strides')[0])
     out_w = _conv_dim(IN[0].shape[3], IN[1].shape[3], a('dilation')[1], a('padding')[1],
@@ -31,8 +38,8 @@ def _create_conv2d():
         extra=[
             a('channels') % a('groups') == 0,
             IN[0].shape[1] % a('groups') == 0,
-            out_h > 0,
-            out_w > 0,
+            out_h_ns >= 0,
+            out_w_ns >= 0,
         ],
         out_num=1,
         out_ranks=[4],

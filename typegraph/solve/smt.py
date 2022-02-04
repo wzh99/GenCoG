@@ -73,6 +73,8 @@ def solve_smt(var_set: Set[Ref[Var]], extra: Iterable[Expr], store: ValueStore,
         solver.add(exclude)
 
     # Choose one possible model
+    if len(cand_models) == 0:
+        return False
     model = cand_models[rng.choice(len(cand_models))]
 
     # Save results to value store

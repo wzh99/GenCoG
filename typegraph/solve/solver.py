@@ -8,7 +8,7 @@ from .smt import solve_smt
 from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode
 from .valid import validate
 from ..expr.array import Tuple
-from ..expr.basic import Expr, ExprKind, Const, And, Var, Cmp, CmpOp
+from ..expr.basic import ExprKind, Const, And, Var, Cmp, CmpOp
 from ..expr.fmt import print_expr
 from ..expr.ty import TensorType, DataType, ValueType, BOOL, INT, FLOAT
 from ..expr.visitor import CopyExpr, StructuralEq
@@ -336,7 +336,7 @@ class ConstraintSolver:
         for name, node in self._store.attrs_:
             if not node.solved:
                 raise SolveError(
-                    self, 'Attribute \'{name}\' not solved.'
+                    self, f'Attribute \'{name}\' not solved.'
                 )
             attrs.append((name, cast(ValueType, node.value)))
 
@@ -484,7 +484,7 @@ class ConstraintSolver:
         return str(buf)
 
     @staticmethod
-    def _print_expr(e: Expr):
+    def _print_expr(e):
         buf = CodeBuffer()
         print_expr(e, buf, [])
         print(buf)

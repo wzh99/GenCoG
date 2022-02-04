@@ -276,4 +276,14 @@ class OpRegistry:
 
     @classmethod
     def get(cls, name: str):
+        if name not in cls._table:
+            raise ValueError('Operator {} not found.')
         return cls._table[name]
+
+    @classmethod
+    def names(cls):
+        return cls._table.keys()
+
+    @classmethod
+    def items(cls):
+        return cls._table.items()
