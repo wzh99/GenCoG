@@ -278,4 +278,5 @@ class TensorType:
         return self.shape_ == other.shape_ and self.dtype_ == other.dtype_
 
     def __str__(self):
-        return f'TensorType<{self.shape_}, {self.dtype_}>'
+        # Compatible with Relay tensor type
+        return f'Tensor[{tuple(self.shape_)}, {self.dtype_}]'
