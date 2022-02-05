@@ -1,6 +1,5 @@
-from .param import rank_ran, dim_ran
 from ..expr import *
-from ..spec import ConstraintSpec, Op
+from ..spec import ConstraintSpec, Op, rank_ran, dim_ran
 
 
 def _create_bcast():

@@ -1,7 +1,6 @@
-from .param import num_ran, rank_ran, dim_ran
 from ..config import config
 from ..expr import *
-from ..spec import Attr, ConstraintSpec, Op
+from ..spec import Attr, ConstraintSpec, Op, num_ran, rank_ran, dim_ran
 
 _concat = ConstraintSpec(
     attrs=[
@@ -38,7 +37,8 @@ def _create_split():
         attrs=[
             Attr('axis', Var(ty=INT, ran=Range(1, IN[0].rank))),
             Attr('indices_or_sections',
-                 List(Var(ran=Range(begin=0, end=IN[0].shape[a('axis')].min(config['op.max_num']))),
+                 List(Var(ran=Range(begin=0,
+                                    end=IN[0].shape[a('axis')].min(config['spec.max_num']))),
                       lambda _: Var(INT, tmpl=True)))
         ],
         in_num=1,

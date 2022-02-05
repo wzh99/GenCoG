@@ -70,7 +70,7 @@ def _gen_relay(op: str, info: OpTypeInfo):
         map(lambda p: lambda: buf.write(f'%x{p[0]}: {p[1]}'), enumerate(info.in_types_))
     )
     buf.write(' -> ')
-    if op in _tuple_out_ops:
+    if len(info.out_types_) > 1 or op in _tuple_out_ops:
         buf.write_pos(map(lambda t: lambda: buf.write(str(t)), info.out_types_))
     else:
         buf.write(str(info.out_types_[0]))

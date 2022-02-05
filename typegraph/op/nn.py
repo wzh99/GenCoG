@@ -1,7 +1,6 @@
-from .param import dim_ran
 from ..config import config
 from ..expr import *
-from ..spec import Attr, ConstraintSpec, Op
+from ..spec import Attr, ConstraintSpec, Op, dim_ran
 
 kernel_ran = iran(1, config['op.max_kernel'])
 stride_ran = iran(1, config['op.max_stride'])

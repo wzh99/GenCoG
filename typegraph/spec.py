@@ -1,8 +1,9 @@
 from typing import List, Dict
 from warnings import warn
 
+from .config import config
 from .expr import Expr, ExprLike, ListType, BOOL, INT, DTYPE
-from .expr.basic import to_expr
+from .expr.basic import to_expr, iran
 from .expr.fmt import print_expr
 from .expr.infer import ExprTypeError, infer_type
 from .expr.ty import Type, TyVar
@@ -234,11 +235,20 @@ class ConstraintSpec:
         return str(buf)
 
 
+num_ran = iran(1, config['spec.max_num'])
+rank_ran = iran(config['spec.min_rank'], config['spec.max_rank'])
+dim_ran = iran(1, config['spec.max_dim'])
+
+
 class SpecCheckError(Exception):
     def __init__(self, name: str, msg: str, code: str):
         self.name_ = name
         self.msg_ = msg
         self.code_ = code
+
+    def __str__(self):
+        return f'Specification error in {self.name_}: {self.msg_}\n' \
+               f'{self.code_}'
 
 
 class Op:
