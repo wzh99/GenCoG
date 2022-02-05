@@ -450,7 +450,7 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
 
         # Sample each element in superset to create subset
         sub = subset.sub_
-        sub_sp = [e for e in sup.fields_ if self._rng.uniform() > 0.5]
+        sub_sp = [e for e in sup.fields_ if self._rng.choice(2)]
         return And(
             Cmp(CmpOp.EQ, Len(sub), len(sub_sp)),
             *(Cmp(CmpOp.EQ, GetItem(sub, i, ty=sub.type_.elem_type), e)
@@ -479,5 +479,5 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
             if expr.kind != ExprKind.CONST:
                 continue
             const = cast(Const, expr)
-            val_env = val_env + (sym, const.val_)
+            val_env += sym, const.val_
         return val_env

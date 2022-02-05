@@ -195,6 +195,10 @@ class Range(Expr):
         self.require_end()
 
 
+def iran(begin: ExprLike, end: ExprLike):
+    return Range(begin, end + 1)
+
+
 class Var(Expr):
     """
     Variable whose value is unknown and should be figured out during constraint solving. A new

@@ -1,3 +1,5 @@
+from .param import num_ran, rank_ran, dim_ran
+from ..config import config
 from ..expr import *
 from ..spec import Attr, ConstraintSpec, Op
 
@@ -5,13 +7,13 @@ _concat = ConstraintSpec(
     attrs=[
         Attr('axis', Var(ty=INT, ran=Range(1, IN[0].rank)))
     ],
-    in_num=Var(ran=Range(1, 5)),
-    in_ranks=List(IN.num, lambda _: Var(ran=Range(1, 6))),
+    in_num=Var(ran=num_ran),
+    in_ranks=List(IN.num, lambda _: Var(ran=rank_ran)),
     in_dtypes=List(IN.num, lambda _: Var()),
     in_shapes=Concat(
-        [List(IN[0].rank, lambda _: Var(ran=Range(1, 129), tmpl=True))],
+        [List(IN[0].rank, lambda _: Var(ran=dim_ran, tmpl=True))],
         List(IN.num - 1, lambda _: List(IN[0].rank, lambda j: Cond(
-            j == a('axis'), Var(ran=Range(1, 129), tmpl=True), IN[0].shape[j]
+            j == a('axis'), Var(ran=dim_ran, tmpl=True), IN[0].shape[j]
         )))
     ),
     extra=[],
@@ -36,11 +38,11 @@ def _create_split():
         attrs=[
             Attr('axis', Var(ty=INT, ran=Range(1, IN[0].rank))),
             Attr('indices_or_sections',
-                 List(Var(ran=Range(begin=0, end=IN[0].shape[a('axis')].min(5))),
+                 List(Var(ran=Range(begin=0, end=IN[0].shape[a('axis')].min(config['op.max_num']))),
                       lambda _: Var(INT, tmpl=True)))
         ],
         in_num=1,
-        in_ranks=[Var(ran=Range(1, 6))],
+        in_ranks=[Var(ran=rank_ran)],
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[

@@ -1,5 +1,12 @@
+from .param import dim_ran
+from ..config import config
 from ..expr import *
 from ..spec import Attr, ConstraintSpec, Op
+
+kernel_ran = iran(1, config['op.max_kernel'])
+stride_ran = iran(1, config['op.max_stride'])
+pad_ran = iran(0, config['op.max_padding'])
+dil_ran = iran(1, config['op.max_dilation'])
 
 
 def _conv_dim_no_stride(data: Expr, weight: Expr, dilation: Expr, pad_b: Expr, pad_e: Expr):
@@ -21,18 +28,18 @@ def _create_conv2d():
                       a('padding')[3], a('strides')[1])
     return ConstraintSpec(
         attrs=[
-            Attr('kernel_size', List(2, lambda _: Var(INT, ran=Range(1, 8), tmpl=True))),
-            Attr('channels', Var(INT, ran=Range(1, 129))),
-            Attr('strides', List(2, lambda _: Var(INT, ran=Range(1, 3), tmpl=True))),
-            Attr('padding', List(4, lambda _: Var(INT, ran=Range(end=9), tmpl=True))),
-            Attr('dilation', List(2, lambda _: Var(INT, ran=Range(1, 3), tmpl=True))),
-            Attr('groups', Var(INT, ran=Range(1, IN[0].shape[1] + 1))),
+            Attr('kernel_size', List(2, lambda _: Var(INT, ran=kernel_ran, tmpl=True))),
+            Attr('channels', Var(INT, ran=dim_ran)),
+            Attr('strides', List(2, lambda _: Var(INT, ran=stride_ran, tmpl=True))),
+            Attr('padding', List(4, lambda _: Var(INT, ran=pad_ran, tmpl=True))),
+            Attr('dilation', List(2, lambda _: Var(INT, ran=dil_ran, tmpl=True))),
+            Attr('groups', Var(INT, ran=iran(1, IN[0].shape[1]))),
         ],
         in_num=2,
         in_ranks=[4, 4],
         in_dtypes=List(2, lambda _: Var()),
         in_shapes=[
-            [Var(), Var(), Var(), Var()],  # NCHW
+            List(4, lambda _: Var(tmpl=True)),  # NCHW
             Concat([a('channels'), IN[0].shape[1] // a('groups')], a('kernel_size'))  # OIHW
         ],
         extra=[

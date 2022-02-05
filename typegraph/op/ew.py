@@ -1,3 +1,4 @@
+from .param import rank_ran, dim_ran
 from ..expr import *
 from ..spec import ConstraintSpec, Op
 
@@ -8,11 +9,11 @@ def _create_bcast():
     return ConstraintSpec(
         attrs=[],
         in_num=2,
-        in_ranks=List(2, lambda _: Var(ran=Range(2, 6), tmpl=True)),
+        in_ranks=List(2, lambda _: Var(ran=rank_ran, tmpl=True)),
         in_dtypes=List(2, lambda _: Var()),
         in_shapes=[
-            List(m, lambda _: Var(ran=Range(1, 129), tmpl=True)),
-            List(n, lambda _: Var(ran=Range(1, 129), tmpl=True))
+            List(m, lambda _: Var(ran=dim_ran, tmpl=True)),
+            List(n, lambda _: Var(ran=dim_ran, tmpl=True))
         ],
         extra=[
             ForAll(Range(end=m.min(n)), lambda i: Or(
