@@ -20,6 +20,7 @@ def test_all_ops():
     for name, op in OpRegistry.items():
         spec = op.spec_
         if Ref(spec) in tested_specs:
+            print(f'{op} specification tested before.')
             continue
         _test_spec(name, spec)
         tested_specs.add(Ref(spec))

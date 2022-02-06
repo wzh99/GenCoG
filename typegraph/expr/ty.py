@@ -145,6 +145,9 @@ class DataType:
     def __str__(self):
         return self.code_.name + str(self.bits_)
 
+    def __repr__(self):
+        return str(self)
+
 
 common_dtypes = [
     DataType.b(),

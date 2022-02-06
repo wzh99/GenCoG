@@ -5,7 +5,7 @@ from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, R
     Filter, InSet, Subset
 from .basic import Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, ForAll, \
     Cond, GetAttr, Dummy, Env
-from .tensor import Num, Shape, Rank, GetDType, TensorDesc
+from .tensor import Num, Shape, Rank, GetDType, TensorDesc, LayoutIndex, LayoutMap
 from .ty import Type, TypeKind, BoolType, IntType, FloatType, StrType, DType, TupleType, ListType, \
     TyVar
 from ..util import map_opt
@@ -38,6 +38,8 @@ class ExprVisitor(Generic[A, R]):
             ExprKind.SHAPE: self.visit_shape,
             ExprKind.RANK: self.visit_rank,
             ExprKind.DTYPE: self.visit_dtype,
+            ExprKind.LAYOUT_INDEX: self.visit_layout_index,
+            ExprKind.LAYOUT_MAP: self.visit_layout_map,
             ExprKind.TUPLE: self.visit_tuple,
             ExprKind.LIST: self.visit_list,
             ExprKind.GETITEM: self.visit_getitem,
@@ -105,6 +107,12 @@ class ExprVisitor(Generic[A, R]):
 
     def visit_dtype(self, dtype: GetDType, arg: A) -> R:
         return self._visit_sub(dtype, arg)
+
+    def visit_layout_index(self, i: LayoutIndex, arg: A) -> R:
+        return self._visit_sub(i, arg)
+
+    def visit_layout_map(self, m: LayoutMap, arg: A) -> R:
+        return self._visit_sub(m, arg)
 
     def visit_tuple(self, tup: Tuple, arg: A) -> R:
         return self._visit_sub(tup, arg)
@@ -278,6 +286,15 @@ class StructuralEq(ExprVisitor[Expr, bool]):
         other = cast(GetDType, other)
         return self._cmp_tensor(dtype.tensor_, other.tensor_)
 
+    def visit_layout_index(self, i: LayoutIndex, other: Expr) -> bool:
+        other = cast(LayoutIndex, other)
+        return self._cmp_expr([(i.layout_, other.layout_), (i.dim_, other.dim_)])
+
+    def visit_layout_map(self, m: LayoutMap, other: Expr) -> bool:
+        other = cast(LayoutMap, other)
+        return self._cmp_expr([(m.tgt_, other.tgt_), (m.src_, other.src_),
+                               (m.src_shape_, other.src_shape_)])
+
     def visit_tuple(self, tup: Tuple, other: Expr) -> bool:
         other = cast(Tuple, tup)
         return self._cmp_list(tup.fields_, other.fields_)
@@ -413,6 +430,13 @@ class CopyExpr(ExprVisitor[Env[Symbol], Expr]):
 
     def visit_dtype(self, dtype: GetDType, env: Env[Symbol]) -> Expr:
         return GetDType(self._cp_tensor(dtype.tensor_, env))
+
+    def visit_layout_index(self, i: LayoutIndex, env: Env[Symbol]) -> Expr:
+        return LayoutIndex(self.visit(i.layout_, env), self.visit(i.dim_, env))
+
+    def visit_layout_map(self, m: LayoutMap, env: Env[Symbol]) -> Expr:
+        return LayoutMap(self.visit(m.tgt_, env), self.visit(m.src_, env),
+                         self.visit(m.src_shape_, env))
 
     def _cp_tensor(self, tensor: TensorDesc, env: Env[Symbol]):
         return TensorDesc(tensor.kind_, self.visit(tensor.idx_, env))

@@ -4,13 +4,14 @@ from itertools import chain, islice
 from typing import Union, Iterator, Optional, Callable, cast
 
 from numpy.random import Generator
+from tvm import tir
 
 from .store import ValueStore, ArrayNode
 from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
     Filter, InSet, Subset
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, CmpOp, Not, \
     And, Or, ForAll, Cond, GetAttr, Dummy, to_expr
-from ..expr.tensor import Num, Shape, Rank, GetDType, TensorKind
+from ..expr.tensor import Num, Shape, Rank, GetDType, TensorKind, LayoutMap, LayoutIndex
 from ..expr.ty import ValueType
 from ..expr.visitor import ExprVisitor
 from ..util import map_opt
@@ -134,6 +135,18 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
                 dtype, f'Data type of {kind.name} tensor {idx} is undefined.'
             )
         return node.value
+
+    def visit_layout_index(self, i: LayoutIndex, env: Env[ValueType]) -> ResultType:
+        layout = self.visit(i.layout_, env)
+        dim = self.visit(i.dim_, env)
+        return int(tir.layout(layout).index_of(dim))
+
+    def visit_layout_map(self, m: LayoutMap, env: Env[ValueType]) -> ResultType:
+        tgt = self.visit(m.tgt_, env)
+        src = self.visit(m.src_, env)
+        layout_map = tir.bijective_layout(src, tgt)
+        src_shape = tuple(self.visit(m.src_shape_, env))
+        return tuple(layout_map.forward_shape(src_shape))
 
     def visit_tuple(self, tup: Tuple, env: Env[ValueType]) -> ResultType:
         return (self.visit(f, env) for f in tup.fields_)
@@ -291,7 +304,15 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
                         self.visit(cond.fls_br_, env), ty=cond.type_)
 
     def visit_attr(self, attr: GetAttr, env: Env[Expr]) -> Expr:
-        return self._store.query_attr(attr.name_).expr
+        expr = self._store.query_attr(attr.name_).expr
+        return attr if self._has_dummy(expr) else expr
+
+    def _has_dummy(self, e: Expr):
+        if e.kind == ExprKind.DUMMY:
+            return True
+        elif e.kind == ExprKind.TUPLE:
+            tup = cast(Tuple, e)
+            return any(self._has_dummy(f) for f in tup.fields_)
 
     def visit_dummy(self, dum: Dummy, env: Env[Expr]) -> Expr:
         return dum
@@ -307,7 +328,10 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         node = self._store.query_shape(shape.tensor_.kind_, idx)
         if node is None:
             return shape
-        return node.expr
+        expr = node.expr
+        if self._has_dummy(expr):
+            return shape
+        return expr
 
     def visit_rank(self, rank: Rank, env: Env[Expr]) -> Expr:
         idx = self._try_eval(rank.tensor_.idx_, env)
@@ -326,6 +350,35 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         if node is None:
             return dtype
         return node.expr
+
+    def visit_layout_index(self, i: LayoutIndex, env: Env[Expr]) -> Expr:
+        layout = self.visit(i.layout_, env)
+        if layout.kind != ExprKind.CONST:
+            return LayoutIndex(layout, self.visit(i.dim_, env))
+        layout = cast(Const, layout)
+        dim = self.visit(i.dim_, env)
+        if dim.kind != ExprKind.CONST:
+            return LayoutIndex(layout, dim)
+        dim = cast(Const, dim)
+        return Const(tir.layout(layout.val_).index_of(dim.val_))
+
+    def visit_layout_map(self, m: LayoutMap, env: Env[Expr]) -> Expr:
+        tgt = self.visit(m.tgt_, env)
+        if tgt.kind != ExprKind.CONST:
+            return LayoutMap(tgt, self.visit(m.src_, env), self.visit(m.src_shape_, env))
+        tgt = cast(Const, tgt)
+        src = self.visit(m.src_, env)
+        if src.kind != ExprKind.CONST:
+            return LayoutMap(tgt, src, self.visit(m.src_shape_, env))
+        src = cast(Const, src)
+        src_shape = self.visit(m.src_shape_, env)
+        if src_shape.kind != ExprKind.TUPLE:
+            return LayoutMap(tgt, src, src_shape)
+        src_shape = cast(Tuple, src_shape)
+        idx_map = tir.bijective_layout(src.val_, tgt.val_).forward_index(
+            tuple(range(len(src_shape.fields_)))
+        )
+        return Tuple(*(src_shape.fields_[int(idx)] for idx in idx_map))
 
     def visit_tuple(self, tup: Tuple, env: Env[Expr]) -> Expr:
         return tup

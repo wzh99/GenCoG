@@ -26,6 +26,8 @@ class ExprKind(IntEnum):
     SHAPE = auto()
     RANK = auto()
     DTYPE = auto()
+    LAYOUT_INDEX = auto()
+    LAYOUT_MAP = auto()
     # Array
     TUPLE = auto()
     LIST = auto()
@@ -39,6 +41,7 @@ class ExprKind(IntEnum):
     FILTER = auto()
     INSET = auto()
     SUBSET = auto()
+    PERM = auto()
 
 
 class Expr:

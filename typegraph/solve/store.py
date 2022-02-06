@@ -345,7 +345,7 @@ class StorePrinter(StoreVisitor[CodeBuffer, None]):
         if node.expr_ is not None:
             items.append(('expr', lambda: print_expr(node.expr_, buf, [])))
         if node.value_ is not None:
-            items.append(('value', lambda: buf.write(str(node.value_))))
+            items.append(('value', lambda: buf.write(repr(node.value_))))
         buf.write_named_multi(items)
 
     def visit_array(self, node: ArrayNode, buf: CodeBuffer):

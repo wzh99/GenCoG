@@ -2,13 +2,13 @@ import typing as t
 from functools import reduce
 from typing import NamedTuple, Dict, cast
 
-from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
-    InSet, Subset
+from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
+    Filter, InSet, Subset
 from .basic import Expr, ExprKind, Env, Const, Var, Symbol, Range, Arith, ArithOp, Cmp, Not, And, \
     Or, ForAll, Cond, GetAttr, Dummy
-from .tensor import Num, Shape, Rank, GetDType
+from .tensor import Num, Shape, Rank, GetDType, LayoutMap, LayoutIndex
 from .ty import Type, TypeKind, BoolType, IntType, FloatType, StrType, DType, TupleType, ListType, \
-    TyVar, BOOL, INT, DTYPE
+    TyVar, BOOL, INT, STR, DTYPE
 from .visitor import TypeVisitor, ExprVisitor
 from ..util import unwrap, unwrap_or, filter_none, cls_name
 
@@ -136,6 +136,17 @@ class TypeInfer(ExprVisitor[InferArg, Type]):
 
     def visit_dtype(self, dtype: GetDType, arg: InferArg) -> Type:
         return self._unify(arg.hint, DTYPE)
+
+    def visit_layout_index(self, i: LayoutIndex, arg: InferArg) -> Type:
+        self.visit(i.layout_, InferArg(arg.env, STR))
+        self.visit(i.dim_, InferArg(arg.env, STR))
+        return self._unify(arg.hint, INT)
+
+    def visit_layout_map(self, m: LayoutMap, arg: InferArg) -> Type:
+        self.visit(m.tgt_, InferArg(arg.env, STR))
+        self.visit(m.src_, InferArg(arg.env, STR))
+        self.visit(m.src_shape_, InferArg(arg.env, ListType(INT)))
+        return self._unify(arg.hint, ListType(INT))
 
     def visit_tuple(self, tup: Tuple, arg: InferArg) -> Type:
         hint = arg.hint

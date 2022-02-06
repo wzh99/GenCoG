@@ -117,3 +117,28 @@ class GetDType(Expr):
     @property
     def tensor_kind(self):
         return self.tensor_.kind_
+
+
+class LayoutIndex(Expr):
+    """
+    Locate index of a dimension in tensor layout.
+    """
+    kind = ExprKind.LAYOUT_INDEX
+
+    def __init__(self, layout: ExprLike, dim: ExprLike):
+        self.layout_ = to_expr(layout)
+        self.dim_ = to_expr(dim)
+        super().__init__([self.layout_, self.dim_, ], ty=INT)
+
+
+class LayoutMap(Expr):
+    """
+    Specify a tensor shape in source layout, then map it to the target layout.
+    """
+    kind = ExprKind.LAYOUT_MAP
+
+    def __init__(self, tgt: ExprLike, src: ExprLike, src_shape: ExprLike):
+        self.tgt_ = to_expr(tgt)
+        self.src_ = to_expr(src)
+        self.src_shape_ = to_expr(src_shape)
+        super().__init__([self.tgt_, self.src_, self.src_shape_], ty=ListType(INT))

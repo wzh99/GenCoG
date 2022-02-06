@@ -7,7 +7,7 @@ from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, R
     InSet, Subset
 from .basic import Expr, Const, Var, Range, Symbol, Arith, Cmp, Not, And, Or, ForAll, Cond, \
     GetAttr, Dummy
-from .tensor import Num, TensorDesc, Shape, Rank, GetDType
+from .tensor import Num, TensorDesc, Shape, Rank, GetDType, LayoutMap, LayoutIndex
 from .visitor import ExprVisitor
 from ..util import CodeBuffer, Ref, cls_name, colored_text
 
@@ -28,7 +28,7 @@ class ExprPrinter(ExprVisitor[None, Any]):
             self._buf.write(Back.RESET + Fore.RESET)
 
     def visit_const(self, const: Const, env: None):
-        self._buf.write(str(const.val_))
+        self._buf.write(repr(const.val_))
 
     _id_mask = (1 << 16) - 1
 
@@ -143,6 +143,21 @@ class ExprPrinter(ExprVisitor[None, Any]):
         self._buf.write(f'{desc.kind_.value}[')
         self.visit(desc.idx_, env)
         self._buf.write(f'].{name}')
+
+    def visit_layout_index(self, i: LayoutIndex, env: None):
+        self._write_cls(i)
+        self._write_named_multi([
+            ('layout', lambda: self.visit(i.layout_, env)),
+            ('dim', lambda: self.visit(i.dim_, env)),
+        ])
+
+    def visit_layout_map(self, m: LayoutMap, env: None):
+        self._write_cls(m)
+        self._write_named_multi([
+            ('tgt', lambda: self.visit(m.tgt_, env)),
+            ('src', lambda: self.visit(m.src_, env)),
+            ('src_shape', lambda: self.visit(m.src_shape_, env))
+        ])
 
     def visit_tuple(self, tup: Tuple, env: None):
         self._write_cls(tup)

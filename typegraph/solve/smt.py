@@ -11,7 +11,7 @@ from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceAr
     Filter, InSet, Subset
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, \
     ForAll, Cond, GetAttr, Dummy, ArithOp, CmpOp
-from ..expr.tensor import Num, Shape, Rank, GetDType
+from ..expr.tensor import Num, Shape, Rank, GetDType, LayoutMap, LayoutIndex
 from ..expr.ty import Type, ValueType, BOOL, INT, FLOAT, STR
 from ..expr.visitor import ExprVisitor
 from ..util import NameGenerator, Ref
@@ -207,6 +207,12 @@ class Z3ExprGen(ExprVisitor[Env[z3.ExprRef], z3.ExprRef]):
         raise Z3SolveError()
 
     def visit_dtype(self, dtype: GetDType, env: Env[z3.ExprRef]) -> z3.ExprRef:
+        raise Z3SolveError()
+
+    def visit_layout_index(self, i: LayoutIndex, env: Env[z3.ExprRef]) -> z3.ExprRef:
+        raise Z3SolveError()
+
+    def visit_layout_map(self, m: LayoutMap, env: Env[z3.ExprRef]) -> z3.ExprRef:
         raise Z3SolveError()
 
     def visit_tuple(self, tup: Tuple, env: Env[z3.ExprRef]) -> z3.ExprRef:

@@ -5,7 +5,7 @@ from ..expr import Expr, Var, BOOL, INT, FLOAT
 from ..expr.array import GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
     Filter, InSet, Subset
 from ..expr.basic import ExprKind, ForAll, GetAttr, Dummy
-from ..expr.tensor import Num, Rank, Shape, GetDType
+from ..expr.tensor import Num, Rank, Shape, GetDType, LayoutMap, LayoutIndex
 from ..expr.visitor import ExprVisitor
 from ..util import Ref
 
@@ -157,6 +157,12 @@ class ExprFinder(ExprVisitor[Expr, None]):
 
     def visit_dtype(self, dtype: GetDType, root: Expr):
         self._set_invalid(dtype, root, super().visit_dtype)
+
+    def visit_layout_index(self, i: LayoutIndex, root: Expr):
+        self._set_invalid(i, root, super().visit_layout_index)
+
+    def visit_layout_map(self, m: LayoutMap, root: Expr):
+        self._set_invalid(m, root, super().visit_layout_map)
 
     def visit_getitem(self, getitem: GetItem, root: Expr):
         self._set_invalid(getitem, root, super().visit_getitem)

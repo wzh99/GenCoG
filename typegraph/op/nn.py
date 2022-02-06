@@ -17,16 +17,32 @@ def _conv_dim(data: Expr, weight: Expr, dilation: Expr, pad_b: Expr, pad_e: Expr
 
 
 def _create_conv_nd(n: int):
+    # Layout
+    dim_str = 'DHW'[-n:]
+    data_chan_first = 'NC' + dim_str
+    data_chan_last = 'N' + dim_str + 'C'
+    data_layout_choices = [data_chan_first, data_chan_last]
+    kernel_chan_first = 'OI' + dim_str
+    kernel_chan_last = dim_str + 'IO'
+    kernel_layout_choices = [kernel_chan_first, kernel_chan_last]
+
+    # Dimension
+    in_chan = IN[0].shape[LayoutIndex(a('data_layout'), 'C')]
     dims_extra = [
-        _conv_dim_no_stride(IN[0].shape[2 + i], IN[1].shape[2 + i], a('dilation')[i],
-                            a('padding')[i], a('padding')[n + i]) >= 0
-        for i in range(n)
+        _conv_dim_no_stride(
+            IN[0].shape[LayoutIndex(a('data_layout'), dim_str[i])],
+            IN[1].shape[LayoutIndex(a('kernel_layout'), dim_str[i])],
+            a('dilation')[i], a('padding')[i], a('padding')[n + i]
+        ) >= 0 for i in range(n)
     ]
     out_dims = [
-        _conv_dim(IN[0].shape[2 + i], IN[1].shape[2 + i], a('dilation')[i],
-                  a('padding')[i], a('padding')[n + i], a('strides')[i])
-        for i in range(n)
+        _conv_dim(
+            IN[0].shape[LayoutIndex(a('data_layout'), dim_str[i])],
+            IN[1].shape[LayoutIndex(a('kernel_layout'), dim_str[i])],
+            a('dilation')[i], a('padding')[i], a('padding')[n + i], a('strides')[i]
+        ) for i in range(n)
     ]
+
     return ConstraintSpec(
         attrs=[
             Attr('kernel_size', List(n, lambda _: Var(INT, ran=kernel_ran, tmpl=True))),
@@ -34,21 +50,35 @@ def _create_conv_nd(n: int):
             Attr('strides', List(n, lambda _: Var(INT, ran=stride_ran, tmpl=True))),
             Attr('padding', List(2 * n, lambda _: Var(INT, ran=pad_ran, tmpl=True))),
             Attr('dilation', List(n, lambda _: Var(INT, ran=dil_ran, tmpl=True))),
-            Attr('groups', Var(INT, ran=iran(1, IN[0].shape[1]))),
+            Attr('data_layout', Var(STR)),
+            Attr('groups', Var(INT, ran=iran(1, in_chan))),
+            Attr('kernel_layout', Var(STR)),
+            Attr('out_layout', Var(STR)),
         ],
         in_num=2,
         in_ranks=[n + 2] * 2,
         in_dtypes=List(2, lambda _: Var()),
         in_shapes=[
-            List(n + 2, lambda _: Var(tmpl=True)),  # NCHW
-            Concat([a('channels'), IN[0].shape[1] // a('groups')], a('kernel_size'))  # OIHW
+            LayoutMap(a('data_layout'), data_chan_first, List(n + 2, lambda _: Var(tmpl=True))),
+            LayoutMap(
+                a('kernel_layout'), kernel_chan_first,
+                Concat([a('channels'), in_chan // a('groups')], a('kernel_size'))
+            ),
         ],
-        extra=[a('channels') % a('groups') == 0, IN[0].shape[1] % a('groups') == 0] + dims_extra,
+        extra=
+        [
+            a('channels') % a('groups') == 0,
+            in_chan % a('groups') == 0,
+            InSet(a('data_layout'), data_layout_choices),
+            InSet(a('kernel_layout'), kernel_layout_choices),
+            InSet(a('out_layout'), data_layout_choices),
+        ]
+        + dims_extra,
         out_num=1,
         out_ranks=[n + 2],
         out_dtypes=[IN[0].dtype],
         out_shapes=[
-            [IN[0].shape[0], a('channels')] + out_dims
+            LayoutMap(a('out_layout'), data_chan_first, [IN[0].shape[0], a('channels')] + out_dims)
         ]
     )
 
