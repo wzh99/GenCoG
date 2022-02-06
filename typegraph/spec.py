@@ -1,12 +1,14 @@
-from typing import List, Dict
+import typing as t
+from typing import Dict, TypeVar, cast
 from warnings import warn
 
 from .config import config
-from .expr import Expr, ExprLike, ListType, BOOL, INT, DTYPE
-from .expr.basic import to_expr, iran
+from .expr import Expr, ExprLike, Var, Range, DataType, BOOL, INT, DTYPE
+from .expr.array import Tuple, List
+from .expr.basic import ExprKind, Const, to_expr, iran
 from .expr.fmt import print_expr
 from .expr.infer import ExprTypeError, infer_type
-from .expr.ty import Type, TyVar
+from .expr.ty import Type, ListType, TyVar, common_dtypes
 from .util import CodeBuffer, cls_name
 
 
@@ -27,12 +29,12 @@ class ConstraintSpec:
     """
 
     def __init__(self,
-                 attrs: List[Attr],
+                 attrs: t.List[Attr],
                  in_num: ExprLike,
                  in_ranks: ExprLike,
                  in_dtypes: ExprLike,
                  in_shapes: ExprLike,
-                 extra: List[ExprLike],
+                 extra: t.List[ExprLike],
                  out_num: ExprLike,
                  out_ranks: ExprLike,
                  out_dtypes: ExprLike,
@@ -57,8 +59,15 @@ class ConstraintSpec:
         return self._attrs
 
     @attrs.setter
-    def attrs(self, *v: List[Attr]):
+    def attrs(self, *v: t.List[Attr]):
         self._attrs = v[0]
+
+    def reset_attr(self, new: Attr):
+        for attr in self._attrs:
+            if attr.name_ == new.name_:
+                attr.expr_ = new.expr_
+                return
+        raise ValueError(f'Attribute \'{new.name_}\' not found.')
 
     @property
     def in_num(self):
@@ -72,6 +81,16 @@ class ConstraintSpec:
     def in_num(self, *v: ExprLike):
         self._in_num = to_expr(v[0])
 
+    def in_num_choices(self) -> t.List[int]:
+        """
+        Possible choices of input number.
+        """
+        return int_expr_choices(self._in_num, 1, max_num + 1)
+
+    @property
+    def has_no_input(self):
+        return self.in_num.kind == ExprKind.CONST and cast(Const, self.in_num).val_ == 0
+
     @property
     def in_ranks(self):
         """
@@ -84,6 +103,22 @@ class ConstraintSpec:
     def in_ranks(self, *v: ExprLike):
         self._in_ranks = to_expr(v[0])
 
+    def first_rank_choices(self) -> t.List[int]:
+        """
+        Possible choices of first input tensor's rank.
+        """
+        if self.has_no_input:
+            return []
+        if self._in_ranks.kind == ExprKind.TUPLE:
+            rank_tup = cast(Tuple, self._in_ranks)
+            first_rank = rank_tup.fields_[0]
+            return int_expr_choices(first_rank, min_rank, max_rank + 1)
+        elif self._in_ranks.kind == ExprKind.LIST:
+            rank_lst = cast(List, self._in_ranks)
+            return int_expr_choices(rank_lst.body_, min_rank, max_rank + 1)
+        else:
+            return list(range(min_rank, max_rank + 1))
+
     @property
     def in_dtypes(self):
         """
@@ -95,6 +130,19 @@ class ConstraintSpec:
     @in_dtypes.setter
     def in_dtypes(self, *v: ExprLike):
         self._in_dtypes = to_expr(v[0])
+
+    def first_dtype_choices(self) -> t.List[DataType]:
+        if self.has_no_input:
+            return []
+        if self._in_dtypes.kind == ExprKind.TUPLE:
+            dtype_tup = cast(Tuple, self._in_dtypes)
+            first_dtype = dtype_tup.fields_[0]
+            return expr_choices(first_dtype, common_dtypes)
+        elif self._in_dtypes.kind == ExprKind.LIST:
+            dtype_lst = cast(List, self._in_dtypes)
+            return expr_choices(dtype_lst.body_, common_dtypes)
+        else:
+            return common_dtypes
 
     @property
     def in_shapes(self):
@@ -117,7 +165,7 @@ class ConstraintSpec:
         return self._extra
 
     @extra.setter
-    def extra(self, *v: List[ExprLike]):
+    def extra(self, *v: t.List[ExprLike]):
         self._extra = [to_expr(c) for c in v[0]]
 
     @property
@@ -235,9 +283,41 @@ class ConstraintSpec:
         return str(buf)
 
 
-num_ran = iran(1, config['spec.max_num'])
-rank_ran = iran(config['spec.min_rank'], config['spec.max_rank'])
-dim_ran = iran(1, config['spec.max_dim'])
+T = TypeVar('T')
+
+
+def expr_choices(e: Expr, default: t.List[T]) -> t.List[T]:
+    if e.kind == ExprKind.CONST:
+        return [cast(Const, e).val_]
+    else:
+        return default
+
+
+def int_expr_choices(e: Expr, begin: int, end: int) -> t.List[int]:
+    if e.kind == ExprKind.CONST:
+        return [cast(Const, e).val_]
+    elif e.kind == ExprKind.VAR:
+        var = cast(Var, e)
+        if var.ran_ is not None:
+            return int_range_choices(var.ran_, begin, end)
+    return list(range(begin, end))
+
+
+def int_range_choices(ran: Range, begin: int, end: int) -> t.List[int]:
+    if ran.begin_.kind == ExprKind.CONST:
+        begin = max(begin, cast(Const, ran.begin_).val_)
+    if ran.end_.kind == ExprKind.CONST:
+        end = min(end, cast(Const, ran.end_).val_)
+    return list(range(begin, end))
+
+
+max_num = config['spec.max_num']
+num_ran = iran(1, max_num)
+min_rank = config['spec.min_rank']
+max_rank = config['spec.max_rank']
+rank_ran = iran(min_rank, max_rank)
+max_dim = config['spec.max_dim']
+dim_ran = iran(1, max_dim)
 
 
 class SpecCheckError(Exception):

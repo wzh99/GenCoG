@@ -2,14 +2,14 @@ from argparse import ArgumentParser, Namespace
 from sys import stdout
 from typing import List, cast
 
-import numpy as np
 from numpy.random import Generator, PCG64
 from tqdm import trange
 from tvm.parser import parse
 
 from typegraph.expr import TensorType, DataType
+from typegraph.expr.ty import ValueType
 from typegraph.solve import ConstraintSolver, OpTypeInfo
-from typegraph.spec import ConstraintSpec, OpRegistry
+from typegraph.spec import ConstraintSpec, OpRegistry, max_dim
 from typegraph.util import Ref, CodeBuffer
 
 options = Namespace()
@@ -32,11 +32,13 @@ def test_one_op(name: str):
 def _test_spec(op: str, spec: ConstraintSpec):
     rng = Generator(PCG64(seed=options.seed))
     for _ in trange(options.iter, file=stdout):
-        shape = cast(List[int], np.concatenate([
-            [rng.integers(1, 16, endpoint=True)],
-            rng.integers(1, 128, 3, endpoint=True)
-        ]).tolist())
-        known = {0: TensorType(shape, DataType.f(32))}
+        if spec.has_no_input:
+            known = {}
+        else:
+            rank = rng.choice(spec.first_rank_choices())
+            shape = cast(List[int], rng.integers(1, max_dim, rank, endpoint=True).tolist())
+            dtype = rng.choice(spec.first_dtype_choices())
+            known = {0: TensorType(shape, dtype)}
         solver = ConstraintSolver(spec, known, rng)
         _cmp_relay(op, solver.solve())
     print(f'{op} passed.')
@@ -87,7 +89,7 @@ def _gen_relay(op: str, info: OpTypeInfo):
         buf.write_pos([
             lambda: buf.write(arg_str),
             lambda: buf.write_named(
-                map(lambda a: (a[0], lambda: buf.write(str(a[1]))), info.attrs_),
+                map(lambda a: (a[0], lambda: buf.write(_fmt_val(a[1]))), info.attrs_),
                 prefix='', suffix=''
             )
         ])
@@ -95,6 +97,15 @@ def _gen_relay(op: str, info: OpTypeInfo):
     buf.writeln('}')
 
     return str(buf)
+
+
+def _fmt_val(v: ValueType):
+    if type(v) in (bool, int, float, DataType):
+        return str(v)
+    elif type(v) is str:
+        return '"' + v + '"'
+    elif type(v) in (list, tuple):
+        return '[' + ', '.join(_fmt_val(e) for e in v) + ']'
 
 
 def _parse_args():
