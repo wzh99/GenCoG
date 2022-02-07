@@ -62,12 +62,20 @@ class ConstraintSpec:
     def attrs(self, *v: t.List[Attr]):
         self._attrs = v[0]
 
+    def has_attr(self, name: str):
+        return any(a.name_ == name for a in self._attrs)
+
     def reset_attr(self, new: Attr):
-        for attr in self._attrs:
-            if attr.name_ == new.name_:
-                attr.expr_ = new.expr_
+        for a in self._attrs:
+            if a.name_ == new.name_:
+                a.expr_ = new.expr_
                 return
         raise ValueError(f'Attribute \'{new.name_}\' not found.')
+
+    def add_attr(self, new: Attr):
+        if self.has_attr(new.name_):
+            raise ValueError(f'Attribute \'{new.name_}\' already defined.')
+        self._attrs.append(new)
 
     @property
     def in_num(self):
