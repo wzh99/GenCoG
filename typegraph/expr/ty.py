@@ -246,8 +246,9 @@ def type_py_value(v: ValueType) -> Type:
     :param v: Any acceptable Python object.
     :return: Type of `v`.
     """
-    if type(v) in _type_funcs:
-        return _type_funcs[type(v)](v)
+    py_ty = type(v)
+    if py_ty in _type_funcs:
+        return _type_funcs[py_ty](v)
     else:
         raise TypeError(
             'Cannot type Python object of type {}'.format(

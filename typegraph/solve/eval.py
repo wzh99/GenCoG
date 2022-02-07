@@ -313,6 +313,8 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         elif e.kind == ExprKind.TUPLE:
             tup = cast(Tuple, e)
             return any(self._has_dummy(f) for f in tup.fields_)
+        else:
+            return False
 
     def visit_dummy(self, dum: Dummy, env: Env[Expr]) -> Expr:
         return dum
