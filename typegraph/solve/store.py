@@ -25,7 +25,7 @@ class ValueStatus(IntEnum):
 
 
 class StoreError(Exception):
-    def __init__(self, node: Optional['StoreNode'], msg: str, ):
+    def __init__(self, node: Optional['StoreNode'], msg: str):
         self.node_ = node
         self.msg_ = msg
 

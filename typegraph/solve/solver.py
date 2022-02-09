@@ -3,9 +3,9 @@ from typing import Dict, List, cast
 
 from numpy.random import Generator
 
-from .eval import PartialEval, EvalExpr
+from .eval import PartialEval, EvalExpr, EvalError
 from .smt import solve_smt
-from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode
+from .store import ValueStore, StoreNode, NodeKind, ValueStatus, ScalarNode, ArrayNode, StoreError
 from .valid import validate
 from ..expr.array import Tuple
 from ..expr.basic import ExprKind, Const, And, Var, Cmp, CmpOp
@@ -96,22 +96,28 @@ class ConstraintSolver:
         attrs, in_types = self._extract_solved()
 
         # Evaluate output types
-        out_types = self._eval_out()
+        try:
+            out_types = self._eval_out()
+        except EvalError as err:
+            raise SolveError(self, err.msg_)
 
         return OpTypeInfo(attrs, in_types, out_types)
 
     def _solve_one_iter(self):
         # Solve attributes
         changed = False
-        for _, node in self._store.attrs_:
-            changed |= self._solve_node(node)
+        try:
+            for _, node in self._store.attrs_:
+                changed |= self._solve_node(node)
 
-        # Solve inputs
-        changed |= self._solve_shapes(self._store.in_shapes_)
-        changed |= self._solve_dtypes(self._store.in_dtypes_)
+            # Solve inputs
+            changed |= self._solve_shapes(self._store.in_shapes_)
+            changed |= self._solve_dtypes(self._store.in_dtypes_)
 
-        # Solve extra constraints
-        changed |= self._solve_extra()
+            # Solve extra constraints
+            changed |= self._solve_extra()
+        except StoreError as err:
+            raise SolveError(self, err.msg_)
 
         return changed
 

@@ -1,6 +1,6 @@
 import typing as t
 from functools import reduce
-from itertools import chain, islice
+from itertools import chain
 from typing import Union, Iterator, Optional, Callable, cast
 
 from numpy.random import Generator
@@ -169,8 +169,9 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         return chain(*(self.visit(arr, env) for arr in concat.arrays_))
 
     def visit_slice(self, slc: Slice, env: Env[ValueType]) -> ResultType:
+        arr = self.visit(slc.arr_, env)
         begin, end = self.visit_range(slc.ran_, env)
-        return islice(self.visit(slc.arr_, env), begin, end)
+        return arr[begin:end]
 
     def visit_map(self, m: Map, env: Env[ValueType]) -> ResultType:
         return map(lambda v: self.visit(m.body_, env + (m.sym_, v)), self.visit(m.arr_, env))
