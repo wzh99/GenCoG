@@ -11,7 +11,7 @@ from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceAr
     Filter, InSet, Subset, Perm
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, CmpOp, Not, \
     And, Or, ForAll, Cond, GetAttr, Dummy, to_expr
-from ..expr.tensor import Num, Shape, Rank, GetDType, TensorKind, LayoutMap, LayoutIndex
+from ..expr.tensor import Num, Shape, Rank, GetDType, TensorKind, TensorDesc, LayoutMap, LayoutIndex
 from ..expr.ty import ValueType
 from ..expr.visitor import ExprVisitor
 from ..util import map_opt
@@ -336,10 +336,12 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         return cast(ArrayNode, node).len_.expr
 
     def visit_shape(self, shape: Shape, env: Env[Expr]) -> Expr:
-        idx = self._try_eval(shape.tensor_.idx_, env)
-        if idx is None:
+        idx = self.visit(shape.index, env)
+        shape = Shape(TensorDesc(shape.tensor_kind, idx))
+        iv = self._try_eval(idx, env)
+        if iv is None:
             return shape
-        node = self._store.query_shape(shape.tensor_.kind_, idx)
+        node = self._store.query_shape(shape.tensor_kind, iv)
         if node is None:
             return shape
         expr = node.expr
@@ -348,29 +350,33 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         return expr
 
     def visit_rank(self, rank: Rank, env: Env[Expr]) -> Expr:
-        idx = self._try_eval(rank.tensor_.idx_, env)
-        if idx is None:
+        idx = self.visit(rank.index, env)
+        rank = Rank(TensorDesc(rank.tensor_kind, idx))
+        iv = self._try_eval(idx, env)
+        if iv is None:
             return rank
-        node = self._store.query_shape(rank.tensor_.kind_, idx)
+        node = self._store.query_shape(rank.tensor_.kind_, iv)
         if node is None:
             return rank
         return cast(ArrayNode, node).len_.expr
 
     def visit_dtype(self, dtype: GetDType, env: Env[Expr]) -> Expr:
-        idx = self._try_eval(dtype.tensor_.idx_, env)
-        if idx is None:
+        idx = self.visit(dtype.index, env)
+        dtype = GetDType(TensorDesc(dtype.tensor_kind, idx))
+        iv = self._try_eval(idx, env)
+        if iv is None:
             return dtype
-        node = self._store.query_dtype(dtype.tensor_.kind_, idx)
+        node = self._store.query_dtype(dtype.tensor_.kind_, iv)
         if node is None:
             return dtype
         return node.expr
 
     def visit_layout_index(self, i: LayoutIndex, env: Env[Expr]) -> Expr:
         layout = self.visit(i.layout_, env)
-        if layout.kind != ExprKind.CONST:
-            return LayoutIndex(layout, self.visit(i.dim_, env))
-        layout = cast(Const, layout)
         dim = self.visit(i.dim_, env)
+        if layout.kind != ExprKind.CONST:
+            return LayoutIndex(layout, dim)
+        layout = cast(Const, layout)
         if dim.kind != ExprKind.CONST:
             return LayoutIndex(layout, dim)
         dim = cast(Const, dim)
@@ -378,14 +384,14 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
 
     def visit_layout_map(self, m: LayoutMap, env: Env[Expr]) -> Expr:
         tgt = self.visit(m.tgt_, env)
-        if tgt.kind != ExprKind.CONST:
-            return LayoutMap(tgt, self.visit(m.src_, env), self.visit(m.src_shape_, env))
-        tgt = cast(Const, tgt)
         src = self.visit(m.src_, env)
-        if src.kind != ExprKind.CONST:
-            return LayoutMap(tgt, src, self.visit(m.src_shape_, env))
-        src = cast(Const, src)
         src_shape = self.visit(m.src_shape_, env)
+        if tgt.kind != ExprKind.CONST:
+            return LayoutMap(tgt, src, src_shape)
+        tgt = cast(Const, tgt)
+        if src.kind != ExprKind.CONST:
+            return LayoutMap(tgt, src, src_shape)
+        src = cast(Const, src)
         if src_shape.kind != ExprKind.TUPLE:
             return LayoutMap(tgt, src, src_shape)
         src_shape = cast(Tuple, src_shape)
@@ -407,16 +413,16 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
 
     def visit_getitem(self, getitem: GetItem, env: Env[Expr]) -> Expr:
         arr = self.visit(getitem.arr_, env)
+        idx = self.visit(getitem.idx_, env)
         if arr.kind != ExprKind.TUPLE:
-            return GetItem(arr, getitem.idx_, ty=getitem.type_)
+            return GetItem(arr, idx, ty=getitem.type_)
         arr = cast(Tuple, arr)
-        idx_e = self.visit(getitem.idx_, env)
-        if idx_e.kind != ExprKind.CONST:
-            return GetItem(arr, idx_e, ty=getitem.type_)
-        idx = cast(Const, idx_e).val_
-        if idx not in range(-len(arr.fields_), len(arr.fields_)):
-            return GetItem(arr, idx_e, ty=getitem.type_)
-        return arr.fields_[idx]
+        if idx.kind != ExprKind.CONST:
+            return GetItem(arr, idx, ty=getitem.type_)
+        iv = cast(Const, idx).val_
+        if iv not in range(-len(arr.fields_), len(arr.fields_)):
+            return GetItem(arr, idx, ty=getitem.type_)
+        return arr.fields_[iv]
 
     def visit_len(self, ln: Len, env: Env[Expr]) -> Expr:
         arr = self.visit(ln.arr_, env)
@@ -440,20 +446,22 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         return Tuple(*fields, ty=concat.type_)
 
     def visit_slice(self, slc: Slice, env: Env[Expr]) -> Expr:
-        tup = self.visit(slc.arr_, env)
-        if tup.kind != ExprKind.TUPLE:
-            return slc
-        ran = self._try_eval(slc.ran_, env)
-        if ran is None:
-            return slc
-        return Tuple(*cast(Tuple, tup).fields_[ran[0]:ran[1]], ty=slc.type_)
+        arr = self.visit(slc.arr_, env)
+        ran = self.visit_range(slc.ran_, env)
+        if arr.kind != ExprKind.TUPLE:
+            return Slice(arr, ran, ty=slc.type_)
+        ran_val = self._try_eval(ran, env)
+        if ran_val is None:
+            return Slice(arr, ran, ty=slc.type_)
+        return Tuple(*cast(Tuple, arr).fields_[ran_val[0]:ran_val[1]], ty=slc.type_)
 
     def visit_map(self, m: Map, env: Env[Expr]) -> Expr:
-        tup = self.visit(m.arr_, env)
-        if tup.kind != ExprKind.TUPLE:
-            return m
-        tup = cast(Tuple, tup)
-        return Tuple(*(self.visit(m.body_, env + (m.sym_, e)) for e in tup.fields_), ty=m.type_)
+        arr = self.visit(m.arr_, env)
+        if arr.kind != ExprKind.TUPLE:
+            return Map(arr, sym=m.sym_, body=self.visit(m.body_, env + (m.sym_, m.sym_)),
+                       ty=m.type_)
+        arr = cast(Tuple, arr)
+        return Tuple(*(self.visit(m.body_, env + (m.sym_, e)) for e in arr.fields_), ty=m.type_)
 
     def visit_reduce_array(self, red: ReduceArray, env: Env[Expr]) -> Expr:
         return self._try_fold(
