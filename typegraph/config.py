@@ -10,6 +10,10 @@ config: Dict[str, Any] = {
     'spec.max_rank': 5,
     # Maximal dimension value in tensor shape
     'spec.max_dim': 128,
+    # Lower bound of small float
+    'spec.min_small_float': 1e-5,
+    # Upper bound of small float
+    'spec.max_small_float': 1e-3,
 
     # Maximal number of model candidates
     'solver.max_model_cand': 4,

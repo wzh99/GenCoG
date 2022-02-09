@@ -1,6 +1,6 @@
 from ..config import config
 from ..expr import *
-from ..spec import Attr, ConstraintSpec, Op, dim_ran
+from ..spec import Attr, ConstraintSpec, Op, max_rank, dim_ran, small_float_ran
 
 kernel_ran = iran(1, config['op.max_kernel'])
 stride_ran = iran(1, config['op.max_stride'])
@@ -314,3 +314,121 @@ Op('nn.adaptive_max_pool3d', _create_adapt_pool_nd(3))
 Op('nn.adaptive_avg_pool1d', _create_adapt_pool_nd(1))
 Op('nn.adaptive_avg_pool2d', _create_adapt_pool_nd(2))
 Op('nn.adaptive_avg_pool3d', _create_adapt_pool_nd(3))
+
+
+def _create_norm():
+    return ConstraintSpec(
+        attrs=[
+            Attr('axis', Var(INT, ran=Range(end=IN[0].rank))),
+            Attr('epsilon', Var(FLOAT, ran=small_float_ran)),
+            Attr('center', Var(BOOL)),
+            Attr('scale', Var(BOOL)),
+        ],
+        in_num=3,
+        in_ranks=[Var(), 1, 1],
+        in_dtypes=List(3, lambda _: Var()),
+        in_shapes=Concat([List(IN[0].rank, lambda _: Var(tmpl=True))],
+                         [[IN[0].shape[a('axis')]] for _ in range(2)]),
+        extra=[],
+        out_num=1,
+        out_ranks=[IN[0].rank],
+        out_dtypes=[IN[0].dtype],
+        out_shapes=[IN[0].shape]
+    )
+
+
+Op('nn.instance_norm', _create_norm())
+Op('nn.layer_norm', _create_norm())
+
+
+def _create_group_norm():
+    spec = _create_norm()
+    spec.add_attr(
+        Attr('num_groups', Var(INT, ran=iran(1, IN[0].shape[a('axis')])))
+    )
+    spec.add_extra(IN[0].shape[a('axis')] % a('num_groups') == 0)
+    return spec
+
+
+Op('nn.group_norm', _create_group_norm())
+
+
+def _create_batch_norm():
+    return ConstraintSpec(
+        attrs=[
+            Attr('axis', Var(INT, ran=Range(end=IN[0].rank))),
+            Attr('epsilon', Var(FLOAT, ran=small_float_ran)),
+            Attr('center', Var(BOOL)),
+            Attr('scale', Var(BOOL)),
+        ],
+        in_num=5,
+        in_ranks=[Var(), 1, 1, 1, 1],
+        in_dtypes=List(5, lambda _: Var()),
+        in_shapes=Concat([List(IN[0].rank, lambda _: Var(tmpl=True))],
+                         [[IN[0].shape[a('axis')]] for _ in range(4)]),
+        extra=[],
+        out_num=3,
+        out_ranks=[IN[0].rank, 1, 1],
+        out_dtypes=[IN[0].dtype] * 3,
+        out_shapes=[IN[0].shape] + [[IN[0].shape[a('axis')]]] * 2
+    )
+
+
+Op('nn.batch_norm', _create_batch_norm())
+
+
+def _create_dense():
+    return ConstraintSpec(
+        attrs=[
+            Attr('units', Var(INT, ran=dim_ran)),
+        ],
+        in_num=2,
+        in_ranks=[Var(), 2],
+        in_dtypes=List(2, lambda _: Var()),
+        in_shapes=[
+            List(IN[0].rank, lambda _: Var(tmpl=True)),
+            [a('units'), IN[0].shape[-1]]
+        ],
+        extra=[],
+        out_num=1,
+        out_ranks=[IN[0].rank],
+        out_dtypes=[IN[0].dtype],
+        out_shapes=[
+            Concat(IN[0].shape[Range(end=-1)], [a('units')])
+        ]
+    )
+
+
+Op('nn.dense', _create_dense())
+
+
+def _create_matmul():
+    in_dim = Cond(a('transpose_a'), IN[0].shape[-2], IN[0].shape[-1])
+    return ConstraintSpec(
+        attrs=[
+            Attr('units', Var(INT, ran=dim_ran)),
+            Attr('transpose_a', Var(BOOL)),
+            Attr('transpose_b', Var(BOOL)),
+        ],
+        in_num=2,
+        in_ranks=[Var(ran=iran(2, max_rank)), 2],
+        in_dtypes=List(2, lambda _: Var()),
+        in_shapes=[
+            List(IN[0].rank, lambda _: Var(tmpl=True)),
+            Cond(a('transpose_b'), [a('units'), in_dim], [in_dim, a('units')])
+        ],
+        extra=[],
+        out_num=1,
+        out_ranks=[IN[0].rank],
+        out_dtypes=[IN[0].dtype],
+        out_shapes=[
+            Concat(Cond(
+                a('transpose_a'),
+                Concat(IN[0].shape[Range(end=-2)], [IN[0].shape[-1]]),
+                IN[0].shape[Range(end=-1)]
+            ), [a('units')])
+        ]
+    )
+
+
+Op('nn.matmul', _create_matmul())

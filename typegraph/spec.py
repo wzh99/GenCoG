@@ -11,6 +11,16 @@ from .expr.infer import ExprTypeError, infer_type
 from .expr.ty import Type, ListType, TyVar, common_dtypes
 from .util import CodeBuffer, cls_name
 
+max_num = config['spec.max_num']
+num_ran = iran(1, max_num)
+min_rank = config['spec.min_rank']
+max_rank = config['spec.max_rank']
+rank_ran = iran(min_rank, max_rank)
+max_dim = config['spec.max_dim']
+dim_ran = iran(1, max_dim)
+
+small_float_ran = Range(config['spec.min_small_float'], config['spec.max_small_float'])
+
 
 class Attr:
     """
@@ -176,6 +186,9 @@ class ConstraintSpec:
     def extra(self, *v: t.List[ExprLike]):
         self._extra = [to_expr(c) for c in v[0]]
 
+    def add_extra(self, e: Expr):
+        self._extra.append(e)
+
     @property
     def out_num(self):
         """
@@ -317,15 +330,6 @@ def int_range_choices(ran: Range, begin: int, end: int) -> t.List[int]:
     if ran.end_.kind == ExprKind.CONST:
         end = min(end, cast(Const, ran.end_).val_)
     return list(range(begin, end))
-
-
-max_num = config['spec.max_num']
-num_ran = iran(1, max_num)
-min_rank = config['spec.min_rank']
-max_rank = config['spec.max_rank']
-rank_ran = iran(min_rank, max_rank)
-max_dim = config['spec.max_dim']
-dim_ran = iran(1, max_dim)
 
 
 class SpecCheckError(Exception):
