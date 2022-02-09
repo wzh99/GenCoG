@@ -6,11 +6,11 @@ from numpy.random import Generator, PCG64
 from tqdm import trange
 from tvm.parser import parse
 
-from typegraph.expr import TensorType, DataType
-from typegraph.expr.ty import ValueType
-from typegraph.solve import ConstraintSolver, OpTypeInfo
-from typegraph.spec import ConstraintSpec, OpRegistry, max_dim
-from typegraph.util import Ref, CodeBuffer
+from typefuzz.expr import TensorType, DataType
+from typefuzz.expr.ty import ValueType
+from typefuzz.solve import ConstraintSolver, OpTypeInfo
+from typefuzz.spec import ConstraintSpec, OpRegistry, max_dim
+from typefuzz.util import Ref, CodeBuffer
 
 options = Namespace()
 
