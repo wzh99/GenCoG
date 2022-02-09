@@ -316,6 +316,32 @@ Op('nn.adaptive_avg_pool2d', _create_adapt_pool_nd(2))
 Op('nn.adaptive_avg_pool3d', _create_adapt_pool_nd(3))
 
 
+def _create_pad():
+    pad_width = a('pad_width')
+    return ConstraintSpec(
+        attrs=[
+            Attr('pad_width', List(IN[0].rank, lambda _: [Var(INT, ran=pad_ran, tmpl=True)] * 2)),
+            Attr('pad_mode', Var(STR)),
+        ],
+        in_num=2,
+        in_ranks=[Var(), 0],
+        in_dtypes=List(2, lambda _: Var()),
+        in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True)), []],
+        extra=[
+            InSet(a('pad_mode'), ['constant', 'reflect', 'edge'])
+        ],
+        out_num=1,
+        out_ranks=[IN[0].rank],
+        out_dtypes=[IN[0].dtype],
+        out_shapes=[
+            List(IN[0].rank, lambda i: IN[0].shape[i] + pad_width[i][0] + pad_width[i][1])
+        ]
+    )
+
+
+Op('nn.pad', _create_pad())
+
+
 def _create_norm():
     return ConstraintSpec(
         attrs=[

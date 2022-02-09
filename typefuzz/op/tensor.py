@@ -214,3 +214,45 @@ def _create_split():
 
 
 Op('split', _create_split())
+
+
+def _create_strided_slice():
+    stride_ran = iran(1, config['op.max_stride'])
+    num_axes = Len(a('axes'))
+    begin = a('begin')
+    end = a('end')
+    strides = a('strides')
+    axes = a('axes')
+
+    return ConstraintSpec(
+        attrs=[
+            Attr('axes', List(Var(), lambda _: Var(INT, tmpl=True))),
+            Attr('begin', List(num_axes, lambda i: Var(INT, ran=Range(end=IN[0].shape[axes[i]]),
+                                                       tmpl=True))),
+            Attr('end', List(num_axes, lambda i: Var(INT, ran=iran(1, IN[0].shape[axes[i]]),
+                                                     tmpl=True))),
+            Attr('strides', List(num_axes, lambda _: Var(INT, ran=stride_ran, tmpl=True))),
+        ],
+        in_num=1,
+        in_ranks=[Var()],
+        in_dtypes=[Var()],
+        in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
+        extra=[
+            Subset(a('axes'), List(IN[0].rank, lambda i: i)),
+            ForAll(Range(end=num_axes), lambda i: end[i] - begin[i] > 0)
+        ],
+        out_num=1,
+        out_ranks=[IN[0].rank],
+        out_dtypes=[IN[0].dtype],
+        out_shapes=[
+            List(IN[0].rank, lambda i: Cond(
+                InSet(i, a('axes')),
+                Map(Filter(List(num_axes, lambda j: j), lambda j: axes[j] == i),
+                    lambda j: (end[j] - begin[j] + strides[j] - 1) / strides[j])[0],
+                IN[0].shape[i]
+            ))
+        ]
+    )
+
+
+Op('strided_slice', _create_strided_slice())
