@@ -17,6 +17,7 @@ from ..expr.visitor import ExprVisitor
 from ..util import NameGenerator, Ref
 
 z3.set_param('smt.phase_selection', 5)
+bit_vec_len = config['solver.bit_vec_len']
 
 
 class Z3SolveError(Exception):
@@ -25,7 +26,7 @@ class Z3SolveError(Exception):
 
 _z3_var_funcs: Dict[Type, Callable[[str], z3.ExprRef]] = {
     BOOL: lambda s: z3.Bool(s),
-    INT: lambda s: z3.BitVec(s, 16),
+    INT: lambda s: z3.BitVec(s, bit_vec_len),
     FLOAT: lambda s: z3.Real(s),
     STR: lambda s: z3.String(s),
 }
@@ -101,7 +102,7 @@ class Z3ExprGen(ExprVisitor[Env[z3.ExprRef], z3.ExprRef]):
 
     val_funcs: Dict[Type, Callable[[ValueType], z3.ExprRef]] = {
         BOOL: lambda v: z3.BoolVal(v),
-        INT: lambda v: z3.BitVecVal(v, 16),
+        INT: lambda v: z3.BitVecVal(v, bit_vec_len),
         FLOAT: lambda v: z3.RealVal(v),
         STR: lambda v: z3.StringVal(v),
     }

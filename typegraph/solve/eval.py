@@ -178,14 +178,20 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
 
     def visit_reduce_array(self, red: ReduceArray, env: Env[ValueType]) -> ResultType:
         func = Arith.op_funcs[red.op_][red.type_]
-        return reduce(lambda acc, v: func(acc, v), self.visit(red.arr_, env),
-                      self.visit(red.init_, env))
+        try:
+            return reduce(lambda acc, v: func(acc, v), self.visit(red.arr_, env),
+                          self.visit(red.init_, env))
+        except TypeError as err:
+            raise EvalError(red, str(err))
 
     def visit_reduce_index(self, red: ReduceIndex, env: Env[ValueType]) -> ResultType:
         begin, end = self.visit_range(red.ran_, env)
         func = Arith.op_funcs[red.op_][red.type_]
-        return reduce(lambda acc, idx: func(acc, self.visit(red.body_, env + (red.idx_, idx))),
-                      range(begin, end), self.visit(red.init_, env))
+        try:
+            return reduce(lambda acc, idx: func(acc, self.visit(red.body_, env + (red.idx_, idx))),
+                          range(begin, end), self.visit(red.init_, env))
+        except TypeError as err:
+            raise EvalError(red, str(err))
 
     def visit_filter(self, flt: Filter, env: Env[ValueType]) -> ResultType:
         return filter(lambda v: self.visit(flt.pred_, env + (flt.sym_, v)),
