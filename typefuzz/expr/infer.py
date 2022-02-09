@@ -151,6 +151,8 @@ class TypeInfer(ExprVisitor[InferArg, Type]):
     def visit_tuple(self, tup: Tuple, arg: InferArg) -> Type:
         hint = arg.hint
         tup_len = len(tup.fields_)
+        if tup_len == 0:  # no information provided by tuple fields
+            return arg.hint  # use hint directly
         if hint.kind == TypeKind.tuple:
             field_hint = cast(TupleType, hint).field_ty_
         elif hint.kind == TypeKind.list:
