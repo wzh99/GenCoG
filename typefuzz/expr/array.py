@@ -201,3 +201,15 @@ class Subset(Expr):
         self.sub_ = to_expr(sub)
         self.sup_ = to_expr(sup)
         super().__init__([self.sub_, self.sup_], ty=BOOL)
+
+
+class Perm(Expr):
+    """
+    Whether an array is a permutation of another.
+    """
+    kind = ExprKind.PERM
+
+    def __init__(self, tgt: ExprLike, src: ExprLike):
+        self.tgt_ = to_expr(tgt)
+        self.src_ = to_expr(src)
+        super().__init__([self.tgt_, self.src_], ty=BOOL)

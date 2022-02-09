@@ -3,7 +3,7 @@ from functools import reduce
 from typing import NamedTuple, Dict, cast
 
 from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
-    Filter, InSet, Subset
+    Filter, InSet, Subset, Perm
 from .basic import Expr, ExprKind, Env, Const, Var, Symbol, Range, Arith, ArithOp, Cmp, Not, And, \
     Or, ForAll, Cond, GetAttr, Dummy
 from .tensor import Num, Shape, Rank, GetDType, LayoutMap, LayoutIndex
@@ -243,6 +243,12 @@ class TypeInfer(ExprVisitor[InferArg, Type]):
         sub_ty = self.visit(subset.sub_, InferArg(arg.env, ListType(TyVar())))
         elem_ty = self._get_elem_type(subset, sub_ty)
         self.visit(subset.sup_, InferArg(arg.env, ListType(elem_ty)))
+        return self._unify(arg.hint, BOOL)
+
+    def visit_perm(self, perm: Perm, arg: InferArg) -> Type:
+        src_ty = self.visit(perm.src_, InferArg(arg.env, ListType(TyVar())))
+        elem_ty = self._get_elem_type(perm, src_ty)
+        self.visit(perm.tgt_, InferArg(arg.env, ListType(elem_ty)))
         return self._unify(arg.hint, BOOL)
 
     def _unify(self, lhs: Type, rhs: Type):

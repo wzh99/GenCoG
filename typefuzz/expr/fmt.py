@@ -3,8 +3,8 @@ from typing import Any, Callable
 
 from colorama import Fore, Back
 
-from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, Filter, \
-    InSet, Subset
+from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
+    Filter, InSet, Subset, Perm
 from .basic import Expr, Const, Var, Range, Symbol, Arith, Cmp, Not, And, Or, ForAll, Cond, \
     GetAttr, Dummy
 from .tensor import Num, TensorDesc, Shape, Rank, GetDType, LayoutMap, LayoutIndex
@@ -233,6 +233,13 @@ class ExprPrinter(ExprVisitor[None, Any]):
         self._write_named_multi([
             ('sub', lambda: self.visit(subset.sub_, env)),
             ('sup', lambda: self.visit(subset.sup_, env))
+        ])
+
+    def visit_perm(self, perm: Perm, env: None):
+        self._write_cls(perm)
+        self._write_named_multi([
+            ('tgt', lambda: self.visit(perm.tgt_, env)),
+            ('src', lambda: self.visit(perm.src_, env))
         ])
 
     def _write_cls(self, e: Expr):

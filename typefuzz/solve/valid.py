@@ -3,7 +3,7 @@ from typing import List, Dict, Callable, Iterable, Any
 from .store import ValueStore, StoreNode, ScalarNode, StoreVisitor, ValueStatus
 from ..expr import Expr, Var, BOOL, INT, FLOAT
 from ..expr.array import GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
-    Filter, InSet, Subset
+    Filter, InSet, Subset, Perm
 from ..expr.basic import ExprKind, ForAll, GetAttr, Dummy
 from ..expr.tensor import Num, Rank, Shape, GetDType, LayoutMap, LayoutIndex
 from ..expr.visitor import ExprVisitor
@@ -199,6 +199,9 @@ class ExprFinder(ExprVisitor[Expr, None]):
 
     def visit_subset(self, subset: Subset, root: Expr):
         self._set_invalid(subset, root, super().visit_subset)
+
+    def visit_perm(self, perm: Perm, root: Expr):
+        self._set_invalid(perm, root, super().visit_perm)
 
     def _set_invalid(self, e: Expr, root: Expr, post_f: Callable[[Any, Any], Any]):
         self._union.set_invalid(root)

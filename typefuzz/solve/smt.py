@@ -8,7 +8,7 @@ from numpy.random import Generator
 from .store import ValueStore
 from ..config import config
 from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
-    Filter, InSet, Subset
+    Filter, InSet, Subset, Perm
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, \
     ForAll, Cond, GetAttr, Dummy, ArithOp, CmpOp
 from ..expr.tensor import Num, Shape, Rank, GetDType, LayoutMap, LayoutIndex
@@ -266,4 +266,7 @@ class Z3ExprGen(ExprVisitor[Env[z3.ExprRef], z3.ExprRef]):
         raise Z3SolveError()
 
     def visit_subset(self, subset: Subset, env: Env[z3.ExprRef]) -> z3.ExprRef:
+        raise Z3SolveError()
+
+    def visit_perm(self, perm: Perm, env: Env[z3.ExprRef]) -> z3.ExprRef:
         raise Z3SolveError()

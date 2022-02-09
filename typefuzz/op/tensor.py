@@ -117,6 +117,30 @@ def _create_reshape():
 Op('reshape', _create_reshape())
 
 
+def _create_transpose():
+    return ConstraintSpec(
+        attrs=[
+            Attr('axes', List(Var(), lambda _: Var(INT, tmpl=True))),
+        ],
+        in_num=1,
+        in_ranks=[Var()],
+        in_dtypes=[Var()],
+        in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
+        extra=[
+            Perm(a('axes'), List(IN[0].rank, lambda i: i))
+        ],
+        out_num=1,
+        out_ranks=[IN[0].rank],
+        out_dtypes=[IN[0].dtype],
+        out_shapes=[
+            Map(a('axes'), lambda i: IN[0].shape[i])
+        ]
+    )
+
+
+Op('transpose', _create_transpose())
+
+
 def _create_concat():
     return ConstraintSpec(
         attrs=[

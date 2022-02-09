@@ -2,7 +2,7 @@ import typing as t
 from typing import Generic, TypeVar, Dict, Callable, Any, Iterable, Optional, cast
 
 from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
-    Filter, InSet, Subset
+    Filter, InSet, Subset, Perm
 from .basic import Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, ForAll, \
     Cond, GetAttr, Dummy, Env
 from .tensor import Num, Shape, Rank, GetDType, TensorDesc, LayoutIndex, LayoutMap
@@ -52,6 +52,7 @@ class ExprVisitor(Generic[A, R]):
             ExprKind.FILTER: self.visit_filter,
             ExprKind.INSET: self.visit_inset,
             ExprKind.SUBSET: self.visit_subset,
+            ExprKind.PERM: self.visit_perm,
         }
 
     def visit(self, e: Expr, arg: A) -> R:
@@ -149,6 +150,9 @@ class ExprVisitor(Generic[A, R]):
 
     def visit_subset(self, subset: Subset, arg: A) -> R:
         return self._visit_sub(subset, arg)
+
+    def visit_perm(self, perm: Perm, arg: A) -> R:
+        return self._visit_sub(perm, arg)
 
     def _visit_sub(self, expr: Expr, arg: A):
         for s in expr.sub_expr_:
@@ -348,6 +352,10 @@ class StructuralEq(ExprVisitor[Expr, bool]):
         other = cast(Subset, subset)
         return self._cmp_expr([(subset.sub_, other.sub_), (subset.sup_, other.sup_)])
 
+    def visit_perm(self, perm: Perm, other: Expr) -> bool:
+        other = cast(Perm, other)
+        return self._cmp_expr([(perm.tgt_, other.tgt_), (perm.src_, other.src_)])
+
     def _cmp_opt(self, pairs: Iterable[t.Tuple[Optional[Expr], Optional[Expr]]]):
         real_pairs: t.List[t.Tuple[Expr, Expr]] = []
         for this, other in pairs:
@@ -488,3 +496,6 @@ class CopyExpr(ExprVisitor[Env[Symbol], Expr]):
 
     def visit_subset(self, subset: Subset, env: Env[Symbol]) -> Expr:
         return Subset(self.visit(subset.sub_, env), self.visit(subset.sup_, env))
+
+    def visit_perm(self, perm: Perm, env: Env[Symbol]) -> Expr:
+        return Perm(self.visit(perm.tgt_, env), self.visit(perm.src_, env))

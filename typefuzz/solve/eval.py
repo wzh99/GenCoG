@@ -8,7 +8,7 @@ from tvm import tir
 
 from .store import ValueStore, ArrayNode
 from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
-    Filter, InSet, Subset
+    Filter, InSet, Subset, Perm
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, CmpOp, Not, \
     And, Or, ForAll, Cond, GetAttr, Dummy, to_expr
 from ..expr.tensor import Num, Shape, Rank, GetDType, TensorKind, LayoutMap, LayoutIndex
@@ -203,6 +203,11 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
     def visit_subset(self, subset: Subset, env: Env[ValueType]) -> ResultType:
         sup = self.visit(subset.sup_, env)
         return all(map(lambda v: v in sup, self.visit(subset.sub_, env)))
+
+    def visit_perm(self, perm: Perm, env: Env[ValueType]) -> ResultType:
+        src = self.visit(perm.src_, env)
+        tgt = self.visit(perm.tgt_, env)
+        return set(src) == set(tgt)
 
 
 class PartialEval(ExprVisitor[Env[Expr], Expr]):
@@ -517,6 +522,29 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
             Cmp(CmpOp.EQ, Len(sub), len(sub_sp)),
             *(Cmp(CmpOp.EQ, GetItem(sub, i, ty=sub.type_.elem_type), e)
               for i, e in enumerate(sub_sp))
+        )
+
+    def visit_perm(self, perm: Perm, env: Env[Expr]) -> Expr:
+        # Try folding expression
+        perm = self._try_fold(
+            perm, env, lambda: Perm(self.visit(perm.tgt_, env), self.visit(perm.src_, env))
+        )
+        if perm.kind == ExprKind.CONST:
+            return perm
+
+        # Check if the expression can be sampled
+        perm = cast(Perm, perm)
+        if perm.src_.kind != ExprKind.TUPLE:
+            return perm
+        src = cast(Tuple, perm.src_)
+
+        # Permute source array
+        perm_ind = self._rng.permutation(range(len(src.fields_)))
+        tgt = perm.tgt_
+        return And(
+            Cmp(CmpOp.EQ, Len(perm.tgt_), len(src.fields_)),
+            *(Cmp(CmpOp.EQ, GetItem(perm.tgt_, i, ty=tgt.type_.elem_type), src.fields_[pi])
+              for i, pi in enumerate(perm_ind))
         )
 
     def _try_eval(self, expr: Expr, env: Env[Expr]) -> Optional[ValueType]:
