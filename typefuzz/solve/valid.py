@@ -1,16 +1,17 @@
-from typing import List, Dict, Callable, Iterable, Any
+import typing as t
+from typing import Dict, Callable, Iterable, Any
 
 from .store import ValueStore, StoreNode, ScalarNode, StoreVisitor, ValueStatus
 from ..expr import Expr, Var, BOOL, INT, FLOAT
 from ..expr.array import GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
-    Filter, InSet, Subset, Perm
-from ..expr.basic import ExprKind, ForAll, GetAttr, Dummy
+    Filter, InSet, Subset, Perm, List
+from ..expr.basic import ExprKind, ForAll, GetAttr, Dummy, Cond
 from ..expr.tensor import Num, Rank, Shape, GetDType, LayoutMap, LayoutIndex
 from ..expr.visitor import ExprVisitor
 from ..util import Ref
 
 
-def validate(store: ValueStore, extra: List[Expr]) -> 'UnionFind':
+def validate(store: ValueStore, extra: t.List[Expr]) -> 'UnionFind':
     """
     Find all valid (solvable) constraint expressions.
 
@@ -47,8 +48,8 @@ class UnionFind:
 
     def __init__(self):
         self._idx_map: Dict[Ref[Expr], int] = {}
-        self._root: List[int] = []
-        self._valid: List[bool] = []
+        self._root: t.List[int] = []
+        self._valid: t.List[bool] = []
 
     def union(self, d: Var, u: Expr):
         """
@@ -76,7 +77,7 @@ class UnionFind:
     def all_valid(self) -> Iterable[Expr]:
         items = sorted(self._idx_map.items(), key=lambda p: p[1])
         return map(lambda p: p[0].obj_,
-                   filter(lambda p: self._valid[p[1]], items))
+                   filter(lambda p: self._valid[self._find_idx(p[1])], items))
 
     def _find_expr(self, e: Expr):
         return self._find_idx(self._get_idx(e))
@@ -130,15 +131,27 @@ class ExprFinder(ExprVisitor[Expr, None]):
     def visit_var(self, var: Var, root: Expr):
         if var.tmpl_:
             return
-        if var.type_ not in self.solvable_types:
-            self._union.set_invalid(var)
-        self._union.union(var, root)
+        self._union.union(var, var)  # register this variable
+        if var.type_ in self.solvable_types:
+            # Only when the variable's type is solvable, we consider whether it is bounded by other
+            # constraints. Otherwise, we consider this as free variable and use simple sampling to
+            # solve it.
+            self._union.union(var, root)
+        elif var is not root:
+            self._union.set_invalid(root)  # the constraint referring to it cannot be solved now
         if var.ran_ is not None:
             self.visit(var.ran_, var)
+        if var.choices_ is not None:
+            self.visit(var.choices_, var)
 
     def visit_forall(self, forall: ForAll, root: Expr):
         self._union.set_invalid(root)
         self.visit(forall.body_, root)
+
+    def visit_cond(self, cond: Cond, root: Expr):
+        self._union.set_invalid(root)
+        self.visit(cond.tr_br_, root)
+        self.visit(cond.fls_br_, root)
 
     def visit_attr(self, attr: GetAttr, root: Expr):
         self._set_invalid(attr, root, super().visit_attr)
@@ -164,8 +177,13 @@ class ExprFinder(ExprVisitor[Expr, None]):
     def visit_layout_map(self, m: LayoutMap, root: Expr):
         self._set_invalid(m, root, super().visit_layout_map)
 
+    def visit_list(self, lst: List, root: Expr):
+        self._union.set_invalid(root)
+        self.visit(lst.body_, root)
+
     def visit_getitem(self, getitem: GetItem, root: Expr):
-        self._set_invalid(getitem, root, super().visit_getitem)
+        self._union.set_invalid(root)
+        self.visit(getitem.arr_, root)
 
     def visit_len(self, ln: Len, root: Expr):
         self._set_invalid(ln, root, super().visit_len)

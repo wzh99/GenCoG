@@ -63,6 +63,8 @@ class TypeInfer(ExprVisitor[InferArg, Type]):
         ty = self._unify(unwrap_or(var.type_, TyVar()), arg.hint)
         if var.ran_ is not None:
             ty = self.visit(var.ran_, InferArg(arg.env, ty))
+        if var.choices_ is not None:
+            self.visit(var.choices_, InferArg(arg.env, ListType(ty)))
         return ty
 
     def visit_symbol(self, sym: Symbol, arg: InferArg) -> Type:

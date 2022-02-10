@@ -128,7 +128,7 @@ class LayoutIndex(Expr):
     def __init__(self, layout: ExprLike, dim: ExprLike):
         self.layout_ = to_expr(layout)
         self.dim_ = to_expr(dim)
-        super().__init__([self.layout_, self.dim_, ], ty=INT)
+        super().__init__([self.layout_, self.dim_], ty=INT)
 
 
 class LayoutMap(Expr):

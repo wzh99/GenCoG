@@ -317,28 +317,39 @@ class ConstraintSolver:
             self._store.set_var_solved(var, v)
             return True
 
-        # Get range for numeric values
-        if var.ran_ is None:
-            return False
-        ran = var.ran_
-        if ran.begin_ is None or ran.begin_.kind != ExprKind.CONST:
-            return False
-        low = cast(Const, ran.begin_).val_
-        if ran.end_ is None or ran.end_.kind != ExprKind.CONST:
-            return False
-        high = cast(Const, ran.end_).val_
+        # Sample variables if choices are provided
+        if var.choices_ is not None:
+            try:
+                choices = tuple(self._eval.evaluate(var.choices_))
+                v = choices[self._rng.choice(len(choices))]
+                self._store.set_var_solved(var, v)
+                return True
+            except EvalError:
+                return False
 
-        # Sample numeric values
-        if var.type_ == INT:
-            v = int(self._rng.integers(low=low, high=high))
-            self._store.set_var_solved(var, v)
-            return True
-        elif var.type_ == FLOAT:
-            v = float(self._rng.uniform(low=low, high=high))
-            self._store.set_var_solved(var, v)
-            return True
-        else:
-            return False
+        # Get range for numeric values
+        if var.ran_ is not None:
+            ran = var.ran_
+            if ran.begin_ is None or ran.begin_.kind != ExprKind.CONST:
+                return False
+            low = cast(Const, ran.begin_).val_
+            if ran.end_ is None or ran.end_.kind != ExprKind.CONST:
+                return False
+            high = cast(Const, ran.end_).val_
+
+            # Sample numeric values
+            if var.type_ == INT:
+                v = int(self._rng.integers(low=low, high=high))
+                self._store.set_var_solved(var, v)
+                return True
+            elif var.type_ == FLOAT:
+                v = float(self._rng.uniform(low=low, high=high))
+                self._store.set_var_solved(var, v)
+                return True
+            else:
+                return False
+
+        return False
 
     def _extract_solved(self):
         # Extract attributes

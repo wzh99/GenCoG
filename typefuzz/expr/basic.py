@@ -1,6 +1,7 @@
 import typing as t
 from enum import Enum, IntEnum, auto
 from typing import Any, Callable, Dict, Optional, Union, List, Iterator, Iterable, TypeVar
+from warnings import warn
 
 from .ty import Type, TypeKind, ValueType, DataType, type_py_value, BOOL, INT, STR
 from ..util import cls_name, map_opt, filter_none, unwrap, unwrap_or
@@ -210,11 +211,18 @@ class Var(Expr):
     """
     kind = ExprKind.VAR
 
-    def __init__(self, ty: Optional[Type] = None, ran: Optional[Range] = None, tmpl: bool = False):
+    def __init__(self, ty: Optional[Type] = None, ran: Optional[Range] = None,
+                 choices: Optional[ExprLike] = None, tmpl: bool = False):
         self.ran_ = ran
-        super().__init__(filter_none([self.ran_]))
-        self.type_ = ty
+        self.choices_ = map_opt(to_expr, choices)
+        if self.choices_ is not None and self.ran_ is not None:
+            warn('Choices and range are both provided. Range is ignored.')
+            self.ran_ = None
         self.tmpl_ = tmpl
+        # noinspection PyTypeChecker
+        super().__init__(filter_none([self.ran_, self.choices_]))
+        if ty is not None:
+            self.type_ = ty
 
 
 class Symbol(Expr):

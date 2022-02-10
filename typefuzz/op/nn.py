@@ -50,10 +50,10 @@ def _create_conv_nd(n: int):
             Attr('strides', [Var(INT, ran=stride_ran) for _ in range(n)]),
             Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
             Attr('dilation', [Var(INT, ran=dil_ran) for _ in range(n)]),
-            Attr('data_layout', Var(STR)),
+            Attr('data_layout', Var(STR, choices=data_layout_choices)),
             Attr('groups', Var(INT, ran=iran(1, in_chan))),
             Attr('kernel_layout', kernel_layout),
-            Attr('out_layout', Var(STR)),
+            Attr('out_layout', Var(STR, choices=data_layout_choices)),
         ],
         in_num=2,
         in_ranks=[n + 2] * 2,
@@ -69,8 +69,6 @@ def _create_conv_nd(n: int):
         [
             a('channels') % a('groups') == 0,
             in_chan % a('groups') == 0,
-            InSet(a('data_layout'), data_layout_choices),
-            InSet(a('out_layout'), data_layout_choices),
         ]
         + dims_extra,
         out_num=1,
@@ -113,8 +111,7 @@ def _create_conv_nd_no_group(n: int):
             Attr('strides', [Var(INT, ran=stride_ran) for _ in range(n)]),
             Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
             Attr('dilation', [Var(INT, ran=dil_ran) for _ in range(n)]),
-            Attr('data_layout', Var(STR)),
-            Attr('groups', 1),
+            Attr('data_layout', Var(STR, choices=data_layout_choices)),
             Attr('kernel_layout', Cond(a('data_layout') == data_chan_first, kernel_chan_first,
                                        kernel_chan_last)),
         ],
@@ -125,16 +122,10 @@ def _create_conv_nd_no_group(n: int):
             LayoutMap(a('data_layout'), data_chan_first, [Var() for _ in range(n + 2)]),
             LayoutMap(
                 a('kernel_layout'), kernel_chan_first,
-                Concat([a('channels'), in_chan // a('groups')], a('kernel_size'))
+                Concat([a('channels'), in_chan], a('kernel_size'))
             ),
         ],
-        extra=
-        [
-            a('channels') % a('groups') == 0,
-            in_chan % a('groups') == 0,
-            InSet(a('data_layout'), data_layout_choices),
-        ]
-        + dims_extra,
+        extra=dims_extra,
         out_num=1,
         out_ranks=[n + 2],
         out_dtypes=[IN[0].dtype],
@@ -183,9 +174,9 @@ def _create_conv_trans_nd(n: int):
             Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
             Attr('output_padding', [Var(INT, ran=Range(end=a('strides')[i])) for i in range(n)]),
             Attr('dilation', [1 for _ in range(n)]),
-            Attr('data_layout', Var(STR)),
+            Attr('data_layout', Var(STR, choices=data_layout_choices)),
             Attr('groups', Var(INT, ran=iran(1, in_chan))),
-            Attr('kernel_layout', Var(STR)),
+            Attr('kernel_layout', Var(STR, choices=kernel_layout_choices)),
         ],
         in_num=2,
         in_ranks=[n + 2] * 2,
@@ -201,8 +192,6 @@ def _create_conv_trans_nd(n: int):
         [
             a('channels') % a('groups') == 0,
             in_chan % a('groups') == 0,
-            InSet(a('data_layout'), data_layout_choices),
-            InSet(a('kernel_layout'), kernel_layout_choices),
         ]
         + dims_extra,
         out_num=1,
@@ -239,7 +228,7 @@ def _create_conv_trans_nd_no_group(n: int):
             Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
             Attr('output_padding', [Var(INT, ran=Range(end=a('strides')[i])) for i in range(n)]),
             Attr('dilation', [1 for _ in range(n)]),
-            Attr('kernel_layout', Var(STR)),
+            Attr('kernel_layout', Var(STR, choices=kernel_layout_choices)),
         ],
         in_num=2,
         in_ranks=[n + 2] * 2,
@@ -251,11 +240,7 @@ def _create_conv_trans_nd_no_group(n: int):
                 Concat([IN[0].shape[1], a('channels')], a('kernel_size'))
             ),
         ],
-        extra=
-        [
-            InSet(a('kernel_layout'), kernel_layout_choices),
-        ]
-        + dims_extra,
+        extra=dims_extra,
         out_num=1,
         out_ranks=[n + 2],
         out_dtypes=[IN[0].dtype],
@@ -304,7 +289,7 @@ def _create_pool_nd(n: int):
             Attr('strides', [Var(INT, ran=stride_ran) for _ in range(n)]),
             Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
             Attr('dilation', [Var(INT, ran=dil_ran) for _ in range(n)]),
-            Attr('layout', Var(STR)),
+            Attr('layout', Var(STR, choices=layout_choices)),
             Attr('ceil_mode', Var(BOOL)),
         ],
         in_num=1,
@@ -313,11 +298,7 @@ def _create_pool_nd(n: int):
         in_shapes=[
             LayoutMap(a('layout'), chan_first, [Var() for _ in range(n + 2)]),
         ],
-        extra=
-        [
-            InSet(a('layout'), layout_choices),
-        ]
-        + dims_extra,
+        extra=dims_extra,
         out_num=1,
         out_ranks=[n + 2],
         out_dtypes=[IN[0].dtype],
@@ -355,7 +336,7 @@ def _create_global_pool_nd(n: int):
 
     return ConstraintSpec(
         attrs=[
-            Attr('layout', Var(STR)),
+            Attr('layout', Var(STR, choices=layout_choices)),
         ],
         in_num=1,
         in_ranks=[n + 2],
@@ -363,9 +344,7 @@ def _create_global_pool_nd(n: int):
         in_shapes=[
             LayoutMap(a('layout'), chan_first, [Var() for _ in range(n + 2)]),
         ],
-        extra=[
-            InSet(a('layout'), layout_choices),
-        ],
+        extra=[],
         out_num=1,
         out_ranks=[n + 2],
         out_dtypes=[IN[0].dtype],
@@ -390,7 +369,7 @@ def _create_adapt_pool_nd(n: int):
 
     return ConstraintSpec(
         attrs=[
-            Attr('layout', Var(STR)),
+            Attr('layout', Var(STR, choices=layout_choices)),
             Attr('output_size',
                  [Var(INT, ran=iran(1, IN[0].shape[LayoutIndex(a('layout'), dim_str[i])]))
                   for i in range(n)]),
@@ -401,9 +380,7 @@ def _create_adapt_pool_nd(n: int):
         in_shapes=[
             LayoutMap(a('layout'), chan_first, [Var() for _ in range(n + 2)]),
         ],
-        extra=[
-            InSet(a('layout'), layout_choices),
-        ],
+        extra=[],
         out_num=1,
         out_ranks=[n + 2],
         out_dtypes=[IN[0].dtype],
@@ -427,15 +404,13 @@ def _create_pad():
     return ConstraintSpec(
         attrs=[
             Attr('pad_width', List(IN[0].rank, lambda _: [Var(INT, ran=pad_ran, tmpl=True)] * 2)),
-            Attr('pad_mode', Var(STR)),
+            Attr('pad_mode', Var(STR, choices=['constant', 'reflect', 'edge'])),
         ],
         in_num=2,
         in_ranks=[Var(), 0],
         in_dtypes=List(2, lambda _: Var()),
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True)), []],
-        extra=[
-            InSet(a('pad_mode'), ['constant', 'reflect', 'edge'])
-        ],
+        extra=[],
         out_num=1,
         out_ranks=[IN[0].rank],
         out_dtypes=[IN[0].dtype],

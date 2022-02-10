@@ -236,13 +236,14 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         if var.tmpl_:  # create new variable for template
             return Var(ty=var.type_,
                        ran=map_opt(lambda ran: self.visit_range(ran, env), var.ran_))
-        else:
-            v = self._store.query_var(var)
-            if v is not None:
-                return Const(v)
-            if var.ran_ is not None:  # non-template variable must keep its original object id
-                var.ran_ = self.visit_range(var.ran_, env)
-            return var
+        v = self._store.query_var(var)
+        if v is not None:
+            return Const(v)
+        if var.ran_ is not None:  # non-template variable must keep its original object id
+            var.ran_ = self.visit_range(var.ran_, env)
+        if var.choices_ is not None:
+            var.choices_ = self.visit(var.choices_, env)
+        return var
 
     def visit_symbol(self, sym: Symbol, env: Env[Expr]) -> Expr:
         return env[sym]

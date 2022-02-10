@@ -78,14 +78,12 @@ def _gen_relay(op: str, info: OpTypeInfo):
         map(lambda p: lambda: buf.write(f'%x{p[0]}: {p[1]}'), enumerate(info.in_types_))
     )
     buf.write(' -> ')
-    if len(info.out_types_) > 1 or op in _tuple_out_ops:
-        buf.write_pos(map(lambda t: lambda: buf.write(str(t)), info.out_types_))
-    else:
-        buf.write(str(info.out_types_[0]))
+    buf.write(str(info.out_types_[0]))
 
     # Print op
     buf.writeln(' {')
     with buf.indent():
+        buf.write('%0 = ')
         buf.write(op)
         args = map(lambda i: f'%x{i}', range(len(info.in_types_)))
         if op in _tuple_in_ops:
@@ -99,6 +97,10 @@ def _gen_relay(op: str, info: OpTypeInfo):
                 prefix='', suffix=''
             )
         ])
+        buf.writeln(';')
+        buf.write('%0')
+        if len(info.out_types_) > 1 or op in _tuple_out_ops:
+            buf.write('.0')
         buf.writeln()
     buf.writeln('}')
 

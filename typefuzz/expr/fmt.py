@@ -42,6 +42,8 @@ class ExprPrinter(ExprVisitor[None, Any]):
             items.append(('ty', lambda: self._buf.write(str(var.type_))))
         if var.ran_ is not None:
             items.append(('ran', lambda: self.visit(var.ran_, env)))
+        if var.choices_ is not None:
+            items.append(('choices', lambda: self.visit(var.choices_, env)))
         self._write_named(items)
 
     def visit_range(self, ran: Range, env: None):

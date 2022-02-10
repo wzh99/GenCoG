@@ -225,7 +225,7 @@ class StructuralEq(ExprVisitor[Expr, bool]):
         other = cast(Var, other)
         if var.tmpl_ != other.tmpl_:
             return False
-        return self._cmp_opt([(var.ran_, other.ran_)])
+        return self._cmp_opt([(var.ran_, other.ran_), (var.choices_, other.choices_)])
 
     def visit_symbol(self, sym: Symbol, other: Expr) -> bool:
         return sym is other
@@ -386,7 +386,7 @@ class CopyExpr(ExprVisitor[Env[Symbol], Expr]):
 
     def visit_var(self, var: Var, env: Env[Symbol]) -> Expr:
         return Var(ty=var.type_, ran=map_opt(lambda ran: self.visit(ran, env), var.ran_),
-                   tmpl=var.tmpl_)
+                   choices=map_opt(lambda c: self.visit(c, env), var.choices_), tmpl=var.tmpl_)
 
     def visit_symbol(self, sym: Symbol, env: Env[Symbol]) -> Expr:
         return env[sym]

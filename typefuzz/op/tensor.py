@@ -187,14 +187,14 @@ def _create_split():
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[
-            Or(
-                Len(ind) == 0,
+            Cond(
+                Len(ind) == 0, True,
                 And(
                     ind[0] > 0,
                     ForAll(Range(1, Len(ind)), lambda i: ind[i - 1] < ind[i]),
                     ind[-1] < IN[0].shape[a('axis')]
                 ),
-            )
+            ),
         ],
         out_num=Len(ind) + 1,
         out_ranks=List(OUT.num, lambda _: IN[0].rank),

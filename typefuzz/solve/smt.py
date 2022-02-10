@@ -12,7 +12,7 @@ from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceAr
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, \
     ForAll, Cond, GetAttr, Dummy, ArithOp, CmpOp
 from ..expr.tensor import Num, Shape, Rank, GetDType, LayoutMap, LayoutIndex
-from ..expr.ty import Type, ValueType, BOOL, INT, FLOAT, STR
+from ..expr.ty import Type, ValueType, BOOL, INT, FLOAT
 from ..expr.visitor import ExprVisitor
 from ..util import NameGenerator, Ref
 
@@ -28,7 +28,6 @@ _z3_var_funcs: Dict[Type, Callable[[str], z3.ExprRef]] = {
     BOOL: lambda s: z3.Bool(s),
     INT: lambda s: z3.BitVec(s, bit_vec_len),
     FLOAT: lambda s: z3.Real(s),
-    STR: lambda s: z3.String(s),
 }
 
 _z3_extract_funcs: Dict[
@@ -51,13 +50,15 @@ def solve_smt(var_set: Iterable[Ref[Var]], extra: Iterable[Expr], store: ValueSt
     expr_gen = Z3ExprGen(var_map)
     for ref, z3_var in var_map:
         var = ref.obj_
-        if var.ran_ is None:
-            continue
-        ran = var.ran_
-        if ran.begin_ is not None:
-            solver.add(z3_var >= expr_gen.generate(ran.begin_))
-        if ran.end_ is not None:
-            solver.add(z3_var < expr_gen.generate(ran.end_))
+        if var.ran_ is not None:
+            ran = var.ran_
+            if ran.begin_ is not None:
+                solver.add(z3_var >= expr_gen.generate(ran.begin_))
+            if ran.end_ is not None:
+                solver.add(z3_var < expr_gen.generate(ran.end_))
+        elif var.choices_ is not None:
+            choices = cast(Tuple, var.choices_)
+            solver.add(z3.Or(*(z3_var == expr_gen.generate(c) for c in choices.fields_)))
 
     # Generate extra constraints
     for e in extra:
@@ -70,6 +71,8 @@ def solve_smt(var_set: Iterable[Ref[Var]], extra: Iterable[Expr], store: ValueSt
         if solver.check() != z3.sat:
             break
         model = solver.model()
+        if len(model) == 0:
+            break
         cand_models.append(model)
         exclude = z3.Or(*(z3_var != model[z3_var] for _, z3_var in var_map))
         solver.add(exclude)
@@ -104,7 +107,6 @@ class Z3ExprGen(ExprVisitor[Env[z3.ExprRef], z3.ExprRef]):
         BOOL: lambda v: z3.BoolVal(v),
         INT: lambda v: z3.BitVecVal(v, bit_vec_len),
         FLOAT: lambda v: z3.RealVal(v),
-        STR: lambda v: z3.StringVal(v),
     }
 
     def visit_const(self, const: Const, env: Env[z3.ExprRef]) -> z3.ExprRef:
@@ -151,12 +153,10 @@ class Z3ExprGen(ExprVisitor[Env[z3.ExprRef], z3.ExprRef]):
         CmpOp.EQ: {
             BOOL: z3.BoolRef.__eq__,
             INT: z3.BitVecRef.__eq__,
-            STR: z3.SeqRef.__eq__,
         },
         CmpOp.NE: {
             BOOL: z3.BoolRef.__ne__,
             INT: z3.BitVecRef.__ne__,
-            STR: z3.SeqRef.__ne__,
         },
         CmpOp.LT: {
             INT: z3.BitVecRef.__lt__,
@@ -189,8 +189,7 @@ class Z3ExprGen(ExprVisitor[Env[z3.ExprRef], z3.ExprRef]):
         raise Z3SolveError()
 
     def visit_cond(self, cond: Cond, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        return z3.Cond(self.visit(cond.pred_, env), self.visit(cond.tr_br_, env),
-                       self.visit(cond.fls_br_, env))
+        raise Z3SolveError()
 
     def visit_attr(self, attr: GetAttr, env: Env[z3.ExprRef]) -> z3.ExprRef:
         raise Z3SolveError()
