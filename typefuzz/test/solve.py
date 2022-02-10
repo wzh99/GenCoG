@@ -4,7 +4,8 @@ from typing import List, cast
 
 from numpy.random import Generator, PCG64
 from tqdm import trange
-from tvm.parser import parse
+from tvm import parser, relay, transform, device
+from tvm.contrib import graph_executor
 
 from typefuzz.expr import TensorType, DataType
 from typefuzz.expr.ty import ValueType
@@ -41,16 +42,20 @@ def _test_spec(op: str, spec: ConstraintSpec):
             dtype = rng.choice(spec.first_dtype_choices())
             known = {0: TensorType(shape, dtype)}
         solver = ConstraintSolver(spec, known, rng)
-        _cmp_relay(op, solver.solve())
+        _compile_relay(op, solver.solve())
     print(f'{op} passed.')
 
 
-def _cmp_relay(op: str, info: OpTypeInfo):
+def _compile_relay(op: str, info: OpTypeInfo):
     # Generate text format and parse to Relay module
     txt = _gen_relay(op, info)
     if options.v:
         print(txt)
-    parse(txt)
+    mod = parser.parse(txt)
+    with transform.PassContext(opt_level=3):
+        lib = relay.build(mod, 'llvm')
+    dev = device('cpu', 0)
+    graph_executor.GraphModule(lib['default'](dev))
 
 
 _tuple_in_ops = {
@@ -111,13 +116,13 @@ def _fmt_val(v: ValueType):
 
 def _parse_args():
     global options
-    parser = ArgumentParser()
-    parser.add_argument('-a', action='store_true')
-    parser.add_argument('-v', action='store_true')
-    parser.add_argument('-name', type=str)
-    parser.add_argument('-iter', type=int)
-    parser.add_argument('-seed', type=int, default=42)
-    options = parser.parse_args()
+    p = ArgumentParser()
+    p.add_argument('-a', action='store_true')
+    p.add_argument('-v', action='store_true')
+    p.add_argument('-name', type=str)
+    p.add_argument('-iter', type=int)
+    p.add_argument('-seed', type=int, default=42)
+    options = p.parse_args()
 
 
 if __name__ == '__main__':

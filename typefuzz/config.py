@@ -16,7 +16,7 @@ config: Dict[str, Any] = {
     'spec.max_small_float': 1e-3,
 
     # Maximal number of model candidates
-    'solver.max_model_cand': 1,
+    'solver.max_model_cand': 4,
     # Length (in bits) of bit vector
     'solver.bit_vec_len': 32,
 

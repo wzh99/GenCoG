@@ -150,11 +150,11 @@ class DataType:
 
 
 common_dtypes = [
-    DataType.b(),
+    # DataType.b(),
     DataType.i(8), DataType.i(16), DataType.i(32), DataType.i(64),
     DataType.u(8), DataType.u(16), DataType.u(32), DataType.u(64),
     DataType.f(16), DataType.f(32), DataType.f(64),
-    DataType.bf(16),
+    # DataType.bf(16),  # bfloat16 compilation failed in Relay backend
 ]
 
 
