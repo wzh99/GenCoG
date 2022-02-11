@@ -1,11 +1,12 @@
 from argparse import ArgumentParser, Namespace
+from os import environ
 from sys import stdout
 from typing import List, cast
 
 from numpy.random import Generator, PCG64
 from tqdm import trange
 from tvm import parser, relay, transform, device
-from tvm.contrib import graph_executor
+from tvm.contrib.graph_executor import GraphModule
 
 from typefuzz.expr import TensorType, DataType
 from typefuzz.expr.ty import ValueType
@@ -13,6 +14,7 @@ from typefuzz.solve import ConstraintSolver, OpTypeInfo
 from typefuzz.spec import ConstraintSpec, OpRegistry, max_dim
 from typefuzz.util import Ref, CodeBuffer
 
+environ['TVM_BACKTRACE'] = '1'
 options = Namespace()
 
 
@@ -47,7 +49,6 @@ def _test_spec(op: str, spec: ConstraintSpec):
 
 
 def _compile_relay(op: str, info: OpTypeInfo):
-    # Generate text format and parse to Relay module
     txt = _gen_relay(op, info)
     if options.v:
         print(txt)
@@ -55,7 +56,7 @@ def _compile_relay(op: str, info: OpTypeInfo):
     with transform.PassContext(opt_level=3):
         lib = relay.build(mod, 'llvm')
     dev = device('cpu', 0)
-    graph_executor.GraphModule(lib['default'](dev))
+    GraphModule(lib['default'](dev))
 
 
 _tuple_in_ops = {
@@ -108,11 +109,11 @@ def _gen_relay(op: str, info: OpTypeInfo):
 
 
 def _fmt_val(v: ValueType):
-    if type(v) in (bool, int, float, DataType):
+    if isinstance(v, (bool, int, float, DataType)):
         return str(v)
-    elif type(v) is str:
+    elif isinstance(v, str):
         return '"' + v + '"'
-    elif type(v) in (list, tuple):
+    elif isinstance(v, (tuple, list)):
         return '[' + ', '.join(_fmt_val(e) for e in v) + ']'
 
 

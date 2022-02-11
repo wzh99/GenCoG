@@ -19,8 +19,6 @@ rank_ran = iran(min_rank, max_rank)
 max_dim = config['spec.max_dim']
 dim_ran = iran(1, max_dim)
 
-small_float_ran = Range(config['spec.min_small_float'], config['spec.max_small_float'])
-
 
 class Attr:
     """
@@ -153,12 +151,11 @@ class ConstraintSpec:
         if self.has_no_input:
             return []
         if self._in_dtypes.kind == ExprKind.TUPLE:
-            dtype_tup = cast(Tuple, self._in_dtypes)
-            first_dtype = dtype_tup.fields_[0]
-            return expr_choices(first_dtype, common_dtypes)
+            tup = cast(Tuple, self._in_dtypes)
+            return expr_choices(tup.fields_[0], common_dtypes)
         elif self._in_dtypes.kind == ExprKind.LIST:
-            dtype_lst = cast(List, self._in_dtypes)
-            return expr_choices(dtype_lst.body_, common_dtypes)
+            lst = cast(List, self._in_dtypes)
+            return expr_choices(lst.body_, common_dtypes)
         else:
             return common_dtypes
 
@@ -310,8 +307,21 @@ T = TypeVar('T')
 def expr_choices(e: Expr, default: t.List[T]) -> t.List[T]:
     if e.kind == ExprKind.CONST:
         return [cast(Const, e).val_]
+    elif e.kind == ExprKind.VAR:
+        var = cast(Var, e)
+        if var.choices_ is not None:
+            return extract_const_choices(cast(Var, e).choices_, default)
+        else:
+            return default
     else:
         return default
+
+
+def extract_const_choices(e: Expr, default: t.List[T]) -> t.List[T]:
+    if e.kind != ExprKind.TUPLE:
+        return default
+    tup = cast(Tuple, e)
+    return [cast(Const, f).val_ for f in tup.fields_ if f.kind == ExprKind.CONST]
 
 
 def int_expr_choices(e: Expr, begin: int, end: int) -> t.List[int]:

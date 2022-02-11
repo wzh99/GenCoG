@@ -1,6 +1,7 @@
 from ..config import config
 from ..expr import *
-from ..spec import Attr, ConstraintSpec, Op, max_rank, dim_ran, small_float_ran
+from ..expr.ty import float_dtypes
+from ..spec import Attr, ConstraintSpec, Op, dim_ran
 
 kernel_ran = iran(1, config['op.max_kernel'])
 stride_ran = iran(1, config['op.max_stride'])
@@ -427,13 +428,13 @@ def _create_norm():
     return ConstraintSpec(
         attrs=[
             Attr('axis', Var(INT, ran=Range(end=IN[0].rank))),
-            Attr('epsilon', Var(FLOAT, ran=small_float_ran)),
+            Attr('epsilon', 1e-5),
             Attr('center', Var(BOOL)),
             Attr('scale', Var(BOOL)),
         ],
         in_num=3,
         in_ranks=[Var(), 1, 1],
-        in_dtypes=List(3, lambda _: Var()),
+        in_dtypes=List(3, lambda _: Var(choices=float_dtypes)),
         in_shapes=Concat([List(IN[0].rank, lambda _: Var(tmpl=True))],
                          [[IN[0].shape[a('axis')]] for _ in range(2)]),
         extra=[],
@@ -464,13 +465,13 @@ def _create_batch_norm():
     return ConstraintSpec(
         attrs=[
             Attr('axis', Var(INT, ran=Range(end=IN[0].rank))),
-            Attr('epsilon', Var(FLOAT, ran=small_float_ran)),
+            Attr('epsilon', 1e-5),
             Attr('center', Var(BOOL)),
             Attr('scale', Var(BOOL)),
         ],
         in_num=5,
         in_ranks=[Var(), 1, 1, 1, 1],
-        in_dtypes=List(5, lambda _: Var()),
+        in_dtypes=List(5, lambda _: Var(choices=float_dtypes)),
         in_shapes=Concat([List(IN[0].rank, lambda _: Var(tmpl=True))],
                          [[IN[0].shape[a('axis')]] for _ in range(4)]),
         extra=[],
@@ -490,7 +491,7 @@ def _create_dense():
             Attr('units', Var(INT, ran=dim_ran)),
         ],
         in_num=2,
-        in_ranks=[Var(), 2],
+        in_ranks=[2, 2],
         in_dtypes=List(2, lambda _: Var()),
         in_shapes=[
             List(IN[0].rank, lambda _: Var(tmpl=True)),
@@ -518,7 +519,7 @@ def _create_matmul():
             Attr('transpose_b', Var(BOOL)),
         ],
         in_num=2,
-        in_ranks=[Var(ran=iran(2, max_rank)), 2],
+        in_ranks=[2, 2],
         in_dtypes=List(2, lambda _: Var()),
         in_shapes=[
             List(IN[0].rank, lambda _: Var(tmpl=True)),

@@ -157,6 +157,10 @@ common_dtypes = [
     # DataType.bf(16),  # bfloat16 compilation failed in Relay backend
 ]
 
+float_dtypes = [
+    DataType.f(16), DataType.f(32), DataType.f(64),
+]
+
 
 class TupleType(Type):
     """
