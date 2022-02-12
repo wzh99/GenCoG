@@ -1,5 +1,4 @@
 from argparse import ArgumentParser, Namespace
-from os import environ
 from sys import stdout
 from typing import List, cast
 
@@ -12,9 +11,8 @@ from typefuzz.expr import TensorType, DataType
 from typefuzz.expr.ty import ValueType
 from typefuzz.solve import ConstraintSolver, OpTypeInfo
 from typefuzz.spec import ConstraintSpec, OpRegistry, max_dim
-from typefuzz.util import Ref, CodeBuffer
+from typefuzz.util import Ref, CodeBuffer, run_process
 
-environ['TVM_BACKTRACE'] = '1'
 options = Namespace()
 
 
@@ -49,14 +47,21 @@ def _test_spec(op: str, spec: ConstraintSpec):
 
 
 def _compile_relay(op: str, info: OpTypeInfo):
-    txt = _gen_relay(op, info)
+    src = _gen_relay(op, info)
     if options.v:
-        print(txt)
-    mod = parser.parse(txt)
+        print(src)
+    result = run_process(_compile_func, (src,))
+    if options.v and result.exitcode != 0:
+        print(f'Compilation error: Exit code {result.exitcode}.')
+
+
+def _compile_func(src: str):
+    mod = parser.parse(src)
     with transform.PassContext(opt_level=3):
         lib = relay.build(mod, 'llvm')
     dev = device('cpu', 0)
     GraphModule(lib['default'](dev))
+    return dict()
 
 
 _tuple_in_ops = {

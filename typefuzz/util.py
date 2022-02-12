@@ -1,5 +1,11 @@
+import sys
 from io import StringIO
-from typing import Callable, TypeVar, Optional, List, Iterable, Tuple, Generic, cast
+from multiprocessing import Manager, Process, Queue, Semaphore
+from queue import Empty
+from threading import Thread
+from time import sleep
+from typing import Callable, TypeVar, Optional, List, Iterable, Tuple, Generic, Any, Dict, \
+    NamedTuple, cast
 
 from colorama import Fore
 
@@ -156,3 +162,74 @@ class NameGenerator:
             if cand not in self._known:
                 self._known.add(cand)
                 return cand
+
+
+# Multiprocessing
+
+
+class ProcessResult(NamedTuple):
+    exitcode: int
+    ret: Dict[str, Any]
+    stdout: str
+    stderr: str
+
+
+def run_process(f: Callable[[Any], Dict[str, Any]], args: Tuple[Any, ...]):
+    # Define concurrent queue reader
+    class QueueReader:
+        def __init__(self, queue: Queue):
+            self._queue = queue
+            self._buf = StringIO()
+            self._sema = Semaphore(value=1)
+            self._sema.acquire(block=True)
+
+            def try_get():
+                while True:
+                    try:
+                        s = self._queue.get(block=False)
+                        self._buf.write(s)
+                    except Empty:
+                        if self._sema.acquire(block=False):
+                            break
+                        sleep(0.01)
+
+            self._thread = Thread(target=try_get, args=())
+            self._thread.start()
+
+        def join(self):
+            self._sema.release()
+            self._thread.join()
+            return self._buf.getvalue()
+
+    # Prepare data
+    ret: Dict[str, Any] = Manager().dict()
+    out_q, err_q = Queue(), Queue()
+    out_read, err_read = QueueReader(out_q), QueueReader(err_q)
+
+    # Start process
+    ps = Process(target=_ps_work, args=(f, args, ret, out_q, err_q))
+    ps.start()
+    ps.join()
+
+    return ProcessResult(ps.exitcode, dict(ret), out_read.join(), err_read.join())
+
+
+def _ps_work(f: Callable[[Any], Dict[str, Any]], args: Tuple[Any, ...], ret: Dict[str, Any],
+             out: Queue, err: Queue):
+    class QueueIO:
+        def __init__(self, queue: Queue):
+            self._q = queue
+
+        def write(self, s: str):
+            self._q.put(s)
+
+    # Redirect stdout and stderr to queues
+    sys.stdout = QueueIO(out)
+    sys.stderr = QueueIO(err)
+
+    # Call function and write to dict proxy
+    ret.update(f(*args))
+
+    # Restore stdout and stderr
+    sys.stdout = sys.__stdout__
+    sys.stderr = sys.__stderr__
