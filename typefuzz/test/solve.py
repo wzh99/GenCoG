@@ -1,4 +1,5 @@
 from argparse import ArgumentParser, Namespace
+from os import environ
 from sys import stdout
 from typing import List, cast
 
@@ -48,11 +49,14 @@ def _test_spec(op: str, spec: ConstraintSpec):
 
 def _compile_relay(op: str, info: OpTypeInfo):
     src = _gen_relay(op, info)
-    if options.v:
+    if options.verbose:
         print(src)
-    result = run_process(_compile_func, (src,))
-    if options.v and result.exitcode != 0:
-        print(f'Compilation error: Exit code {result.exitcode}.')
+    if options.separate:
+        result = run_process(_compile_func, (src,))
+        if options.verbose and result.exitcode != 0:
+            print(f'Compilation error: Exit code {result.exitcode}.')
+    else:
+        _compile_func(src)
 
 
 def _compile_func(src: str):
@@ -122,20 +126,24 @@ def _fmt_val(v: ValueType):
         return '[' + ', '.join(_fmt_val(e) for e in v) + ']'
 
 
-def _parse_args():
+def parse_args():
     global options
     p = ArgumentParser()
-    p.add_argument('-a', action='store_true')
-    p.add_argument('-v', action='store_true')
-    p.add_argument('-name', type=str)
-    p.add_argument('-iter', type=int)
-    p.add_argument('-seed', type=int, default=42)
+    p.add_argument('-a', '--all', action='store_true', help='Test all operators.')
+    p.add_argument('-v', '--verbose', action='store_true', help='Run in verbose mode.')
+    p.add_argument('-s', '--separate', action='store_true',
+                   help='Compile module in a separate process.')
+    p.add_argument('-name', type=str, help='Name of the operator to be tested.')
+    p.add_argument('-iter', type=int, help='Iteration number of each operator.')
+    p.add_argument('-seed', type=int, default=42, help='Random seed of test case generator.')
     options = p.parse_args()
+    if not options.separate:
+        environ['TVM_BACKTRACE'] = '1'
 
 
 if __name__ == '__main__':
-    _parse_args()
-    if options.a:
+    parse_args()
+    if options.all:
         test_all_ops()
     else:
         if options.name is None:

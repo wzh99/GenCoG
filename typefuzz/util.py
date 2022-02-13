@@ -91,7 +91,17 @@ class CodeBuffer:
         return self._buf.getvalue()
 
     def indent(self):
-        return _Indent(self)
+        class Indent:
+            def __init__(self, buf: CodeBuffer):
+                self._buf = buf
+
+            def __enter__(self):
+                self._buf.indent_cnt_ += 1
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                self._buf.indent_cnt_ -= 1
+
+        return Indent(self)
 
     def write_pos(self, items: Iterable[Callable[[], None]],
                   sep: str = ', ', prefix: str = '(', suffix: str = ')'):
@@ -136,17 +146,6 @@ class CodeBuffer:
             for _ in range(self.indent_cnt_):
                 self._buf.write(self.indent_str)
             self._new_ln = False
-
-
-class _Indent:
-    def __init__(self, buf: CodeBuffer):
-        self._buf = buf
-
-    def __enter__(self):
-        self._buf.indent_cnt_ += 1
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._buf.indent_cnt_ -= 1
 
 
 class NameGenerator:
