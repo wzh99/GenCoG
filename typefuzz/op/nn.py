@@ -420,7 +420,7 @@ def _create_pad():
     )
 
 
-Op('nn.pad', lambda: _create_pad())
+Op('nn.pad', _create_pad)
 
 
 def _create_norm():
@@ -444,8 +444,8 @@ def _create_norm():
     )
 
 
-Op('nn.instance_norm', lambda: _create_norm())
-Op('nn.layer_norm', lambda: _create_norm())
+Op('nn.instance_norm', _create_norm)
+Op('nn.layer_norm', _create_norm)
 
 
 def _create_group_norm():

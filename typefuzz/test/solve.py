@@ -1,6 +1,6 @@
 from argparse import ArgumentParser, Namespace
 from os import environ
-from sys import stdout
+from sys import stdout, stderr
 from typing import List, cast
 
 from numpy.random import Generator, PCG64
@@ -19,13 +19,13 @@ options = Namespace()
 
 def test_all_ops():
     tested_specs = set()
-    for name, op in OpRegistry.items():
-        spec = op.spec
-        if Ref(spec) in tested_specs:
+    for op in OpRegistry.ops():
+        if Ref(op.spec_f_) in tested_specs:
             print(f'{op} specification tested before.')
             continue
-        _test_spec(name, spec)
-        tested_specs.add(Ref(spec))
+        spec = op.spec
+        _test_spec(op.name_, spec)
+        tested_specs.add(Ref(op.spec_f_))
 
 
 def test_one_op(name: str):
@@ -54,7 +54,7 @@ def _compile_relay(op: str, info: OpTypeInfo):
     if options.separate:
         result = run_process(_compile_func, (src,))
         if options.verbose and result.exitcode != 0:
-            print(f'Compilation error: Exit code {result.exitcode}.')
+            print(f'Compilation error: Exit code {result.exitcode}.', file=stderr)
     else:
         _compile_func(src)
 

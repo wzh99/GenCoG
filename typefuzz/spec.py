@@ -401,5 +401,5 @@ class OpRegistry:
         return cls._table.keys()
 
     @classmethod
-    def items(cls):
-        return cls._table.items()
+    def ops(cls):
+        return cls._table.values()
