@@ -9,7 +9,7 @@ config: Dict[str, Any] = {
     # Maximal rank of tensor
     'spec.max_rank': 5,
     # Maximal dimension value in tensor shape
-    'spec.max_dim': 128,
+    'spec.max_dim': 64,
 
     # Maximal number of model candidates
     'solver.max_model_cand': 4,

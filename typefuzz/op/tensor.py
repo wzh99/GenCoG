@@ -1,6 +1,6 @@
 from ..config import config
 from ..expr import *
-from ..spec import Attr, ConstraintSpec, Op, num_ran, rank_ran, max_rank, dim_ran
+from ..spec import Attr, TypeSpec, Op, num_ran, rank_ran, max_rank, dim_ran
 
 
 def _create_reduce():
@@ -9,7 +9,7 @@ def _create_reduce():
     def _is_reduce_axis(i: ExprLike):
         return InSet(i, a('axis')) ^ a('exclude')
 
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('axis', List(Var(), lambda _: Var(INT, tmpl=True))),
             Attr('keepdims', Var(BOOL)),
@@ -40,11 +40,11 @@ def _create_reduce():
     )
 
 
-Op('sum', _create_reduce())
+Op('sum', _create_reduce)
 
 
 def _create_expand_dims():
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('axis', Var(INT, ran=Range(0, IN[0].rank))),
             Attr('num_newaxis', Var(INT, ran=iran(0, max_rank - IN[0].rank))),
@@ -67,12 +67,12 @@ def _create_expand_dims():
     )
 
 
-Op('expand_dims', _create_expand_dims())
+Op('expand_dims', _create_expand_dims)
 
 
 def _create_squeeze():
     indices = List(IN[0].rank, lambda i: i)
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('axis', List(Var(), lambda _: Var(INT, tmpl=True))),
         ],
@@ -92,11 +92,11 @@ def _create_squeeze():
     )
 
 
-Op('squeeze', _create_squeeze())
+Op('squeeze', _create_squeeze)
 
 
 def _create_reshape():
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('newshape', List(Var(ran=rank_ran), lambda _: Var(INT, ran=dim_ran, tmpl=True))),
         ],
@@ -114,11 +114,11 @@ def _create_reshape():
     )
 
 
-Op('reshape', _create_reshape())
+Op('reshape', _create_reshape)
 
 
 def _create_transpose():
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('axes', List(Var(), lambda _: Var(INT, tmpl=True))),
         ],
@@ -138,11 +138,11 @@ def _create_transpose():
     )
 
 
-Op('transpose', _create_transpose())
+Op('transpose', _create_transpose)
 
 
 def _create_concat():
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('axis', Var(ty=INT, ran=Range(0, IN[0].rank)))
         ],
@@ -169,12 +169,12 @@ def _create_concat():
     )
 
 
-Op('concatenate', _create_concat())
+Op('concatenate', _create_concat)
 
 
 def _create_split():
     ind = a('indices_or_sections')
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('axis', Var(ty=INT, ran=Range(0, IN[0].rank))),
             Attr('indices_or_sections',
@@ -213,7 +213,7 @@ def _create_split():
     )
 
 
-Op('split', _create_split())
+Op('split', _create_split)
 
 
 def _create_strided_slice():
@@ -224,7 +224,7 @@ def _create_strided_slice():
     strides = a('strides')
     axes = a('axes')
 
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('axes', List(Var(), lambda _: Var(INT, tmpl=True))),
             Attr('begin', List(num_axes, lambda i: Var(INT, ran=Range(end=IN[0].shape[axes[i]]),
@@ -255,4 +255,4 @@ def _create_strided_slice():
     )
 
 
-Op('strided_slice', _create_strided_slice())
+Op('strided_slice', _create_strided_slice)

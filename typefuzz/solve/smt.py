@@ -40,12 +40,12 @@ _z3_extract_funcs: Dict[
 
 def solve_smt(var_set: Iterable[Ref[Var]], extra: Iterable[Expr], store: ValueStore,
               rng: Generator) -> bool:
-    # Create Z3 variables for all TypeGraph variables
+    # Create Z3 variables
     name_gen = NameGenerator('_x', [])
     var_map = list((ref, _z3_var_funcs[ref.obj_.type_](name_gen.generate()))
                    for ref in var_set)
 
-    # Generate variable range constraints
+    # Generate variable range/choice constraints
     solver = z3.Solver()
     expr_gen = Z3ExprGen(var_map)
     for ref, z3_var in var_map:

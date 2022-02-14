@@ -1,7 +1,7 @@
 from ..config import config
 from ..expr import *
 from ..expr.ty import float_dtypes
-from ..spec import Attr, ConstraintSpec, Op, dim_ran
+from ..spec import Attr, TypeSpec, Op, dim_ran
 
 kernel_ran = iran(1, config['op.max_kernel'])
 stride_ran = iran(1, config['op.max_stride'])
@@ -44,7 +44,7 @@ def _create_conv_nd(n: int):
         ) for i in range(n)
     ]
 
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('kernel_size', [Var(INT, ran=kernel_ran) for _ in range(n)]),
             Attr('channels', Var(INT, ran=dim_ran)),
@@ -70,8 +70,7 @@ def _create_conv_nd(n: int):
         [
             a('channels') % a('groups') == 0,
             in_chan % a('groups') == 0,
-        ]
-        + dims_extra,
+        ] + dims_extra,
         out_num=1,
         out_ranks=[n + 2],
         out_dtypes=[IN[0].dtype],
@@ -105,7 +104,7 @@ def _create_conv_nd_no_group(n: int):
         ) for i in range(n)
     ]
 
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('kernel_size', [Var(INT, ran=kernel_ran) for _ in range(n)]),
             Attr('channels', Var(INT, ran=dim_ran)),
@@ -136,9 +135,9 @@ def _create_conv_nd_no_group(n: int):
     )
 
 
-Op('nn.conv1d', _create_conv_nd_no_group(1))
-Op('nn.conv2d', _create_conv_nd(2))
-Op('nn.conv3d', _create_conv_nd_no_group(3))
+Op('nn.conv1d', lambda: _create_conv_nd_no_group(1))
+Op('nn.conv2d', lambda: _create_conv_nd(2))
+Op('nn.conv3d', lambda: _create_conv_nd_no_group(3))
 
 
 def _conv_trans_dim(i: Expr, w: Expr, stride: Expr, dil: Expr, pad_b: Expr, pad_e: Expr,
@@ -167,7 +166,7 @@ def _create_conv_trans_nd(n: int):
     ]
     dims_extra = [d >= 1 for d in out_dims]
 
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('kernel_size', [Var(INT, ran=kernel_ran) for _ in range(n)]),
             Attr('channels', Var(INT, ran=dim_ran)),
@@ -221,7 +220,7 @@ def _create_conv_trans_nd_no_group(n: int):
     ]
     dims_extra = [d >= 1 for d in out_dims]
 
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('kernel_size', [Var(INT, ran=kernel_ran) for _ in range(n)]),
             Attr('channels', Var(INT, ran=dim_ran)),
@@ -251,9 +250,9 @@ def _create_conv_trans_nd_no_group(n: int):
     )
 
 
-Op('nn.conv1d_transpose', _create_conv_trans_nd_no_group(1))
-Op('nn.conv2d_transpose', _create_conv_trans_nd(2))
-Op('nn.conv3d_transpose', _create_conv_trans_nd_no_group(3))
+Op('nn.conv1d_transpose', lambda: _create_conv_trans_nd_no_group(1))
+Op('nn.conv2d_transpose', lambda: _create_conv_trans_nd(2))
+Op('nn.conv3d_transpose', lambda: _create_conv_trans_nd_no_group(3))
 
 
 def _pool_dim(i: Expr, w: Expr, dil: Expr, pad_b: Expr, pad_e: Expr, stride: Expr, ceil: Expr):
@@ -284,7 +283,7 @@ def _create_pool_nd(n: int):
         ) for i in range(n)
     ]
 
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('pool_size', [Var(INT, ran=kernel_ran) for _ in range(n)]),
             Attr('strides', [Var(INT, ran=stride_ran) for _ in range(n)]),
@@ -309,9 +308,9 @@ def _create_pool_nd(n: int):
     )
 
 
-Op('nn.max_pool1d', _create_pool_nd(1))
-Op('nn.max_pool2d', _create_pool_nd(2))
-Op('nn.max_pool3d', _create_pool_nd(3))
+Op('nn.max_pool1d', lambda: _create_pool_nd(1))
+Op('nn.max_pool2d', lambda: _create_pool_nd(2))
+Op('nn.max_pool3d', lambda: _create_pool_nd(3))
 
 
 def _create_avg_pool_nd(n: int):
@@ -320,9 +319,9 @@ def _create_avg_pool_nd(n: int):
     return spec
 
 
-Op('nn.avg_pool1d', _create_avg_pool_nd(1))
-Op('nn.avg_pool2d', _create_avg_pool_nd(2))
-Op('nn.avg_pool3d', _create_avg_pool_nd(3))
+Op('nn.avg_pool1d', lambda: _create_avg_pool_nd(1))
+Op('nn.avg_pool2d', lambda: _create_avg_pool_nd(2))
+Op('nn.avg_pool3d', lambda: _create_avg_pool_nd(3))
 
 
 def _create_global_pool_nd(n: int):
@@ -335,7 +334,7 @@ def _create_global_pool_nd(n: int):
     # Dimension
     in_chan = IN[0].shape[LayoutIndex(a('layout'), 'C')]
 
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('layout', Var(STR, choices=layout_choices)),
         ],
@@ -355,7 +354,7 @@ def _create_global_pool_nd(n: int):
     )
 
 
-Op('nn.global_avg_pool2d', _create_global_pool_nd(2))
+Op('nn.global_avg_pool2d', lambda: _create_global_pool_nd(2))
 
 
 def _create_adapt_pool_nd(n: int):
@@ -368,7 +367,7 @@ def _create_adapt_pool_nd(n: int):
     # Dimension
     in_chan = IN[0].shape[LayoutIndex(a('layout'), 'C')]
 
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('layout', Var(STR, choices=layout_choices)),
             Attr('output_size',
@@ -392,17 +391,17 @@ def _create_adapt_pool_nd(n: int):
     )
 
 
-Op('nn.adaptive_max_pool1d', _create_adapt_pool_nd(1))
-Op('nn.adaptive_max_pool2d', _create_adapt_pool_nd(2))
-Op('nn.adaptive_max_pool3d', _create_adapt_pool_nd(3))
-Op('nn.adaptive_avg_pool1d', _create_adapt_pool_nd(1))
-Op('nn.adaptive_avg_pool2d', _create_adapt_pool_nd(2))
-Op('nn.adaptive_avg_pool3d', _create_adapt_pool_nd(3))
+Op('nn.adaptive_max_pool1d', lambda: _create_adapt_pool_nd(1))
+Op('nn.adaptive_max_pool2d', lambda: _create_adapt_pool_nd(2))
+Op('nn.adaptive_max_pool3d', lambda: _create_adapt_pool_nd(3))
+Op('nn.adaptive_avg_pool1d', lambda: _create_adapt_pool_nd(1))
+Op('nn.adaptive_avg_pool2d', lambda: _create_adapt_pool_nd(2))
+Op('nn.adaptive_avg_pool3d', lambda: _create_adapt_pool_nd(3))
 
 
 def _create_pad():
     pad_width = a('pad_width')
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('pad_width', List(IN[0].rank, lambda _: [Var(INT, ran=pad_ran, tmpl=True)] * 2)),
             Attr('pad_mode', Var(STR, choices=['constant', 'reflect', 'edge'])),
@@ -421,11 +420,11 @@ def _create_pad():
     )
 
 
-Op('nn.pad', _create_pad())
+Op('nn.pad', lambda: _create_pad())
 
 
 def _create_norm():
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('axis', Var(INT, ran=Range(end=IN[0].rank))),
             Attr('epsilon', 1e-5),
@@ -445,8 +444,8 @@ def _create_norm():
     )
 
 
-Op('nn.instance_norm', _create_norm())
-Op('nn.layer_norm', _create_norm())
+Op('nn.instance_norm', lambda: _create_norm())
+Op('nn.layer_norm', lambda: _create_norm())
 
 
 def _create_group_norm():
@@ -458,11 +457,11 @@ def _create_group_norm():
     return spec
 
 
-Op('nn.group_norm', _create_group_norm())
+Op('nn.group_norm', lambda: _create_group_norm())
 
 
 def _create_batch_norm():
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('axis', Var(INT, ran=Range(end=IN[0].rank))),
             Attr('epsilon', 1e-5),
@@ -482,11 +481,11 @@ def _create_batch_norm():
     )
 
 
-Op('nn.batch_norm', _create_batch_norm())
+Op('nn.batch_norm', _create_batch_norm)
 
 
 def _create_dense():
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('units', Var(INT, ran=dim_ran)),
         ],
@@ -507,12 +506,12 @@ def _create_dense():
     )
 
 
-Op('nn.dense', _create_dense())
+Op('nn.dense', _create_dense)
 
 
 def _create_matmul():
     in_dim = Cond(a('transpose_a'), IN[0].shape[-2], IN[0].shape[-1])
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[
             Attr('units', Var(INT, ran=dim_ran)),
             Attr('transpose_a', Var(BOOL)),
@@ -539,4 +538,4 @@ def _create_matmul():
     )
 
 
-Op('nn.matmul', _create_matmul())
+Op('nn.matmul', _create_matmul)

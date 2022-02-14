@@ -12,7 +12,7 @@ from ..expr.basic import ExprKind, Const, And, Var, Cmp, CmpOp
 from ..expr.fmt import print_expr
 from ..expr.ty import TensorType, DataType, ValueType, BOOL, INT, FLOAT
 from ..expr.visitor import CopyExpr, StructuralEq
-from ..spec import ConstraintSpec
+from ..spec import TypeSpec
 from ..util import CodeBuffer, Ref, cls_name
 
 
@@ -45,10 +45,10 @@ class OpTypeInfo:
 
 class SolveError(Exception):
     """
-    The solver cannot solve constraint specification.
+    The solver cannot solve type constraints.
     """
 
-    def __init__(self, solver: 'ConstraintSolver', msg: str):
+    def __init__(self, solver: 'TypeSolver', msg: str):
         self.solver_ = solver
         self.msg_ = msg
 
@@ -57,12 +57,12 @@ class SolveError(Exception):
                f'{str(self.solver_)}'
 
 
-class ConstraintSolver:
+class TypeSolver:
     """
-    Solver of constraint specification.
+    Solver of type constraints.
     """
 
-    def __init__(self, spec: ConstraintSpec, known: Dict[int, TensorType], rng: Generator):
+    def __init__(self, spec: TypeSpec, known: Dict[int, TensorType], rng: Generator):
         # Initialize value store and expression visitors
         self._spec = spec
         self._store = ValueStore(spec.attrs)

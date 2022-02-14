@@ -1,5 +1,5 @@
 import typing as t
-from typing import Dict, TypeVar, cast
+from typing import Dict, TypeVar, Callable, cast
 from warnings import warn
 
 from .config import config
@@ -30,10 +30,9 @@ class Attr:
         self.expr_ = to_expr(expr)
 
 
-class ConstraintSpec:
+class TypeSpec:
     """
-    Set of constraints specified for an operator. This object can be shared across different
-    operators if they have identical attributes and typing constraints.
+    Specification of type constraints for an operator.
     """
 
     def __init__(self,
@@ -355,12 +354,17 @@ class SpecCheckError(Exception):
 
 class Op:
     """
-    Specification of an operator.
+    Operator
     """
 
-    def __init__(self, name: str, spec: ConstraintSpec):
+    def __init__(self, name: str, spec_f: Callable[[], TypeSpec]):
         self.name_ = name
-        self.spec_ = spec
+        self.spec_f_ = spec_f
+        OpRegistry.register(self)
+
+    @property
+    def spec(self):
+        spec = self.spec_f_()
         try:
             spec.check()
         except SpecCheckError as err:
@@ -369,7 +373,7 @@ class Op:
                 f'{err.msg_}\n'
                 f'{err.name_}={err.code_}'
             )
-        OpRegistry.register(self)
+        return spec
 
 
 class OpRegistry:

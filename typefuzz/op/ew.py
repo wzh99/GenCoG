@@ -1,9 +1,9 @@
 from ..expr import *
-from ..spec import Attr, ConstraintSpec, Op, rank_ran, dim_ran
+from ..spec import Attr, TypeSpec, Op, rank_ran, dim_ran
 
 
 def _create_ew():
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[],
         in_num=1,
         in_ranks=[Var()],
@@ -17,8 +17,8 @@ def _create_ew():
     )
 
 
-Op('exp', _create_ew())
-Op('nn.relu', _create_ew())
+Op('exp', _create_ew)
+Op('nn.relu', _create_ew)
 
 
 def _create_leaky_relu():
@@ -27,7 +27,7 @@ def _create_leaky_relu():
     return spec
 
 
-Op('nn.leaky_relu', _create_leaky_relu())
+Op('nn.leaky_relu', _create_leaky_relu)
 
 
 def _create_prelu():
@@ -43,13 +43,13 @@ def _create_prelu():
     return spec
 
 
-Op('nn.prelu', _create_prelu())
+Op('nn.prelu', _create_prelu)
 
 
 def _create_bcast():
     m = IN[0].rank
     n = IN[1].rank
-    return ConstraintSpec(
+    return TypeSpec(
         attrs=[],
         in_num=2,
         in_ranks=List(2, lambda _: Var(ran=rank_ran, tmpl=True)),
@@ -84,17 +84,13 @@ def _create_bcast():
     )
 
 
-_bcast = _create_bcast()
-
-Op('add', _bcast)
+Op('add', _create_bcast)
 
 
-def create_bcast_cmp():
+def _create_bcast_cmp():
     cmp = _create_bcast()
     cmp.out_dtypes = [DataType.b()]
     return cmp
 
 
-_bcast_cmp = create_bcast_cmp()
-
-Op('less', _bcast_cmp)
+Op('less', _create_bcast_cmp)

@@ -10,8 +10,8 @@ from tvm.contrib.graph_executor import GraphModule
 
 from typefuzz.expr import TensorType, DataType
 from typefuzz.expr.ty import ValueType
-from typefuzz.solve import ConstraintSolver, OpTypeInfo
-from typefuzz.spec import ConstraintSpec, OpRegistry, max_dim
+from typefuzz.solve import TypeSolver, OpTypeInfo
+from typefuzz.spec import TypeSpec, OpRegistry, max_dim
 from typefuzz.util import Ref, CodeBuffer, run_process
 
 options = Namespace()
@@ -20,7 +20,7 @@ options = Namespace()
 def test_all_ops():
     tested_specs = set()
     for name, op in OpRegistry.items():
-        spec = op.spec_
+        spec = op.spec
         if Ref(spec) in tested_specs:
             print(f'{op} specification tested before.')
             continue
@@ -29,10 +29,10 @@ def test_all_ops():
 
 
 def test_one_op(name: str):
-    _test_spec(name, OpRegistry.get(name).spec_)
+    _test_spec(name, OpRegistry.get(name).spec)
 
 
-def _test_spec(op: str, spec: ConstraintSpec):
+def _test_spec(op: str, spec: TypeSpec):
     rng = Generator(PCG64(seed=options.seed))
     for _ in trange(options.iter, file=stdout):
         if spec.has_no_input:
@@ -42,7 +42,7 @@ def _test_spec(op: str, spec: ConstraintSpec):
             shape = cast(List[int], rng.integers(1, max_dim, rank, endpoint=True).tolist())
             dtype = rng.choice(spec.first_dtype_choices())
             known = {0: TensorType(shape, dtype)}
-        solver = ConstraintSolver(spec, known, rng)
+        solver = TypeSolver(spec, known, rng)
         _compile_relay(op, solver.solve())
     print(f'{op} passed.')
 

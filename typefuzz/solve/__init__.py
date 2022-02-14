@@ -1,1 +1,1 @@
-from .solver import ConstraintSolver, SolveError, OpTypeInfo
+from .solver import TypeSolver, SolveError, OpTypeInfo

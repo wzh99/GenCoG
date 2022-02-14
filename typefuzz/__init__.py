@@ -1,3 +1,3 @@
 from . import op
 from .expr import *
-from .spec import Attr, ConstraintSpec, Op
+from .spec import Attr, TypeSpec, Op
