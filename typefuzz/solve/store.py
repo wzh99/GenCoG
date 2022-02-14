@@ -7,7 +7,7 @@ from ..expr.array import Tuple, List
 from ..expr.basic import ExprKind, Var, Dummy
 from ..expr.fmt import ExprPrinter, print_expr
 from ..expr.tensor import TensorKind
-from ..expr.ty import Type, ValueType
+from ..expr.ty import Type, ListType, ValueType, INT, DTYPE
 from ..expr.visitor import CopyExpr
 from ..spec import Attr
 from ..util import CodeBuffer, Ref, cls_name
@@ -41,12 +41,12 @@ class StoreNode:
 
     @staticmethod
     def create_undefined(store: 'ValueStore', ty: Type) -> 'StoreNode':
-        return ScalarNode(store) if ty.is_scalar else ArrayNode(store)
+        return ScalarNode(store, ty) if ty.is_scalar else ArrayNode(store, ty)
 
     @staticmethod
     def create_defined(store: 'ValueStore', expr: Expr) -> 'StoreNode':
-        return ScalarNode(store, expr=expr) if expr.type_.is_scalar \
-            else ArrayNode(store, expr=expr)
+        return ScalarNode(store, expr.type_, expr=expr) if expr.type_.is_scalar \
+            else ArrayNode(store, expr.type_, expr=expr)
 
     @property
     def defined(self) -> bool:
@@ -74,9 +74,10 @@ class ScalarNode(StoreNode):
     """
     kind = NodeKind.SCALAR
 
-    def __init__(self, store: 'ValueStore', expr: Optional[Expr] = None):
+    def __init__(self, store: 'ValueStore', ty: Type, expr: Optional[Expr] = None):
         super().__init__(store)
         self.status_ = ValueStatus.UNDEFINED
+        self.type_ = ty
         self.expr_: Optional[Expr] = None
         if expr is not None:
             self.set_defined(expr)
@@ -127,9 +128,10 @@ class ArrayNode(StoreNode):
     """
     kind = NodeKind.ARRAY
 
-    def __init__(self, store: 'ValueStore', expr: Optional[Expr] = None):
+    def __init__(self, store: 'ValueStore', ty: Type, expr: Optional[Expr] = None):
         super().__init__(store)
-        self.len_ = ScalarNode(store)
+        self.len_ = ScalarNode(store, INT)
+        self.type_ = ty
         self.expr_ = None
         self.children_: t.List[StoreNode] = []
         if expr is not None:
@@ -177,13 +179,10 @@ class ArrayNode(StoreNode):
     def set_defined(self, expr: Expr):
         self.set_expr_defined(expr)
 
-    def set_len_solved(self, length: int, elem_ty: Optional[Type] = None):
+    def set_len_solved(self, length: int):
         self.len_.set_solved(length)
-        if self.expr_defined:
-            elem_ty = self.expr_.type_.elem_type
-        assert elem_ty is not None
         if len(self.children_) == 0:
-            self.children_ = [StoreNode.create_undefined(self.store_, elem_ty)
+            self.children_ = [StoreNode.create_undefined(self.store_, self.type_.elem_type)
                               for _ in range(length)]
 
     def set_elem_defined(self, tup: Tuple):
@@ -218,10 +217,10 @@ class ValueStore:
             (a.name_, StoreNode.create_defined(self, cp.copy(a.expr_))) for a in attrs)
         self._attr_dict = dict(self.attrs_)
         self._solved_var_: Dict[Ref[Var], ValueType] = {}
-        self.in_shapes_ = ArrayNode(self)
-        self.in_dtypes_ = ArrayNode(self)
-        self.out_shapes_ = ArrayNode(self)
-        self.out_dtypes_ = ArrayNode(self)
+        self.in_shapes_ = ArrayNode(self, ListType(ListType(INT)))
+        self.in_dtypes_ = ArrayNode(self, ListType(DTYPE))
+        self.out_shapes_ = ArrayNode(self, ListType(ListType(INT)))
+        self.out_dtypes_ = ArrayNode(self, ListType(DTYPE))
 
     def query_attr(self, name: str, *ind: int):
         if name not in self._attr_dict:

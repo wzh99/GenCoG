@@ -396,7 +396,7 @@ class TypeSolver:
                 f'Length of rank array {len(ranks)} is not consistent with input number {num}.'
             )
         for shape_node, rank in zip(shapes_node.children_, ranks):
-            cast(ArrayNode, shape_node).set_len_solved(rank, elem_ty=INT)
+            cast(ArrayNode, shape_node).set_len_solved(rank)
 
         # Evaluate output shapes
         shapes_iter = self._eval.evaluate(self._spec.out_shapes)
