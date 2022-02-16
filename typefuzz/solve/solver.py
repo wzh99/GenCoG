@@ -188,7 +188,9 @@ class TypeSolver:
             prev_solved = tensor.len_solved
             changed |= self._solve_len(tensor, by_elem=False)
             if t_idx in self._known:
-                tensor.set_len_solved(self._known[t_idx].rank)
+                known_rank = self._known[t_idx].rank
+                self._try_add_extra(tensor.len_, known_rank)
+                tensor.set_len_solved(known_rank)
             changed |= prev_solved != tensor.len_solved
             if not tensor.len_solved:
                 continue
@@ -212,10 +214,11 @@ class TypeSolver:
             for d_idx, dim in enumerate(tensor.children_):
                 dim = cast(ScalarNode, dim)
                 prev_solved = dim.solved
-                changed |= self._solve_scalar(cast(ScalarNode, dim))
+                changed |= self._solve_scalar(dim)
                 if t_idx in self._known:
-                    known_shape = self._known[t_idx].shape_
-                    dim.set_solved(known_shape[d_idx])
+                    known_dim = self._known[t_idx].shape_[d_idx]
+                    self._try_add_extra(dim, known_dim)
+                    dim.set_solved(known_dim)
                 changed |= prev_solved != dim.solved
 
         return changed
@@ -235,7 +238,6 @@ class TypeSolver:
             if dtypes.kind != ExprKind.TUPLE:
                 return changed
             dtypes = cast(Tuple, dtypes)
-            root.set_elem_defined(dtypes)
             if root.len_.value != len(dtypes.fields_):
                 raise SolveError(
                     self,
@@ -449,6 +451,13 @@ class TypeSolver:
         # Create output types
         out_types = [TensorType(shape, dtype) for shape, dtype in zip(shapes, dtypes)]
         return out_types
+
+    def _try_add_extra(self, node: ScalarNode, val: ValueType):
+        if node.status_ != ValueStatus.DEFINED:
+            return
+        if node.expr_.kind in (ExprKind.CONST, ExprKind.VAR):
+            return
+        self._extra.append(Cmp(CmpOp.EQ, node.expr_, Const(val)))
 
     def _solve_node(self, node: StoreNode) -> bool:
         if node.kind == NodeKind.SCALAR:
