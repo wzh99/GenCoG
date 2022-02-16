@@ -18,6 +18,48 @@ def _conv_dim(i: Expr, w: Expr, dil: Expr, pad_b: Expr, pad_e: Expr, stride: Exp
 
 
 def _create_conv_nd(n: int):
+    if TypeSpec.for_graph:
+        in_chan = IN[0].shape[1]
+        out_dims = [
+            _conv_dim(
+                IN[0].shape[2 + i], a('kernel_size')[i], a('dilation')[i],
+                a('padding')[i], a('padding')[n + i], a('strides')[i]
+            ) for i in range(n)
+        ]
+        return TypeSpec(
+            attrs=[
+                Attr('kernel_size', [Var(INT, ran=kernel_ran) for _ in range(n)]),
+                Attr('channels', Var(INT, ran=dim_ran)),
+                Attr('strides', [Var(INT, ran=stride_ran) for _ in range(n)]),
+                Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
+                Attr('dilation', [Var(INT, ran=dil_ran) for _ in range(n)]),
+                Attr('groups', Var(INT, ran=iran(1, in_chan))),
+            ],
+            in_num=2,
+            in_ranks=[n + 2] * 2,
+            in_dtypes=List(2, lambda _: Var()),
+            in_shapes=[
+                [Var() for _ in range(n + 2)],
+                Concat([a('channels'), in_chan // a('groups')], a('kernel_size')),
+            ],
+            extra=
+            [
+                a('channels') % a('groups') == 0,
+                in_chan % a('groups') == 0,
+            ] + [
+                _conv_dim_no_stride(
+                    IN[0].shape[2 + i], a('kernel_size')[i], a('dilation')[i],
+                    a('padding')[i], a('padding')[n + i]
+                ) >= 0 for i in range(n)
+            ] + [d == IN[0].shape[2 + i] for i, d in enumerate(out_dims)],
+            out_num=1,
+            out_ranks=[n + 2],
+            out_dtypes=[IN[0].dtype],
+            out_shapes=[
+                [IN[0].shape[0], a('channels')] + out_dims
+            ]
+        )
+
     # Layout
     dim_str = 'DHW'[-n:]
     data_chan_first = 'NC' + dim_str
@@ -135,9 +177,9 @@ def _create_conv_nd_no_group(n: int):
     )
 
 
-Op('nn.conv1d', lambda: _create_conv_nd_no_group(1))
-Op('nn.conv2d', lambda: _create_conv_nd(2))
-Op('nn.conv3d', lambda: _create_conv_nd_no_group(3))
+Op('nn.conv1d', lambda: _create_conv_nd_no_group(1), params=[1])
+Op('nn.conv2d', lambda: _create_conv_nd(2), params=[1])
+Op('nn.conv3d', lambda: _create_conv_nd_no_group(3), params=[1])
 
 
 def _conv_trans_dim(i: Expr, w: Expr, stride: Expr, dil: Expr, pad_b: Expr, pad_e: Expr,
@@ -250,9 +292,9 @@ def _create_conv_trans_nd_no_group(n: int):
     )
 
 
-Op('nn.conv1d_transpose', lambda: _create_conv_trans_nd_no_group(1))
-Op('nn.conv2d_transpose', lambda: _create_conv_trans_nd(2))
-Op('nn.conv3d_transpose', lambda: _create_conv_trans_nd_no_group(3))
+Op('nn.conv1d_transpose', lambda: _create_conv_trans_nd_no_group(1), params=[1])
+Op('nn.conv2d_transpose', lambda: _create_conv_trans_nd(2), params=[1])
+Op('nn.conv3d_transpose', lambda: _create_conv_trans_nd_no_group(3), params=[1])
 
 
 def _pool_dim(i: Expr, w: Expr, dil: Expr, pad_b: Expr, pad_e: Expr, stride: Expr, ceil: Expr):
@@ -444,8 +486,8 @@ def _create_norm():
     )
 
 
-Op('nn.instance_norm', _create_norm)
-Op('nn.layer_norm', _create_norm)
+Op('nn.instance_norm', _create_norm, params=[1, 2])
+Op('nn.layer_norm', _create_norm, params=[1, 2])
 
 
 def _create_group_norm():
@@ -457,7 +499,7 @@ def _create_group_norm():
     return spec
 
 
-Op('nn.group_norm', lambda: _create_group_norm())
+Op('nn.group_norm', lambda: _create_group_norm(), params=[1, 2])
 
 
 def _create_batch_norm():
@@ -481,7 +523,7 @@ def _create_batch_norm():
     )
 
 
-Op('nn.batch_norm', _create_batch_norm)
+Op('nn.batch_norm', _create_batch_norm, params=[1, 2, 3, 4], ignored_outs=[1, 2])
 
 
 def _create_dense():
@@ -506,7 +548,7 @@ def _create_dense():
     )
 
 
-Op('nn.dense', _create_dense)
+Op('nn.dense', _create_dense, params=[1])
 
 
 def _create_matmul():

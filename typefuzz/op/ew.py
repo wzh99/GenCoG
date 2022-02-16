@@ -32,7 +32,10 @@ Op('nn.leaky_relu', _create_leaky_relu)
 
 def _create_prelu():
     spec = _create_ew()
-    spec.add_attr(Attr('axis', Var(INT, ran=Range(end=IN[0].rank))))
+    if TypeSpec.for_graph:
+        spec.add_attr(Attr('axis', 1))
+    else:
+        spec.add_attr(Attr('axis', Var(INT, ran=Range(end=IN[0].rank))))
     spec.in_num = 2
     spec.in_ranks = [Var(), 1]
     spec.in_dtypes = List(2, lambda _: Var())
@@ -43,12 +46,37 @@ def _create_prelu():
     return spec
 
 
-Op('nn.prelu', _create_prelu)
+Op('nn.prelu', _create_prelu, params=[1])
 
 
 def _create_bcast():
     m = IN[0].rank
     n = IN[1].rank
+    if TypeSpec.for_graph:
+        return TypeSpec(
+            attrs=[],
+            in_num=2,
+            in_ranks=[Var(), Var(ran=iran(2, m))],
+            in_dtypes=List(2, lambda _: Var()),
+            in_shapes=[
+                List(m, lambda _: Var(ran=dim_ran, tmpl=True)),
+                List(n, lambda _: Var(ran=dim_ran, tmpl=True))
+            ],
+            extra=[
+                ForAll(Range(end=n), lambda i: Or(
+                    IN[0].shape[m - i - 1] == IN[1].shape[n - i - 1],
+                    IN[0].shape[m - i - 1] == 1,
+                    IN[1].shape[n - i - 1] == 1,
+                ))
+            ],
+            out_num=1,
+            out_ranks=[m],
+            out_dtypes=[IN[0].dtype],
+            out_shapes=[Concat(
+                IN[0].shape[Range(end=m - n)],
+                List(n, lambda i: IN[0].shape[m - n + i].max(IN[1].shape[i]))
+            )],
+        )
     return TypeSpec(
         attrs=[],
         in_num=2,

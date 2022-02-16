@@ -111,6 +111,8 @@ def parse_args():
     global options
     p = ArgumentParser()
     p.add_argument('-a', '--all', action='store_true', help='Test all operators.')
+    p.add_argument('-g', '--graph', action='store_true',
+                   help='Specify type constraints for graph.')
     p.add_argument('-v', '--verbose', action='store_true', help='Run in verbose mode.')
     p.add_argument('-s', '--separate', action='store_true',
                    help='Compile module in a separate process.')
@@ -118,6 +120,9 @@ def parse_args():
     p.add_argument('-iter', type=int, help='Iteration number of each operator.')
     p.add_argument('-seed', type=int, default=42, help='Random seed of test case generator.')
     options = p.parse_args()
+
+    if options.graph:
+        TypeSpec.for_graph = True
     if not options.separate:
         environ['TVM_BACKTRACE'] = '1'
 

@@ -3,9 +3,6 @@ from typing import Dict, Any
 config: Dict[str, Any] = {
     # Maximal number of input/output tensors for variadic operators
     'spec.max_num': 4,
-    # Minimal rank of tensor (1/2)
-    # 1: any tensor; 2: tensor for deep learning with the first dimension as batch size
-    'spec.min_rank': 1,
     # Maximal rank of tensor
     'spec.max_rank': 5,
     # Maximal dimension value in tensor shape
@@ -21,7 +18,7 @@ config: Dict[str, Any] = {
     # Maximal stride of convolution
     'op.max_stride': 3,
     # Maximal padding
-    'op.max_padding': 8,
+    'op.max_padding': 6,
     # Maximal dilation rate of convolution
     'op.max_dilation': 3,
 }

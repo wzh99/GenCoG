@@ -1,5 +1,5 @@
 import typing as t
-from typing import Dict, TypeVar, Callable, cast
+from typing import Dict, TypeVar, Callable, Optional, cast
 from warnings import warn
 
 from .config import config
@@ -9,13 +9,13 @@ from .expr.basic import ExprKind, Const, to_expr, iran
 from .expr.fmt import print_expr
 from .expr.infer import ExprTypeError, infer_type
 from .expr.ty import Type, ListType, TyVar, common_dtypes
-from .util import CodeBuffer, cls_name
+from .util import CodeBuffer, cls_name, unwrap_or
 
 max_num = config['spec.max_num']
 num_ran = iran(1, max_num)
-min_rank = config['spec.min_rank']
 max_rank = config['spec.max_rank']
-rank_ran = iran(min_rank, max_rank)
+rank_ran = iran(1, max_rank)
+dl_rank_ran = iran(2, max_rank)
 max_dim = config['spec.max_dim']
 dim_ran = iran(1, max_dim)
 
@@ -34,6 +34,11 @@ class TypeSpec:
     """
     Specification of type constraints for an operator.
     """
+
+    # Whether specification is used for computation graph generation. When specifying for graphs,
+    # the space of input types and attributes expressed by the constraints is usually more
+    # restricted.
+    for_graph = False
 
     def __init__(self,
                  attrs: t.List[Attr],
@@ -122,6 +127,7 @@ class TypeSpec:
         """
         Possible choices of first input tensor's rank.
         """
+        min_rank = 2 if self.for_graph else 1
         if self.has_no_input:
             return []
         if self._in_ranks.kind == ExprKind.TUPLE:
@@ -354,12 +360,15 @@ class SpecCheckError(Exception):
 
 class Op:
     """
-    Operator
+    Operator.
     """
 
-    def __init__(self, name: str, spec_f: Callable[[], TypeSpec]):
+    def __init__(self, name: str, spec_f: Callable[[], TypeSpec],
+                 params: Optional[t.List[int]] = None, ignored_outs: Optional[t.List[int]] = None):
         self.name_ = name
         self.spec_f_ = spec_f
+        self.params_ = unwrap_or(params, [])
+        self.ignored_ = unwrap_or(ignored_outs, [])
         OpRegistry.register(self)
 
     @property
