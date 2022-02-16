@@ -5,7 +5,7 @@ from queue import Empty
 from threading import Thread
 from time import sleep
 from typing import Callable, TypeVar, Optional, List, Iterable, Tuple, Generic, Any, Dict, \
-    NamedTuple, cast
+    NamedTuple, cast, Set
 
 from colorama import Fore
 
@@ -149,15 +149,20 @@ class CodeBuffer:
 
 
 class NameGenerator:
-    def __init__(self, prefix: str, known: Iterable[str]):
+    def __init__(self, prefix: str, check: bool = False, known: Optional[Iterable[str]] = None):
         self._prefix = prefix
-        self._known = set(known)
+        self._check = check
+        self._known: Set[str] = set()
+        if known is not None:
+            self._known = set(known)
         self._cnt = 0
 
     def generate(self):
         while True:
             cand = self._prefix + str(self._cnt)
             self._cnt += 1
+            if not self._check:
+                return cand
             if cand not in self._known:
                 self._known.add(cand)
                 return cand

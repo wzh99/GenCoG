@@ -8,9 +8,8 @@ from tqdm import trange
 from tvm import parser, relay, transform, device
 from tvm.contrib.graph_executor import GraphModule
 
-from typefuzz.expr import TensorType, DataType
-from typefuzz.expr.ty import ValueType
-from typefuzz.solve import TypeSolver, OpTypeInfo
+from typefuzz.graph.relay import tuple_in_ops, tuple_out_ops, fmt_val
+from typefuzz.solve import TypeSolver, OpTypeInfo, TensorType
 from typefuzz.spec import TypeSpec, OpRegistry, max_dim
 from typefuzz.util import Ref, CodeBuffer, run_process
 
@@ -68,15 +67,6 @@ def _compile_func(src: str):
     return dict()
 
 
-_tuple_in_ops = {
-    'concatenate',
-}
-
-_tuple_out_ops = {
-    'split',
-}
-
-
 def _gen_relay(op: str, info: OpTypeInfo):
     # Prelude
     buf = CodeBuffer()
@@ -96,34 +86,25 @@ def _gen_relay(op: str, info: OpTypeInfo):
         buf.write('%0 = ')
         buf.write(op)
         args = map(lambda i: f'%x{i}', range(len(info.in_types_)))
-        if op in _tuple_in_ops:
+        if op in tuple_in_ops:
             arg_str = str(tuple(args)).replace('\'', '')
         else:
             arg_str = ', '.join(args)
         buf.write_pos([
             lambda: buf.write(arg_str),
             lambda: buf.write_named(
-                map(lambda a: (a[0], lambda: buf.write(_fmt_val(a[1]))), info.attrs_),
+                map(lambda a: (a[0], lambda: buf.write(fmt_val(a[1]))), info.attrs_),
                 prefix='', suffix=''
             )
         ])
         buf.writeln(';')
         buf.write('%0')
-        if len(info.out_types_) > 1 or op in _tuple_out_ops:
+        if len(info.out_types_) > 1 or op in tuple_out_ops:
             buf.write('.0')
         buf.writeln()
     buf.writeln('}')
 
     return str(buf)
-
-
-def _fmt_val(v: ValueType):
-    if isinstance(v, (bool, int, float, DataType)):
-        return str(v)
-    elif isinstance(v, str):
-        return '"' + v + '"'
-    elif isinstance(v, (tuple, list)):
-        return '[' + ', '.join(_fmt_val(e) for e in v) + ']'
 
 
 def parse_args():

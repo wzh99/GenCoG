@@ -10,10 +10,27 @@ from .valid import validate
 from ..expr.array import Tuple
 from ..expr.basic import ExprKind, Const, And, Var, Cmp, CmpOp
 from ..expr.fmt import print_expr
-from ..expr.ty import TensorType, DataType, ValueType, BOOL, INT, FLOAT
+from ..expr.ty import DataType, ValueType, BOOL, INT, FLOAT
 from ..expr.visitor import CopyExpr, StructuralEq
 from ..spec import TypeSpec
 from ..util import CodeBuffer, Ref, cls_name
+
+
+class TensorType:
+    def __init__(self, shape: List[int], dtype: DataType):
+        self.shape_ = shape
+        self.dtype_ = dtype
+
+    @property
+    def rank(self):
+        return len(self.shape_)
+
+    def __eq__(self, other: 'TensorType'):
+        return self.shape_ == other.shape_ and self.dtype_ == other.dtype_
+
+    def __repr__(self):
+        # Compatible with Relay tensor type
+        return f'Tensor[{tuple(self.shape_)}, {self.dtype_}]'
 
 
 class OpTypeInfo:

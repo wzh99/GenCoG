@@ -41,7 +41,7 @@ _z3_extract_funcs: Dict[
 def solve_smt(var_set: Iterable[Ref[Var]], extra: Iterable[Expr], store: ValueStore,
               rng: Generator) -> bool:
     # Create Z3 variables
-    name_gen = NameGenerator('_x', [])
+    name_gen = NameGenerator('_x')
     var_map = list((ref, _z3_var_funcs[ref.obj_.type_](name_gen.generate()))
                    for ref in var_set)
 

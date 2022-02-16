@@ -1,6 +1,6 @@
 import typing as t
 from enum import IntEnum, auto
-from typing import Union, Optional, Dict, List, Callable, cast
+from typing import Union, Optional, Dict, Callable, cast
 
 from .. import util
 
@@ -271,20 +271,3 @@ class TyVar(Type):
 
     def __eq__(self, other):
         return self is other
-
-
-class TensorType:
-    def __init__(self, shape: List[int], dtype: DataType):
-        self.shape_ = shape
-        self.dtype_ = dtype
-
-    @property
-    def rank(self):
-        return len(self.shape_)
-
-    def __eq__(self, other: 'TensorType'):
-        return self.shape_ == other.shape_ and self.dtype_ == other.dtype_
-
-    def __str__(self):
-        # Compatible with Relay tensor type
-        return f'Tensor[{tuple(self.shape_)}, {self.dtype_}]'

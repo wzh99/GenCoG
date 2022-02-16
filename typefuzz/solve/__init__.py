@@ -1,1 +1,1 @@
-from .solver import TypeSolver, SolveError, OpTypeInfo
+from .solver import TypeSolver, SolveError, OpTypeInfo, TensorType
