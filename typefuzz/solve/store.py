@@ -96,6 +96,8 @@ class ScalarNode(StoreNode):
         self.expr_ = expr
 
     def set_solved(self, value: ValueType):
+        if not self.defined:
+            self.set_defined(Const(value))
         if self.solved and value != self.value_:
             raise StoreError(
                 self,
@@ -104,7 +106,7 @@ class ScalarNode(StoreNode):
             )
         self.status_ = ValueStatus.SOLVED
         self.value_ = value
-        if self.expr_ is not None and self.expr_.kind == ExprKind.VAR:
+        if self.expr_.kind == ExprKind.VAR:
             var = cast(Var, self.expr_)
             self.store_.set_var_solved(var, value, self)
 

@@ -1,7 +1,7 @@
 from ..config import config
 from ..expr import *
 from ..expr.ty import float_dtypes
-from ..spec import Attr, TypeSpec, Op, dim_ran
+from ..spec import Attr, TypeSpec, Op, dim_ran, max_rank
 
 kernel_ran = iran(1, config['op.max_kernel'])
 stride_ran = iran(1, config['op.max_stride'])
@@ -123,6 +123,44 @@ def _create_conv_nd(n: int):
 
 
 def _create_conv_nd_no_group(n: int):
+    if TypeSpec.for_graph:
+        in_chan = IN[0].shape[1]
+        out_dims = [
+            _conv_dim(
+                IN[0].shape[2 + i], a('kernel_size')[i], a('dilation')[i],
+                a('padding')[i], a('padding')[n + i], a('strides')[i]
+            ) for i in range(n)
+        ]
+        return TypeSpec(
+            attrs=[
+                Attr('kernel_size', [Var(INT, ran=kernel_ran) for _ in range(n)]),
+                Attr('channels', Var(INT, ran=dim_ran)),
+                Attr('strides', [Var(INT, ran=stride_ran) for _ in range(n)]),
+                Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
+                Attr('dilation', [Var(INT, ran=dil_ran) for _ in range(n)]),
+            ],
+            in_num=2,
+            in_ranks=[n + 2] * 2,
+            in_dtypes=List(2, lambda _: Var()),
+            in_shapes=[
+                [Var() for _ in range(n + 2)],
+                Concat([a('channels'), in_chan], a('kernel_size')),
+            ],
+            extra=
+            [
+                _conv_dim_no_stride(
+                    IN[0].shape[2 + i], a('kernel_size')[i], a('dilation')[i],
+                    a('padding')[i], a('padding')[n + i]
+                ) >= 0 for i in range(n)
+            ] + [d == IN[0].shape[2 + i] for i, d in enumerate(out_dims)],
+            out_num=1,
+            out_ranks=[n + 2],
+            out_dtypes=[IN[0].dtype],
+            out_shapes=[
+                [IN[0].shape[0], a('channels')] + out_dims
+            ]
+        )
+
     # Layout
     dim_str = 'DHW'[-n:]
     data_chan_first = 'NC' + dim_str
@@ -188,6 +226,46 @@ def _conv_trans_dim(i: Expr, w: Expr, stride: Expr, dil: Expr, pad_b: Expr, pad_
 
 
 def _create_conv_trans_nd(n: int):
+    if TypeSpec.for_graph:
+        in_chan = IN[0].shape[1]
+        out_dims = [
+            _conv_trans_dim(
+                IN[0].shape[2 + i], a('kernel_size')[i], a('strides')[i], a('dilation')[i],
+                a('padding')[i], a('padding')[n + i], a('output_padding')[i]
+            ) for i in range(n)
+        ]
+
+        return TypeSpec(
+            attrs=[
+                Attr('kernel_size', [Var(INT, ran=kernel_ran) for _ in range(n)]),
+                Attr('channels', Var(INT, ran=dim_ran)),
+                Attr('strides', [Var(INT, ran=stride_ran) for _ in range(n)]),
+                Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
+                Attr('output_padding',
+                     [Var(INT, ran=Range(end=a('strides')[i])) for i in range(n)]),
+                Attr('dilation', [1] * n),
+                Attr('groups', Var(INT, ran=iran(1, in_chan))),
+            ],
+            in_num=2,
+            in_ranks=[n + 2] * 2,
+            in_dtypes=List(2, lambda _: Var()),
+            in_shapes=[
+                [Var() for _ in range(n + 2)],
+                Concat([a('channels') // a('groups'), in_chan], a('kernel_size')),
+            ],
+            extra=
+            [
+                a('channels') % a('groups') == 0,
+                in_chan % a('groups') == 0,
+            ] + [d == IN[0].shape[2 + i] for i, d in enumerate(out_dims)],
+            out_num=1,
+            out_ranks=[n + 2],
+            out_dtypes=[IN[0].dtype],
+            out_shapes=[
+                [IN[0].shape[0], a('channels')] + out_dims
+            ]
+        )
+
     # Layout
     dim_str = 'DHW'[-n:]
     data_chan_first = 'NC' + dim_str
@@ -215,7 +293,7 @@ def _create_conv_trans_nd(n: int):
             Attr('strides', [Var(INT, ran=stride_ran) for _ in range(n)]),
             Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
             Attr('output_padding', [Var(INT, ran=Range(end=a('strides')[i])) for i in range(n)]),
-            Attr('dilation', [1 for _ in range(n)]),
+            Attr('dilation', [1] * n),
             Attr('data_layout', Var(STR, choices=data_layout_choices)),
             Attr('groups', Var(INT, ran=iran(1, in_chan))),
             Attr('kernel_layout', Var(STR, choices=kernel_layout_choices)),
@@ -246,6 +324,39 @@ def _create_conv_trans_nd(n: int):
 
 
 def _create_conv_trans_nd_no_group(n: int):
+    if TypeSpec.for_graph:
+        out_dims = [
+            _conv_trans_dim(
+                IN[0].shape[2 + i], a('kernel_size')[i], a('strides')[i], a('dilation')[i],
+                a('padding')[i], a('padding')[n + i], a('output_padding')[i]
+            ) for i in range(n)
+        ]
+        return TypeSpec(
+            attrs=[
+                Attr('kernel_size', [Var(INT, ran=kernel_ran) for _ in range(n)]),
+                Attr('channels', Var(INT, ran=dim_ran)),
+                Attr('strides', [Var(INT, ran=stride_ran) for _ in range(n)]),
+                Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
+                Attr('output_padding',
+                     [Var(INT, ran=Range(end=a('strides')[i])) for i in range(n)]),
+                Attr('dilation', [1] * n),
+            ],
+            in_num=2,
+            in_ranks=[n + 2] * 2,
+            in_dtypes=List(2, lambda _: Var()),
+            in_shapes=[
+                [Var() for _ in range(n + 2)],
+                Concat([IN[0].shape[1], a('channels')], a('kernel_size')),
+            ],
+            extra=[d == IN[0].shape[2 + i] for i, d in enumerate(out_dims)],
+            out_num=1,
+            out_ranks=[n + 2],
+            out_dtypes=[IN[0].dtype],
+            out_shapes=[
+                [IN[0].shape[0], a('channels')] + out_dims
+            ]
+        )
+
     # Layout
     dim_str = 'DHW'[-n:]
     kernel_chan_first = 'OI' + dim_str
@@ -269,7 +380,7 @@ def _create_conv_trans_nd_no_group(n: int):
             Attr('strides', [Var(INT, ran=stride_ran) for _ in range(n)]),
             Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
             Attr('output_padding', [Var(INT, ran=Range(end=a('strides')[i])) for i in range(n)]),
-            Attr('dilation', [1 for _ in range(n)]),
+            Attr('dilation', [1] * n),
             Attr('kernel_layout', Var(STR, choices=kernel_layout_choices)),
         ],
         in_num=2,
@@ -303,6 +414,44 @@ def _pool_dim(i: Expr, w: Expr, dil: Expr, pad_b: Expr, pad_e: Expr, stride: Exp
 
 
 def _create_pool_nd(n: int):
+    if TypeSpec.for_graph:
+        out_dims = [
+            _pool_dim(
+                IN[0].shape[2 + i], a('pool_size')[i], a('dilation')[i],
+                a('padding')[i], a('padding')[n + i], a('strides')[i], a('ceil_mode'),
+            ) for i in range(n)
+        ]
+        return TypeSpec(
+            attrs=[
+                Attr('pool_size', [Var(INT, ran=kernel_ran) for _ in range(n)]),
+                Attr('strides', [Var(INT, ran=stride_ran) for _ in range(n)]),
+                Attr('padding', [Var(INT, ran=pad_ran) for _ in range(2 * n)]),
+                Attr('dilation', [Var(INT, ran=dil_ran) for _ in range(n)]),
+                Attr('ceil_mode', Var(BOOL)),
+            ],
+            in_num=1,
+            in_ranks=[n + 2],
+            in_dtypes=[Var()],
+            in_shapes=[
+                [Var() for _ in range(n + 2)],
+            ],
+            extra=
+            [
+                _conv_dim_no_stride(
+                    IN[0].shape[2 + i], a('pool_size')[i], a('dilation')[i],
+                    a('padding')[i], a('padding')[n + i]
+                ) >= 0 for i in range(n)
+            ] + [
+                (IN[0].shape[2 + i] // 2).max(1) == d for i, d in enumerate(out_dims)
+            ],
+            out_num=1,
+            out_ranks=[n + 2],
+            out_dtypes=[IN[0].dtype],
+            out_shapes=[
+                Concat(IN[0].shape[:2], out_dims)
+            ]
+        )
+
     # Layout
     dim_str = 'DHW'[-n:]
     chan_first = 'NC' + dim_str
@@ -367,6 +516,24 @@ Op('nn.avg_pool3d', lambda: _create_avg_pool_nd(3))
 
 
 def _create_global_pool_nd(n: int):
+    if TypeSpec.for_graph:
+        return TypeSpec(
+            attrs=[],
+            in_num=1,
+            in_ranks=[n + 2],
+            in_dtypes=[Var()],
+            in_shapes=[
+                [Var() for _ in range(n + 2)],
+            ],
+            extra=[],
+            out_num=1,
+            out_ranks=[n + 2],
+            out_dtypes=[IN[0].dtype],
+            out_shapes=[
+                Concat(IN[0].shape[:2], [1] * n)
+            ]
+        )
+
     # Layout
     dim_str = 'DHW'[-n:]
     chan_first = 'NC' + dim_str
@@ -400,6 +567,26 @@ Op('nn.global_avg_pool2d', lambda: _create_global_pool_nd(2))
 
 
 def _create_adapt_pool_nd(n: int):
+    if TypeSpec.for_graph:
+        return TypeSpec(
+            attrs=[
+                Attr('output_size', [1] * n),
+            ],
+            in_num=1,
+            in_ranks=[n + 2],
+            in_dtypes=[Var()],
+            in_shapes=[
+                [Var() for _ in range(n + 2)],
+            ],
+            extra=[],
+            out_num=1,
+            out_ranks=[n + 2],
+            out_dtypes=[IN[0].dtype],
+            out_shapes=[
+                Concat(IN[0].shape[:2], a('output_size'))
+            ]
+        )
+
     # Layout
     dim_str = 'DHW'[-n:]
     chan_first = 'NC' + dim_str
@@ -462,13 +649,13 @@ def _create_pad():
     )
 
 
-Op('nn.pad', _create_pad)
+Op('nn.pad', _create_pad, params=[1])
 
 
 def _create_norm():
     return TypeSpec(
         attrs=[
-            Attr('axis', Var(INT, ran=Range(end=IN[0].rank))),
+            Attr('axis', 1 if TypeSpec.for_graph else Var(INT, ran=Range(end=IN[0].rank))),
             Attr('epsilon', 1e-5),
             Attr('center', Var(BOOL)),
             Attr('scale', Var(BOOL)),
@@ -486,8 +673,18 @@ def _create_norm():
     )
 
 
-Op('nn.instance_norm', _create_norm, params=[1, 2])
 Op('nn.layer_norm', _create_norm, params=[1, 2])
+
+
+def _create_layer_norm():
+    spec = _create_norm()
+    if TypeSpec.for_graph:
+        spec.in_dtypes = [DataType.f(32)] * 3
+        spec.in_ranks = [Var(ran=iran(3, max_rank)), 1, 1]
+    return spec
+
+
+Op('nn.instance_norm', _create_layer_norm, params=[1, 2])
 
 
 def _create_group_norm():
@@ -499,13 +696,13 @@ def _create_group_norm():
     return spec
 
 
-Op('nn.group_norm', lambda: _create_group_norm(), params=[1, 2])
+Op('nn.group_norm', _create_group_norm, params=[1, 2])
 
 
 def _create_batch_norm():
     return TypeSpec(
         attrs=[
-            Attr('axis', Var(INT, ran=Range(end=IN[0].rank))),
+            Attr('axis', 1 if TypeSpec.for_graph else Var(INT, ran=Range(end=IN[0].rank))),
             Attr('epsilon', 1e-5),
             Attr('center', Var(BOOL)),
             Attr('scale', Var(BOOL)),

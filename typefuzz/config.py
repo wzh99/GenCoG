@@ -16,9 +16,9 @@ config: Dict[str, Any] = {
     # Maximal kernel size of convolution
     'op.max_kernel': 7,
     # Maximal stride of convolution
-    'op.max_stride': 3,
+    'op.max_stride': 2,
     # Maximal padding
     'op.max_padding': 6,
     # Maximal dilation rate of convolution
-    'op.max_dilation': 3,
+    'op.max_dilation': 2,
 }
