@@ -129,7 +129,9 @@ class Expr:
         if isinstance(item, Range):
             return Slice(self, item)
         elif isinstance(item, slice):
-            return Slice(self, Range(begin=unwrap_or(item.start, 0), end=item.stop))
+            from typefuzz import Len
+            return Slice(self, Range(begin=unwrap_or(item.start, 0),
+                                     end=unwrap_or(item.stop, Len(self))))
         else:
             return GetItem(self, item)
 

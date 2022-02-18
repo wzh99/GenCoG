@@ -99,24 +99,24 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         return self.visit(cond.tr_br_, env) if pred else self.visit(cond.fls_br_, env)
 
     def visit_attr(self, attr: GetAttr, env: Env[ValueType]) -> ResultType:
-        return self._store.query_attr(attr.name_).value
+        return self._check_not_none(self._store.query_attr(attr.name_).value, attr)
 
     def visit_dummy(self, dum: Dummy, env: Env[ValueType]) -> ResultType:
         raise EvalError(dum, 'Dummy expression cannot be evaluated.')
 
     def visit_num(self, num: Num, env: Env[ValueType]) -> ResultType:
         node = self._store.query_shape(num.t_kind_)
-        return cast(ArrayNode, node).len_.value
+        return self._check_not_none(cast(ArrayNode, node).len_.value, num)
 
     def visit_shape(self, shape: Shape, env: Env[ValueType]) -> ResultType:
         idx = self.visit(shape.tensor_.idx_, env)
         node = self._get_tensor_shape_node(shape.tensor_.kind_, idx, shape)
-        return node.value
+        return self._check_not_none(node.value, shape)
 
     def visit_rank(self, rank: Rank, env: Env[ValueType]) -> ResultType:
         idx = self.visit(rank.tensor_.idx_, env)
         node = self._get_tensor_shape_node(rank.tensor_.kind_, idx, rank)
-        return node.len_.value
+        return self._check_not_none(node.len_.value, rank)
 
     def _get_tensor_shape_node(self, kind: TensorKind, idx: int, e: Expr):
         node = self._store.query_shape(kind, idx)
@@ -134,7 +134,14 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
             raise EvalError(
                 dtype, f'Data type of {kind.name} tensor {idx} is undefined.'
             )
-        return node.value
+        return self._check_not_none(node.value, dtype)
+
+    def _check_not_none(self, v: ValueType, e: Expr):
+        if v is None:
+            raise EvalError(e, 'Result contains None.')
+        if isinstance(v, (tuple, list)):
+            return tuple(self._check_not_none(f, e) for f in v)
+        return v
 
     def visit_layout_index(self, i: LayoutIndex, env: Env[ValueType]) -> ResultType:
         layout = self.visit(i.layout_, env)
@@ -169,7 +176,7 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         return chain(*(self.visit(arr, env) for arr in concat.arrays_))
 
     def visit_slice(self, slc: Slice, env: Env[ValueType]) -> ResultType:
-        arr = self.visit(slc.arr_, env)
+        arr = tuple(self.visit(slc.arr_, env))
         begin, end = self.visit_range(slc.ran_, env)
         return arr[begin:end]
 
@@ -406,7 +413,7 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         return Tuple(*(src_shape.fields_[int(idx)] for idx in idx_map))
 
     def visit_tuple(self, tup: Tuple, env: Env[Expr]) -> Expr:
-        return tup
+        return Tuple(*(self.visit(f, env) for f in tup.fields_), ty=tup.type_)
 
     def visit_list(self, lst: List, env: Env[Expr]) -> Expr:
         num = self._try_eval(lst.len_, env)
@@ -443,11 +450,11 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
 
     def visit_concat(self, concat: Concat, env: Env[Expr]) -> Expr:
         fields = []
-        for arr in concat.arrays_:
-            tup = self.visit(arr, env)
-            if tup.kind != ExprKind.TUPLE:
-                return concat
-            fields.extend(cast(Tuple, tup).fields_)
+        for i, arr in enumerate(concat.arrays_):
+            arr = self.visit(arr, env)
+            if arr.kind != ExprKind.TUPLE:
+                return Concat(Tuple(*fields, ty=concat.type_), concat.arrays_[i:], ty=concat.type_)
+            fields.extend(cast(Tuple, arr).fields_)
         return Tuple(*fields, ty=concat.type_)
 
     def visit_slice(self, slc: Slice, env: Env[Expr]) -> Expr:

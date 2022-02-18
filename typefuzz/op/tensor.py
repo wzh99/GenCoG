@@ -4,9 +4,9 @@ from ..spec import Attr, TypeSpec, Op, num_ran, rank_ran, max_rank, dim_ran
 
 
 def _create_reduce():
-    ind = List(IN[0].rank, lambda i: i)
+    indices = List(IN[0].rank, lambda i: i)
 
-    def _is_reduce_axis(i: ExprLike):
+    def is_reduce_axis(i: ExprLike):
         return InSet(i, a('axis')) ^ a('exclude')
 
     return TypeSpec(
@@ -22,7 +22,8 @@ def _create_reduce():
             List(IN[0].rank, lambda _: Var(tmpl=True))
         ],
         extra=[
-            Subset(a('axis'), ind),
+            Subset(a('axis'), indices[1:] if TypeSpec.for_graph else indices),
+            Len(a('axis')) > 0 if TypeSpec.for_graph else True,
         ],
         out_num=1,
         out_ranks=[
@@ -33,8 +34,8 @@ def _create_reduce():
         out_shapes=[
             Cond(
                 a('keepdims'),
-                List(IN[0].rank, lambda i: Cond(_is_reduce_axis(i), 1, IN[0].shape[i])),
-                Map(Filter(ind, lambda i: Not(_is_reduce_axis(i))), lambda i: IN[0].shape[i])
+                List(IN[0].rank, lambda i: Cond(is_reduce_axis(i), 1, IN[0].shape[i])),
+                Map(Filter(indices, lambda i: Not(is_reduce_axis(i))), lambda i: IN[0].shape[i])
             )
         ]
     )
@@ -46,7 +47,7 @@ Op('sum', _create_reduce)
 def _create_expand_dims():
     return TypeSpec(
         attrs=[
-            Attr('axis', Var(INT, ran=Range(0, IN[0].rank))),
+            Attr('axis', Var(INT, ran=Range(1 if TypeSpec.for_graph else 0, IN[0].rank))),
             Attr('num_newaxis', Var(INT, ran=iran(0, max_rank - IN[0].rank))),
         ],
         in_num=1,
@@ -81,7 +82,8 @@ def _create_squeeze():
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[
-            Subset(a('axis'), Filter(indices, lambda i: IN[0].shape[i] == 1))
+            Subset(a('axis'), Filter(indices[2:] if TypeSpec.for_graph else indices,
+                                     lambda i: IN[0].shape[i] == 1))
         ],
         out_num=1,
         out_ranks=[IN[0].rank - Len(a('axis'))],
@@ -98,7 +100,11 @@ Op('squeeze', _create_squeeze)
 def _create_reshape():
     return TypeSpec(
         attrs=[
-            Attr('newshape', List(Var(ran=rank_ran), lambda _: Var(INT, ran=dim_ran, tmpl=True))),
+            Attr('newshape',
+                 Concat([IN[0].shape[0]], List(Var(ran=Range(1, max_rank)),
+                                               lambda _: Var(INT, ran=dim_ran, tmpl=True)))
+                 if TypeSpec.for_graph else
+                 List(Var(ran=rank_ran), lambda _: Var(INT, ran=dim_ran, tmpl=True))),
         ],
         in_num=1,
         in_ranks=[Var()],
