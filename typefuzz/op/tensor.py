@@ -1,6 +1,6 @@
 from ..config import config
 from ..expr import *
-from ..spec import Attr, TypeSpec, Op, num_ran, rank_ran, max_rank, dim_ran
+from ..spec import Attr, TypeSpec, Op, num_ran, rank_ran, max_rank, dim_ran, dl_rank_ran, max_num
 
 
 def _create_reduce():
@@ -100,17 +100,15 @@ Op('squeeze', _create_squeeze)
 def _create_reshape():
     return TypeSpec(
         attrs=[
-            Attr('newshape',
-                 Concat([IN[0].shape[0]], List(Var(ran=Range(1, max_rank)),
-                                               lambda _: Var(INT, ran=dim_ran, tmpl=True)))
-                 if TypeSpec.for_graph else
-                 List(Var(ran=rank_ran), lambda _: Var(INT, ran=dim_ran, tmpl=True))),
+            Attr('newshape', List(Var(ran=dl_rank_ran if TypeSpec.for_graph else rank_ran),
+                                  lambda _: Var(INT, ran=dim_ran, tmpl=True))),
         ],
         in_num=1,
         in_ranks=[Var()],
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[
+            a('newshape')[0] == IN[0].shape[0],
             ReduceArray(a('newshape'), ArithOp.MUL, 1) == ReduceArray(IN[0].shape, ArithOp.MUL, 1)
         ],
         out_num=1,
@@ -124,16 +122,21 @@ Op('reshape', _create_reshape)
 
 
 def _create_transpose():
+    indices = List(IN[0].rank, lambda i: i)
     return TypeSpec(
         attrs=[
-            Attr('axes', List(Var(), lambda _: Var(INT, tmpl=True))),
+            Attr('axes', List(IN[0].rank, lambda _: Var(INT, tmpl=True))),
         ],
         in_num=1,
         in_ranks=[Var()],
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[
-            Perm(a('axes'), List(IN[0].rank, lambda i: i))
+            And(
+                a('axes')[0] == 0,
+                Perm(a('axes')[1:], indices[1:])
+            ) if TypeSpec.for_graph else
+            Perm(a('axes'), indices)
         ],
         out_num=1,
         out_ranks=[IN[0].rank],
@@ -150,7 +153,7 @@ Op('transpose', _create_transpose)
 def _create_concat():
     return TypeSpec(
         attrs=[
-            Attr('axis', Var(ty=INT, ran=Range(0, IN[0].rank)))
+            Attr('axis', 1 if TypeSpec.for_graph else Var(ty=INT, ran=Range(0, IN[0].rank)))
         ],
         in_num=Var(ran=num_ran),
         in_ranks=List(IN.num, lambda _: Var(ran=rank_ran)),
@@ -182,10 +185,10 @@ def _create_split():
     ind = a('indices_or_sections')
     return TypeSpec(
         attrs=[
-            Attr('axis', Var(ty=INT, ran=Range(0, IN[0].rank))),
+            Attr('axis', 1 if TypeSpec.for_graph else Var(ty=INT, ran=Range(0, IN[0].rank))),
             Attr('indices_or_sections',
                  List(Var(ran=Range(begin=0,
-                                    end=IN[0].shape[a('axis')].min(config['spec.max_num']))),
+                                    end=IN[0].shape[a('axis')].min(max_num))),
                       lambda _: Var(INT, tmpl=True)))
         ],
         in_num=1,

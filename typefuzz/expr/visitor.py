@@ -413,7 +413,7 @@ class CopyExpr(ExprVisitor[Env[Symbol], Expr]):
         return Or(*(self.visit(c, env) for c in o.clauses_))
 
     def visit_forall(self, forall: ForAll, env: Env[Symbol]) -> Expr:
-        idx = Symbol()
+        idx = Symbol(ty=forall.idx_.type_)
         return ForAll(ran=self.visit_range(forall.ran_, env), idx=idx,
                       body=self.visit(forall.body_, env + (forall.idx_, idx)))
 
@@ -453,7 +453,7 @@ class CopyExpr(ExprVisitor[Env[Symbol], Expr]):
         return Tuple(*(self.visit(e, env) for e in tup.fields_), ty=tup.type_)
 
     def visit_list(self, lst: List, env: Env[Symbol]) -> Expr:
-        idx = Symbol()
+        idx = Symbol(ty=lst.idx_.type_)
         return List(self.visit(lst.len_, env), idx=idx,
                     body=self.visit(lst.body_, env + (lst.idx_, idx)), ty=lst.type_)
 
@@ -471,7 +471,7 @@ class CopyExpr(ExprVisitor[Env[Symbol], Expr]):
         return Slice(self.visit(slc.arr_, env), self.visit_range(slc.ran_, env), ty=slc.type_)
 
     def visit_map(self, m: Map, env: Env[Symbol]) -> Expr:
-        sym = Symbol()
+        sym = Symbol(ty=m.sym_.type_)
         return Map(self.visit(m.arr_, env), sym=sym, body=self.visit(m.body_, env + (m.sym_, sym)),
                    ty=m.type_)
 
@@ -480,7 +480,7 @@ class CopyExpr(ExprVisitor[Env[Symbol], Expr]):
                            ty=red.type_)
 
     def visit_reduce_index(self, red: ReduceIndex, env: Env[Symbol]) -> Expr:
-        idx = Symbol()
+        idx = Symbol(ty=red.idx_.type_)
         return ReduceIndex(
             self.visit_range(red.ran_, env), red.op_, self.visit(red.init_, env), idx=idx,
             body=self.visit(red.body_, env + (red.idx_, idx)), ty=red.type_
