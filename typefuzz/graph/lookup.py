@@ -75,8 +75,8 @@ class StaticSetTable(SetTable[T, K]):
         self._bit_map = bit_map
         for o in objs:
             for k in keys_f(o):
-                self._check_key(k)
-                bit_map.set(self._table[k], Ref(o))
+                if k in self._table:
+                    bit_map.set(self._table[k], Ref(o))
 
 
 class DynamicSetTable(SetTable[T, K]):
@@ -89,13 +89,16 @@ class DynamicSetTable(SetTable[T, K]):
         self._bit_map = bit_map
 
     def add(self, obj: T, keys: Iterable[K]):
-        # Extend bitmap and bit vector if the object is not in universal set
-        if obj not in self._bit_map:
-            self._bit_map.add(obj)
-            for a in self._table.values():
-                a.append(0)
+        # Extend bitmap if the object is not in universal set
+        ref = Ref(obj)
+        if ref not in self._bit_map:
+            self._bit_map.add(ref)
+
+        # Synchronize bit vectors with bitmap
+        for a in self._table.values():
+            a.extend([0] * (len(self._bit_map) - len(a)))
 
         # Set corresponding bit in each bit vector
         key_set = set(keys)
         for k, a in self._table.items():
-            self._bit_map.set(a, obj, k in key_set)
+            self._bit_map.set(a, ref, b=k in key_set)
