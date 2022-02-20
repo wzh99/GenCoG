@@ -37,9 +37,9 @@ def _test_spec(op: str, spec: TypeSpec):
         if spec.has_no_input:
             known = {}
         else:
-            rank = rng.choice(spec.first_rank_choices())
+            rank = rng.choice(spec.first_rank_choices)
             shape = cast(List[int], rng.integers(1, max_dim, rank, endpoint=True).tolist())
-            dtype = rng.choice(spec.first_dtype_choices())
+            dtype = rng.choice(spec.first_dtype_choices)
             known = {0: TensorType(shape, dtype)}
         solver = TypeSolver(spec, known, rng)
         try:

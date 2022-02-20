@@ -1,5 +1,5 @@
 import typing as t
-from typing import Dict, TypeVar, Callable, Optional, cast
+from typing import Dict, TypeVar, Callable, Optional, cast, List
 from warnings import warn
 
 from .config import config
@@ -123,6 +123,7 @@ class TypeSpec:
     def in_ranks(self, *v: ExprLike):
         self._in_ranks = to_expr(v[0])
 
+    @property
     def first_rank_choices(self) -> t.List[int]:
         """
         Possible choices of first input tensor's rank.
@@ -152,6 +153,7 @@ class TypeSpec:
     def in_dtypes(self, *v: ExprLike):
         self._in_dtypes = to_expr(v[0])
 
+    @property
     def first_dtype_choices(self) -> t.List[DataType]:
         if self.has_no_input:
             return []
@@ -364,12 +366,14 @@ class Op:
     """
 
     def __init__(self, name: str, spec_f: Callable[[], TypeSpec],
-                 params: Optional[t.List[int]] = None, ignored_outs: Optional[t.List[int]] = None):
+                 params: Optional[t.List[int]] = None, ignored_outs: Optional[t.List[int]] = None,
+                 register: bool = True):
         self.name_ = name
         self.spec_f_ = spec_f
         self.params_ = unwrap_or(params, [])
         self.ignored_ = unwrap_or(ignored_outs, [])
-        OpRegistry.register(self)
+        if register:
+            OpRegistry.register(self)
 
     @property
     def spec(self):
@@ -384,12 +388,16 @@ class Op:
             )
         return spec
 
+    def __repr__(self):
+        return self.name_
+
 
 class OpRegistry:
     """
     Registry for all defined operators.
     """
 
+    _ops: t.List[Op] = []
     _table: Dict[str, Op] = {}
 
     @classmethod
@@ -397,6 +405,7 @@ class OpRegistry:
         if op.name_ in cls._table:
             warn(f'Operator {op.name_} has already been registered.')
         else:
+            cls._ops.append(op)
             cls._table[op.name_] = op
 
     @classmethod
@@ -411,4 +420,4 @@ class OpRegistry:
 
     @classmethod
     def ops(cls):
-        return cls._table.values()
+        return iter(cls._ops)

@@ -142,6 +142,9 @@ class DataType:
     def __eq__(self, other: 'DataType'):
         return self.code_ == other.code_ and self.bits_ == other.bits_
 
+    def __hash__(self):
+        return hash(self.code_) ^ hash(self.bits_)
+
     def __str__(self):
         return self.code_.name + str(self.bits_)
 

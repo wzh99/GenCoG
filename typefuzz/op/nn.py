@@ -676,7 +676,7 @@ def _create_norm():
 Op('nn.layer_norm', _create_norm, params=[1, 2])
 
 
-def _create_layer_norm():
+def _create_instance_norm():
     spec = _create_norm()
     if TypeSpec.for_graph:
         spec.in_dtypes = [DataType.f(32)] * 3
@@ -684,7 +684,7 @@ def _create_layer_norm():
     return spec
 
 
-Op('nn.instance_norm', _create_layer_norm, params=[1, 2])
+Op('nn.instance_norm', _create_instance_norm, params=[1, 2])
 
 
 def _create_group_norm():
