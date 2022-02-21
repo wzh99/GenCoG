@@ -649,7 +649,7 @@ def _create_pad():
     )
 
 
-Op('nn.pad', _create_pad, params=[1])
+Op('nn.pad', _create_pad, params=[1], register=False)
 
 
 def _create_norm():

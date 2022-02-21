@@ -39,6 +39,7 @@ class Output(Vertex):
 
     def __init__(self, value: 'Value'):
         self.value_ = value
+        value.uses_.append(self)
 
 
 class Operation(Vertex):
@@ -51,9 +52,11 @@ class Operation(Vertex):
                  attrs: List[Tuple[str, ValueType]]):
         self.op_ = op
         self.ins_ = ins
+        for i in self.ins_:
+            i.uses_.append(self)
         self.outs_ = outs
-        for out in self.outs_:
-            out.def_ = self
+        for o in self.outs_:
+            o.def_ = self
         self.attrs_ = attrs
 
 

@@ -87,7 +87,8 @@ class BitMap(Generic[T]):
         return a
 
     def set(self, a: bitarray, o: T, b: bool = True):
-        self._check_obj(o)
+        if o not in self:
+            raise ValueError(f'Object {o} is not in universal set.')
         a[self._idx_map[o]] = b
 
     def encode(self, objs: Iterable[T]) -> bitarray:
@@ -108,10 +109,6 @@ class BitMap(Generic[T]):
 
     def __contains__(self, item: T):
         return item in self._idx_map
-
-    def _check_obj(self, o: T):
-        if o not in self:
-            raise ValueError(f'Object {o} is not in universal set.')
 
 
 class StaticBitMap(BitMap[T]):
@@ -139,9 +136,12 @@ class DynamicBitMap(BitMap[T]):
         self._objs.append(obj)
         self._idx_map[obj] = idx
 
+    @property
+    def objs(self):
+        return iter(self._objs)
+
 
 # Format
-
 
 def colored_text(txt: str, color: str):
     return color + txt + Fore.RESET

@@ -13,7 +13,7 @@ def _create_reduce():
         attrs=[
             Attr('axis', List(Var(), lambda _: Var(INT, tmpl=True))),
             Attr('keepdims', Var(BOOL)),
-            Attr('exclude', Var(BOOL))
+            Attr('exclude', False if TypeSpec.for_graph else Var(BOOL))
         ],
         in_num=1,
         in_ranks=[Var()],
@@ -22,7 +22,7 @@ def _create_reduce():
             List(IN[0].rank, lambda _: Var(tmpl=True))
         ],
         extra=[
-            Subset(a('axis'), indices[1:] if TypeSpec.for_graph else indices),
+            Subset(a('axis'), indices[2:] if TypeSpec.for_graph else indices),
             Len(a('axis')) > 0 if TypeSpec.for_graph else True,
         ],
         out_num=1,
@@ -264,4 +264,4 @@ def _create_strided_slice():
     )
 
 
-Op('strided_slice', _create_strided_slice)
+Op('strided_slice', _create_strided_slice, register=False)

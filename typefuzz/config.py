@@ -13,6 +13,11 @@ config: Dict[str, Any] = {
     # Length (in bits) of bit vector
     'solver.bit_vec_len': 32,
 
+    # Maximal number of operation vertices in a graph
+    'graph.max_opr_num': 50,
+    # Penalty coefficient on number of uses of a value
+    'graph.use_penal': 1,
+
     # Maximal kernel size of convolution
     'op.max_kernel': 7,
     # Maximal stride of convolution

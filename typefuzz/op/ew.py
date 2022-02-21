@@ -121,4 +121,4 @@ def _create_bcast_cmp():
     return cmp
 
 
-Op('less', _create_bcast_cmp)
+Op('less', _create_bcast_cmp, register=False)

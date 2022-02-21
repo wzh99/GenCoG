@@ -1,10 +1,10 @@
 from typing import Iterable, TypeVar, Generic, Callable
 
-from typefuzz import Op
-from typefuzz.graph.base import Value
-from typefuzz.solve import TensorType
-from typefuzz.spec import max_rank, common_dtypes
-from typefuzz.util import StaticBitMap, DynamicBitMap, BitMap
+from .base import Value
+from .. import Op
+from ..solve import TensorType
+from ..spec import max_rank, common_dtypes
+from ..util import StaticBitMap, DynamicBitMap, BitMap
 
 T = TypeVar('T')
 K = TypeVar('K')
@@ -27,7 +27,7 @@ class OpLookup:
         self._first_dtypes = StaticSetTable(common_dtypes, ops, self._bit_map,
                                             lambda op: op_specs[op].first_dtype_choices)
 
-    def by_first_tensor(self, ty: TensorType) -> Iterable[Op]:
+    def by_first_type(self, ty: TensorType) -> Iterable[Op]:
         a = self._first_ranks[ty.rank] & self._first_dtypes[ty.dtype_]
         return self._bit_map.decode(a)
 
@@ -45,6 +45,10 @@ class ValueLookup:
     def add(self, value: Value):
         self._ranks.add(value, [value.type_.rank])
         self._dtypes.add(value, [value.type_.dtype_])
+
+    @property
+    def values(self):
+        return self._bit_map.objs
 
 
 class SetTable(Generic[T, K]):
