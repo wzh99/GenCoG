@@ -1,7 +1,8 @@
+from functools import reduce
 from typing import Iterable, TypeVar, Generic, Callable
 
 from .base import Value
-from .. import Op
+from .. import Op, DataType
 from ..solve import TensorType
 from ..spec import max_rank, common_dtypes
 from ..util import StaticBitMap, DynamicBitMap, BitMap
@@ -49,6 +50,13 @@ class ValueLookup:
     @property
     def values(self):
         return self._bit_map.objs
+
+    def by_choices(self, rank_choices: Iterable[int], dtype_choices: Iterable[DataType]):
+        rank_matched = reduce(lambda a, r: a | self._ranks[r], rank_choices,
+                              self._bit_map.empty)
+        dtype_matched = reduce(lambda a, t: a | self._dtypes[t], dtype_choices,
+                               self._bit_map.empty)
+        return self._bit_map.decode(rank_matched & dtype_matched)
 
 
 class SetTable(Generic[T, K]):

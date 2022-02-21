@@ -1,5 +1,5 @@
 import typing as t
-from typing import Dict, TypeVar, Callable, Optional, cast, List
+from typing import Dict, TypeVar, Callable, Optional, Iterable, cast, List
 from warnings import warn
 
 from .config import config
@@ -106,6 +106,10 @@ class TypeSpec:
         Possible choices of input number.
         """
         return int_expr_choices(self._in_num, 1, max_num + 1)
+
+    @property
+    def is_variadic(self):
+        return self.in_num.kind != ExprKind.CONST
 
     @property
     def has_no_input(self):
@@ -311,7 +315,7 @@ class TypeSpec:
 T = TypeVar('T')
 
 
-def expr_choices(e: Expr, default: t.List[T]) -> t.List[T]:
+def expr_choices(e: Expr, default: Iterable[T]) -> t.List[T]:
     if e.kind == ExprKind.CONST:
         return [cast(Const, e).val_]
     elif e.kind == ExprKind.VAR:
@@ -319,14 +323,14 @@ def expr_choices(e: Expr, default: t.List[T]) -> t.List[T]:
         if var.choices_ is not None:
             return extract_const_choices(cast(Var, e).choices_, default)
         else:
-            return default
+            return list(default)
     else:
-        return default
+        return list(default)
 
 
-def extract_const_choices(e: Expr, default: t.List[T]) -> t.List[T]:
+def extract_const_choices(e: Expr, default: Iterable[T]) -> t.List[T]:
     if e.kind != ExprKind.TUPLE:
-        return default
+        return list(default)
     tup = cast(Tuple, e)
     return [cast(Const, f).val_ for f in tup.fields_ if f.kind == ExprKind.CONST]
 
@@ -338,6 +342,8 @@ def int_expr_choices(e: Expr, begin: int, end: int) -> t.List[int]:
         var = cast(Var, e)
         if var.ran_ is not None:
             return int_range_choices(var.ran_, begin, end)
+        elif var.choices_ is not None:
+            return extract_const_choices(e, range(begin, end))
     return list(range(begin, end))
 
 

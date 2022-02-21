@@ -48,16 +48,16 @@ class Operation(Vertex):
     """
     kind = VertexKind.OP
 
-    def __init__(self, op: Op, ins: List['Value'], outs: List['Value'],
-                 attrs: List[Tuple[str, ValueType]]):
+    def __init__(self, op: Op, attrs: List[Tuple[str, ValueType]],
+                 ins: List['Value'], outs: List['Value']):
         self.op_ = op
+        self.attrs_ = attrs
         self.ins_ = ins
         for i in self.ins_:
             i.uses_.append(self)
         self.outs_ = outs
         for o in self.outs_:
             o.def_ = self
-        self.attrs_ = attrs
 
 
 class Value:

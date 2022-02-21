@@ -40,7 +40,7 @@ class OpTypeInfo:
         self.in_types_ = in_types
         self.out_types_ = out_types
 
-    def __str__(self):
+    def __repr__(self):
         buf = CodeBuffer()
         buf.write(cls_name(self))
         buf.write_named_multi([
@@ -82,26 +82,29 @@ class TypeSolver:
     def __init__(self, spec: TypeSpec, known: Dict[int, TensorType], rng: Generator):
         # Initialize value store and expression visitors
         self._spec = spec
-        self._store = ValueStore(spec.attrs)
+        self.store_ = ValueStore(spec.attrs)
         self._known = known
         self._rng = rng
-        self._partial = PartialEval(self._store, rng)
-        self._eval = EvalExpr(self._store)
+        self._partial = PartialEval(self.store_, rng)
+        self._eval = EvalExpr(self.store_)
         self._eq = StructuralEq()
 
         # Copy expressions to avoid polluting original specification
         cp = CopyExpr()
         self._in_ranks = cp.copy(spec.in_ranks)
         self._extra = [cp.copy(e) for e in spec.extra]
-        shape_root = self._store.in_shapes_
+        shape_root = self.store_.in_shapes_
         in_num = cp.copy(spec.in_num)
         shape_root.set_len_defined(in_num)
         shape_root.set_expr_defined(cp.copy(spec.in_shapes))
-        dtype_root = self._store.in_dtypes_
+        dtype_root = self.store_.in_dtypes_
         dtype_root.set_len_defined(in_num)
         dtype_root.set_expr_defined(cp.copy(spec.in_dtypes))
 
     def solve(self):
+        """
+        Perform complete solving of the type constraints.
+        """
         # Solve attributes and inputs
         while True:
             while self._solve_one_iter():
@@ -120,16 +123,24 @@ class TypeSolver:
 
         return OpTypeInfo(attrs, in_types, out_types)
 
+    def solve_initial(self):
+        """
+        Only try initial solving without using SMT solver. This method is mainly used to provide
+        hint for computation graph generation.
+        """
+        while self._solve_one_iter():
+            pass
+
     def _solve_one_iter(self):
         # Solve attributes
         changed = False
         try:
-            for _, node in self._store.attrs_:
+            for _, node in self.store_.attrs_:
                 changed |= self._solve_node(node)
 
             # Solve inputs
-            changed |= self._solve_shapes(self._store.in_shapes_)
-            changed |= self._solve_dtypes(self._store.in_dtypes_)
+            changed |= self._solve_shapes(self.store_.in_shapes_)
+            changed |= self._solve_dtypes(self.store_.in_dtypes_)
 
             # Solve extra constraints
             changed |= self._solve_extra()
@@ -285,7 +296,7 @@ class TypeSolver:
                         cmp.rhs_.kind == ExprKind.CONST:
                     lhs = cast(Var, cmp.lhs_)
                     rhs = cast(Const, cmp.rhs_)
-                    self._store.set_var_solved(lhs, rhs.val_)
+                    self.store_.set_var_solved(lhs, rhs.val_)
                     changed = True
                     continue
 
@@ -298,7 +309,7 @@ class TypeSolver:
     def _solve_smt(self):
         # Find all valid variables and constraints with union-find
         changed = False
-        union = validate(self._store, self._extra)
+        union = validate(self.store_, self._extra)
         all_valid = list(union.all_valid())
         if len(all_valid) == 0:
             return False
@@ -326,14 +337,14 @@ class TypeSolver:
                 )
 
         # Solve by SMT
-        changed |= solve_smt(all_vars, extra, self._store, self._rng)
+        changed |= solve_smt(all_vars, extra, self.store_, self._rng)
         return changed
 
     def _try_sample(self, var: Var):
         # Directly sample boolean values
         if var.type_ == BOOL:
             v = bool(self._rng.integers(2))
-            self._store.set_var_solved(var, v)
+            self.store_.set_var_solved(var, v)
             return True
 
         # Sample variables if choices are provided
@@ -341,7 +352,7 @@ class TypeSolver:
             try:
                 choices = tuple(self._eval.evaluate(var.choices_))
                 v = choices[self._rng.choice(len(choices))]
-                self._store.set_var_solved(var, v)
+                self.store_.set_var_solved(var, v)
                 return True
             except EvalError:
                 return False
@@ -359,11 +370,11 @@ class TypeSolver:
             # Sample numeric values
             if var.type_ == INT:
                 v = int(self._rng.integers(low=low, high=high))
-                self._store.set_var_solved(var, v)
+                self.store_.set_var_solved(var, v)
                 return True
             elif var.type_ == FLOAT:
                 v = float(self._rng.uniform(low=low, high=high))
-                self._store.set_var_solved(var, v)
+                self.store_.set_var_solved(var, v)
                 return True
             else:
                 return False
@@ -373,7 +384,7 @@ class TypeSolver:
     def _extract_solved(self):
         # Extract attributes
         attrs = []
-        for name, node in self._store.attrs_:
+        for name, node in self.store_.attrs_:
             if not node.solved:
                 raise SolveError(
                     self, f'Attribute \'{name}\' not solved.'
@@ -381,16 +392,16 @@ class TypeSolver:
             attrs.append((name, cast(ValueType, node.value)))
 
         # Extract input types
-        if not self._store.in_shapes_.solved:
+        if not self.store_.in_shapes_.solved:
             raise SolveError(
                 self, 'Input shapes not solved.'
             )
-        in_shapes = cast(List[List[int]], self._store.in_shapes_.value)
-        if not self._store.in_dtypes_.solved:
+        in_shapes = cast(List[List[int]], self.store_.in_shapes_.value)
+        if not self.store_.in_dtypes_.solved:
             raise SolveError(
                 self, 'Input data types not solved.'
             )
-        in_dtypes = cast(List[DataType], self._store.in_dtypes_.value)
+        in_dtypes = cast(List[DataType], self.store_.in_dtypes_.value)
         assert len(in_shapes) == len(in_dtypes)
         in_types = [TensorType(shape, dtype) for shape, dtype in zip(in_shapes, in_dtypes)]
 
@@ -400,8 +411,8 @@ class TypeSolver:
         # Evaluate output number
         num_expr = self._spec.out_num
         num = self._eval.evaluate(num_expr)
-        shapes_node = self._store.out_shapes_
-        dtypes_node = self._store.out_dtypes_
+        shapes_node = self.store_.out_shapes_
+        dtypes_node = self.store_.out_dtypes_
         shapes_node.set_expr_defined(self._spec.out_shapes)
         shapes_node.set_len_solved(num)
         dtypes_node.set_expr_defined(self._spec.out_dtypes)
@@ -519,7 +530,7 @@ class TypeSolver:
         buf = CodeBuffer()
         buf.writeln('==== SOLVER DUMP BEGIN ====')
         buf.writeln('---- Value Store ----')
-        self._store.print(buf)
+        self.store_.print(buf)
         buf.writeln()
         buf.writeln('---- Extra Constraints ----')
         buf.write_pos_multi(

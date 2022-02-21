@@ -9,10 +9,10 @@ if __name__ == '__main__':
     x = Input(TensorType([32], DataType.f(32)), False)
     y1 = Value(TensorType([16], DataType.f(32)))
     y2 = Value(TensorType([16], DataType.f(32)))
-    split = Operation(OpRegistry.get('split'), [x.value_], [y1, y2],
-                      [('axis', 0), ('indices_or_sections', 2)])
+    split = Operation(OpRegistry.get('split'), [('axis', 0), ('indices_or_sections', 2)],
+                      [x.value_], [y1, y2])
     z = Value(TensorType([16], DataType.f(32)))
-    add = Operation(OpRegistry.get('add'), [y1, y2], [z], [])
+    add = Operation(OpRegistry.get('add'), [], [y1, y2], [z])
     g = Graph([x], [Output(z)], [split, add])
     src = RelayPrinter().print(g)
     print(src)
