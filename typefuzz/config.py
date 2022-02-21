@@ -17,6 +17,8 @@ config: Dict[str, Any] = {
     'graph.max_opr_num': 50,
     # Penalty coefficient on number of uses of a value
     'graph.use_penal': 1,
+    # Number of trials for generating one operation
+    'graph.opr_trials': 3,
 
     # Maximal kernel size of convolution
     'op.max_kernel': 7,

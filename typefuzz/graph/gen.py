@@ -3,7 +3,7 @@ from typing import Iterable, List, cast, Optional
 import numpy as np
 from numpy.random import Generator
 
-from .base import Input, Operation, Value
+from .base import Input, Operation, Value, Graph, Output
 from .lookup import OpLookup, ValueLookup
 from ..config import config
 from ..expr.ty import float_dtypes, common_dtypes
@@ -12,6 +12,7 @@ from ..solve.store import ArrayNode, ScalarNode
 from ..spec import Op, max_rank, max_dim, int_expr_choices, expr_choices
 
 max_opr_num: int = config['graph.max_opr_num']
+opr_trials: int = config['graph.opr_trials']
 use_penal: float = config['graph.use_penal']
 
 
@@ -31,12 +32,17 @@ class GraphGenerator:
 
     def generate(self):
         # Initialization
+        ins = []
+        oprs = []
         value_lu = ValueLookup()
-        value_lu.add(self._gen_input().value_)
-        oprs: List[Operation] = []
+
+        # Generate initial input
+        init_in = self._gen_input()
+        ins.append(init_in)
+        value_lu.add(init_in.value_)
 
         # Iteratively construct computation graph
-        while len(oprs) <= max_opr_num:
+        while len(oprs) < max_opr_num:
             # Choose a value
             value = self._sample_value(list(value_lu.values))
 
@@ -44,17 +50,19 @@ class GraphGenerator:
             op = self._sample_op(value)
 
             # Resolve remaining input and output values of the operation
-            opr = self._resolve_op(op, value, value_lu)
-            if opr is None:
-                continue
-            else:
-                oprs.append(opr)
-
-            # Add operation to existing graph
-            pass
+            for _ in range(opr_trials):
+                opr = self._gen_opr(op, value, value_lu, ins)
+                if opr is None:
+                    continue
+                else:
+                    oprs.append(opr)
+                    break
 
         # Create final graph
-        pass
+        outs = [Output(v) for v in value_lu.values if len(v.uses_) == 0]
+        graph = Graph(ins, outs, oprs)
+
+        return graph
 
     def _gen_input(self):
         rank = self._rng.integers(low=2, high=max_rank, endpoint=True)
@@ -73,7 +81,8 @@ class GraphGenerator:
         # TODO: Design fusion-aware heuristics to choose operators
         return self._rng.choice(ops)
 
-    def _resolve_op(self, op: Op, fst_in: Value, value_lu: ValueLookup) -> Optional[Operation]:
+    def _gen_opr(self, op: Op, fst_in: Value, value_lu: ValueLookup, graph_ins: List[Input]) \
+            -> Optional[Operation]:
         # Handle variadic operator
         spec = op.spec
         if spec.is_variadic:
@@ -118,11 +127,23 @@ class GraphGenerator:
         except SolveError:
             return None
 
-        # Create input and output values
-        ins = [matched[i] if i in matched else Input(info.in_types_[i], True).value_
-               for i in range(len(info.in_types_))]
+        # Create operation
+        ins = []
+        for idx in range(len(info.in_types_)):
+            if idx in matched:
+                ins.append(matched[idx])
+            else:
+                param = Input(info.in_types_[idx], True)
+                ins.append(param.value_)
+                graph_ins.append(param)
+
         outs = [Value(ty) for ty in info.out_types_]
         opr = Operation(op, info.attrs_, ins, outs)
+
+        # Add output values to value lookup table
+        for idx, out in enumerate(outs):
+            if idx not in op.ignored_:
+                value_lu.add(out)
 
         return opr
 
