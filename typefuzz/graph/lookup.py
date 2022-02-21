@@ -4,7 +4,7 @@ from typefuzz import Op
 from typefuzz.graph.base import Value
 from typefuzz.solve import TensorType
 from typefuzz.spec import max_rank, common_dtypes
-from typefuzz.util import StaticBitMap, Ref, DynamicBitMap, BitMap
+from typefuzz.util import StaticBitMap, DynamicBitMap, BitMap
 
 T = TypeVar('T')
 K = TypeVar('K')
@@ -18,7 +18,7 @@ class OpLookup:
     def __init__(self, ops: Iterable[Op]):
         # Create bitmap
         ops = list(ops)
-        self._bit_map = StaticBitMap(Ref(op) for op in ops)
+        self._bit_map = StaticBitMap(ops)
 
         # Create table from different properties
         op_specs = dict((op, op.spec) for op in ops)
@@ -29,7 +29,7 @@ class OpLookup:
 
     def by_first_tensor(self, ty: TensorType) -> Iterable[Op]:
         a = self._first_ranks[ty.rank] & self._first_dtypes[ty.dtype_]
-        return map(Ref.get, self._bit_map.decode(a))
+        return self._bit_map.decode(a)
 
 
 class ValueLookup:
@@ -38,7 +38,7 @@ class ValueLookup:
     """
 
     def __init__(self):
-        self._bit_map: DynamicBitMap[Ref[Value]] = DynamicBitMap()
+        self._bit_map: DynamicBitMap[Value] = DynamicBitMap()
         self._ranks = DynamicSetTable(range(2, max_rank + 1), self._bit_map)
         self._dtypes = DynamicSetTable(common_dtypes, self._bit_map)
 
@@ -52,7 +52,7 @@ class SetTable(Generic[T, K]):
     Mapping from keys to set of objects.
     """
 
-    def __init__(self, all_keys: Iterable[K], bit_map: BitMap[Ref[T]]):
+    def __init__(self, all_keys: Iterable[K], bit_map: BitMap[T]):
         self._table = dict((k, bit_map.empty) for k in all_keys)
 
     def __getitem__(self, k: K):
@@ -69,14 +69,14 @@ class StaticSetTable(SetTable[T, K]):
     Static set table, where objects are known before construction.
     """
 
-    def __init__(self, all_keys: Iterable[K], objs: Iterable[T], bit_map: StaticBitMap[Ref[T]],
+    def __init__(self, all_keys: Iterable[K], objs: Iterable[T], bit_map: StaticBitMap[T],
                  keys_f: Callable[[T], Iterable[K]]):
         super().__init__(all_keys, bit_map)
         self._bit_map = bit_map
         for o in objs:
             for k in keys_f(o):
                 if k in self._table:
-                    bit_map.set(self._table[k], Ref(o))
+                    bit_map.set(self._table[k], o)
 
 
 class DynamicSetTable(SetTable[T, K]):
@@ -84,15 +84,14 @@ class DynamicSetTable(SetTable[T, K]):
     Dynamic set table, where objects are dynamically added to the table.
     """
 
-    def __init__(self, all_keys: Iterable[K], bit_map: DynamicBitMap[Ref[T]]):
+    def __init__(self, all_keys: Iterable[K], bit_map: DynamicBitMap[T]):
         super().__init__(all_keys, bit_map)
         self._bit_map = bit_map
 
     def add(self, obj: T, keys: Iterable[K]):
         # Extend bitmap if the object is not in universal set
-        ref = Ref(obj)
-        if ref not in self._bit_map:
-            self._bit_map.add(ref)
+        if obj not in self._bit_map:
+            self._bit_map.add(obj)
 
         # Synchronize bit vectors with bitmap
         for a in self._table.values():
@@ -101,4 +100,4 @@ class DynamicSetTable(SetTable[T, K]):
         # Set corresponding bit in each bit vector
         key_set = set(keys)
         for k, a in self._table.items():
-            self._bit_map.set(a, ref, b=k in key_set)
+            self._bit_map.set(a, obj, b=k in key_set)
