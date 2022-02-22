@@ -7,7 +7,6 @@ from time import sleep
 from typing import Callable, TypeVar, Optional, List, Iterable, Tuple, Generic, Any, Dict, \
     NamedTuple, cast, Set
 
-from bitarray import bitarray
 from colorama import Fore
 
 T = TypeVar('T')
@@ -61,84 +60,6 @@ class Ref(Generic[T]):
 
     def __repr__(self):
         return hex(id(self.obj_))
-
-
-# Bit Vector
-
-class BitMap(Generic[T]):
-    """
-    Bidirectional mapping between a set of objects and bit vector.
-    """
-
-    def __init__(self, objs: List[T], idx_map: Dict[T, int]):
-        self._objs = objs
-        self._idx_map = idx_map
-
-    @property
-    def empty(self):
-        a = bitarray(len(self))
-        a.setall(0)
-        return a
-
-    @property
-    def universe(self):
-        a = bitarray(len(self))
-        a.setall(1)
-        return a
-
-    def set(self, a: bitarray, o: T, b: bool = True):
-        if o not in self:
-            raise ValueError(f'Object {o} is not in universal set.')
-        a[self._idx_map[o]] = b
-
-    def encode(self, objs: Iterable[T]) -> bitarray:
-        a = self.empty
-        for o in objs:
-            self.set(a, o)
-        return a
-
-    def decode(self, a: bitarray) -> Iterable[T]:
-        if len(a) != len(self):
-            raise ValueError(
-                f'Expect bit array of length {len(self)}, got {len(a)}.'
-            )
-        return (self._objs[i] for i, b in enumerate(a) if b)
-
-    def __len__(self):
-        return len(self._objs)
-
-    def __contains__(self, item: T):
-        return item in self._idx_map
-
-
-class StaticBitMap(BitMap[T]):
-    """
-    Static bitmap, where the universal set is fixed.
-    """
-
-    def __init__(self, univ: Iterable[T]):
-        objs = list(univ)
-        super().__init__(objs, dict((o, i) for i, o in enumerate(objs)))
-
-
-class DynamicBitMap(BitMap[T]):
-    """
-    Dynamic bitmap, where universal set is dynamically extended.
-    """
-
-    def __init__(self):
-        super().__init__([], {})
-
-    def add(self, obj: T):
-        if obj in self:
-            raise ValueError(f'Object {obj} already in universal set.')
-        idx = len(self._objs)
-        self._objs.append(obj)
-        self._idx_map[obj] = idx
-
-    @property
-    def objs(self):
-        return iter(self._objs)
 
 
 # Format

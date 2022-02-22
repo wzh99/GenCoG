@@ -10,7 +10,7 @@ from ..util import Ref
 class VertexKind(IntEnum):
     IN = auto()
     OUT = auto()
-    OP = auto()
+    OPR = auto()
 
 
 class Vertex:
@@ -46,17 +46,17 @@ class Operation(Vertex):
     """
     Call of operator on tensor values.
     """
-    kind = VertexKind.OP
+    kind = VertexKind.OPR
 
     def __init__(self, op: Op, attrs: List[Tuple[str, ValueType]],
-                 ins: List['Value'], outs: List['Value']):
+                 inputs: List['Value'], outputs: List['Value']):
         self.op_ = op
         self.attrs_ = attrs
-        self.ins_ = ins
-        for i in self.ins_:
+        self.inputs_ = inputs
+        for i in self.inputs_:
             i.uses_.append(self)
-        self.outs_ = outs
-        for o in self.outs_:
+        self.outputs_ = outputs
+        for o in self.outputs_:
             o.def_ = self
 
 
@@ -76,10 +76,10 @@ class Graph:
     Computation graph.
     """
 
-    def __init__(self, ins: List[Input], outs: List[Output], ops: List[Operation]):
-        self.ins_ = ins
-        self.outs_ = outs
-        self.ops_ = ops
+    def __init__(self, ins: List[Input], outs: List[Output], oprs_: List[Operation]):
+        self.inputs_ = ins
+        self.outputs_ = outs
+        self.oprs_ = oprs_
 
 
 R = TypeVar('R')
@@ -90,7 +90,7 @@ class GraphVisitor(Generic[R]):
         self._methods: Dict[VertexKind, Callable[[Any], R]] = {
             VertexKind.IN: self.visit_input,
             VertexKind.OUT: self.visit_output,
-            VertexKind.OP: self.visit_operation,
+            VertexKind.OPR: self.visit_operation,
         }
         self._vert_memo: Dict[Ref[Vertex], R] = {}
 

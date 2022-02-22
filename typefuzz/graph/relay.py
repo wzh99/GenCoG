@@ -15,6 +15,10 @@ tuple_out_ops = {
 }
 
 
+def print_graph(g: Graph):
+    return RelayPrinter().print(g)
+
+
 def fmt_val(v: ValueType):
     if isinstance(v, (bool, int, float, DataType)):
         return str(v)
@@ -40,19 +44,19 @@ class RelayPrinter(GraphVisitor[None]):
         self._buf.write('def @main')
         self._buf.write_pos(
             map(lambda i: lambda: self._buf.write(
-                f'{self.visit_value(i.value_)}: {i.value_.type_}'), g.ins_)
+                f'{self.visit_value(i.value_)}: {i.value_.type_}'), g.inputs_)
         )
         self._buf.write(' -> ')
         self._buf.write_pos(
-            map(lambda o: lambda: self._buf.write(str(o.value_.type_)), g.outs_)
+            map(lambda o: lambda: self._buf.write(str(o.value_.type_)), g.outputs_)
         )
 
         # Function body
         self._buf.writeln(' {')
         with self._buf.indent():
-            for out in g.outs_:
+            for out in g.outputs_:
                 self.visit(out)
-            out_str = str(tuple(self.visit_value(o.value_) for o in g.outs_)).replace('\'', '')
+            out_str = str(tuple(self.visit_value(o.value_) for o in g.outputs_)).replace('\'', '')
             self._buf.writeln(out_str)
         self._buf.writeln('}')
 
@@ -66,23 +70,23 @@ class RelayPrinter(GraphVisitor[None]):
 
     def visit_operation(self, opr: Operation):
         # Visit predecessors
-        for v in opr.ins_:
+        for v in opr.inputs_:
             self.visit(v.def_)
 
         # Print output value
         op_name = opr.op_.name_
-        tup_out = len(opr.outs_) > 1 or op_name in tuple_out_ops
+        tup_out = len(opr.outputs_) > 1 or op_name in tuple_out_ops
         if tup_out:
             tup_name = self._res_gen.generate()
             self._buf.write(tup_name)
         else:
             tup_name = ''
-            self._buf.write(self.visit_value(opr.outs_[0]))
+            self._buf.write(self.visit_value(opr.outputs_[0]))
         self._buf.write(' = ')
 
         # Print operator call
         self._buf.write(opr.op_.name_)
-        args = map(lambda v: self.visit_value(v), opr.ins_)
+        args = map(lambda v: self.visit_value(v), opr.inputs_)
         if op_name in tuple_in_ops:
             arg_str = str(tuple(args)).replace('\'', '')
         else:
@@ -98,7 +102,7 @@ class RelayPrinter(GraphVisitor[None]):
 
         # Unpack tuple
         if tup_out:
-            for i, v in enumerate(opr.outs_):
+            for i, v in enumerate(opr.outputs_):
                 self._buf.writeln(f'{self.visit_value(v)} = {tup_name}.{i};')
 
     def visit_value(self, v: Value):

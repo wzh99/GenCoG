@@ -1,8 +1,8 @@
 from ..expr import *
-from ..spec import Attr, TypeSpec, Op, rank_ran, dim_ran
+from ..spec import TypeSpec, Op, rank_ran, dim_ran
 
 
-def _create_ew():
+def create_ew():
     return TypeSpec(
         attrs=[],
         in_num=1,
@@ -17,36 +17,7 @@ def _create_ew():
     )
 
 
-Op('exp', _create_ew)
-Op('nn.relu', _create_ew)
-
-
-def _create_leaky_relu():
-    spec = _create_ew()
-    spec.add_attr(Attr('alpha', Var(FLOAT, ran=Range(0., 1.))))
-    return spec
-
-
-Op('nn.leaky_relu', _create_leaky_relu)
-
-
-def _create_prelu():
-    spec = _create_ew()
-    if TypeSpec.for_graph:
-        spec.add_attr(Attr('axis', 1))
-    else:
-        spec.add_attr(Attr('axis', Var(INT, ran=Range(end=IN[0].rank))))
-    spec.in_num = 2
-    spec.in_ranks = [Var(), 1]
-    spec.in_dtypes = List(2, lambda _: Var())
-    spec.in_shapes = [
-        List(IN[0].rank, lambda _: Var(tmpl=True)),
-        [IN[0].shape[a('axis')]]
-    ]
-    return spec
-
-
-Op('nn.prelu', _create_prelu, params=[1])
+Op('exp', create_ew, register=False)
 
 
 def _create_bcast():
@@ -113,6 +84,10 @@ def _create_bcast():
 
 
 Op('add', _create_bcast)
+Op('subtract', _create_bcast)
+Op('multiply', _create_bcast)
+Op('maximum', _create_bcast)
+Op('minimum', _create_bcast)
 
 
 def _create_bcast_cmp():

@@ -1,3 +1,4 @@
+from .ew import create_ew
 from ..config import config
 from ..expr import *
 from ..expr.ty import float_dtypes
@@ -7,6 +8,36 @@ kernel_ran = iran(1, config['op.max_kernel'])
 stride_ran = iran(1, config['op.max_stride'])
 pad_ran = iran(0, config['op.max_padding'])
 dil_ran = iran(1, config['op.max_dilation'])
+
+Op('nn.relu', create_ew)
+
+
+def _create_leaky_relu():
+    spec = create_ew()
+    spec.add_attr(Attr('alpha', Var(FLOAT, ran=Range(0., 1.))))
+    return spec
+
+
+Op('nn.leaky_relu', _create_leaky_relu)
+
+
+def _create_prelu():
+    spec = create_ew()
+    if TypeSpec.for_graph:
+        spec.add_attr(Attr('axis', 1))
+    else:
+        spec.add_attr(Attr('axis', Var(INT, ran=Range(end=IN[0].rank))))
+    spec.in_num = 2
+    spec.in_ranks = [Var(), 1]
+    spec.in_dtypes = List(2, lambda _: Var())
+    spec.in_shapes = [
+        List(IN[0].rank, lambda _: Var(tmpl=True)),
+        [IN[0].shape[a('axis')]]
+    ]
+    return spec
+
+
+Op('nn.prelu', _create_prelu, params=[1])
 
 
 def _conv_dim_no_stride(i: Expr, w: Expr, dil: Expr, pad_b: Expr, pad_e: Expr):
@@ -673,7 +704,7 @@ def _create_norm():
     )
 
 
-Op('nn.layer_norm', _create_norm, params=[1, 2])
+Op('nn.layer_norm', _create_norm, params=[1, 2], register=False)
 
 
 def _create_instance_norm():
@@ -684,7 +715,7 @@ def _create_instance_norm():
     return spec
 
 
-Op('nn.instance_norm', _create_instance_norm, params=[1, 2])
+Op('nn.instance_norm', _create_instance_norm, params=[1, 2], register=False)
 
 
 def _create_group_norm():
@@ -696,7 +727,7 @@ def _create_group_norm():
     return spec
 
 
-Op('nn.group_norm', _create_group_norm, params=[1, 2])
+Op('nn.group_norm', _create_group_norm, params=[1, 2], register=False)
 
 
 def _create_batch_norm():
@@ -777,4 +808,4 @@ def _create_matmul():
     )
 
 
-Op('nn.matmul', _create_matmul)
+Op('nn.matmul', _create_matmul, register=False)

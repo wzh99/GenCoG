@@ -41,7 +41,7 @@ def _create_reduce():
     )
 
 
-Op('sum', _create_reduce)
+Op('sum', _create_reduce, register=False)
 
 
 def _create_expand_dims():
@@ -68,7 +68,7 @@ def _create_expand_dims():
     )
 
 
-Op('expand_dims', _create_expand_dims)
+Op('expand_dims', _create_expand_dims, register=False)
 
 
 def _create_squeeze():
@@ -94,7 +94,7 @@ def _create_squeeze():
     )
 
 
-Op('squeeze', _create_squeeze)
+Op('squeeze', _create_squeeze, register=False)
 
 
 def _create_reshape():
@@ -108,7 +108,10 @@ def _create_reshape():
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[
-            a('newshape')[0] == IN[0].shape[0],
+            And(
+                a('newshape')[0] == IN[0].shape[0],
+                a('newshape')[1] == IN[0].shape[1],
+            ) if TypeSpec.for_graph else True,
             ReduceArray(a('newshape'), ArithOp.MUL, 1) == ReduceArray(IN[0].shape, ArithOp.MUL, 1)
         ],
         out_num=1,
@@ -222,7 +225,7 @@ def _create_split():
     )
 
 
-Op('split', _create_split)
+Op('split', _create_split, register=False)
 
 
 def _create_strided_slice():
