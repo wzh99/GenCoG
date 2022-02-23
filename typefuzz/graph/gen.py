@@ -160,5 +160,18 @@ class GraphGenerator:
         dtype_choices = expr_choices(dtype.expr, common_dtypes)
 
         # Query value lookup table
-        matched = list(value_lu.by_choices(rank_choices, dtype_choices))
+        matched = list(filter(lambda v: self._match_shape(shape, v),
+                              value_lu.by_choices(rank_choices, dtype_choices)))
         return None if len(matched) == 0 else self._sample_value(matched)
+
+    @staticmethod
+    def _match_shape(shape: ArrayNode, value: Value):
+        if not shape.elem_defined:
+            return True
+        assert shape.len_.value == value.type_.rank
+        for dim_node, dim in zip(shape.children_, value.type_.shape_):
+            if not dim_node.defined:
+                return True
+            if dim not in int_expr_choices(dim_node.expr, 1, max_dim + 1):
+                return False
+        return True

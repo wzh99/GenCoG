@@ -11,8 +11,10 @@ from .expr.infer import ExprTypeError, infer_type
 from .expr.ty import Type, ListType, TyVar, common_dtypes
 from .util import CodeBuffer, cls_name, unwrap_or
 
-max_num = config['spec.max_num']
-num_ran = iran(1, max_num)
+max_in_num = config['spec.max_in_num']
+in_num_ran = iran(1, max_in_num)
+max_out_num = config['spec.max_out_num']
+out_num_ran = iran(1, max_out_num)
 max_rank = config['spec.max_rank']
 rank_ran = iran(1, max_rank)
 dl_rank_ran = iran(2, max_rank)
@@ -105,7 +107,7 @@ class TypeSpec:
         """
         Possible choices of input number.
         """
-        return int_expr_choices(self._in_num, 1, max_num + 1)
+        return int_expr_choices(self._in_num, 1, max_in_num + 1)
 
     @property
     def is_variadic(self):

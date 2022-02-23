@@ -153,7 +153,8 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         src = self.visit(m.src_, env)
         layout_map = tir.bijective_layout(src, tgt)
         src_shape = tuple(self.visit(m.src_shape_, env))
-        return tuple(layout_map.forward_shape(src_shape))
+        dst_shape = layout_map.forward_shape(src_shape)
+        return tuple(int(d) for d in dst_shape)
 
     def visit_tuple(self, tup: Tuple, env: Env[ValueType]) -> ResultType:
         return (self.visit(f, env) for f in tup.fields_)

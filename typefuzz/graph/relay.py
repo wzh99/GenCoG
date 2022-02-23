@@ -15,7 +15,7 @@ tuple_out_ops = {
 }
 
 
-def print_graph(g: Graph):
+def print_relay(g: Graph):
     return RelayPrinter().print(g)
 
 

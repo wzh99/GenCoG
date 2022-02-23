@@ -1,6 +1,7 @@
 from ..config import config
 from ..expr import *
-from ..spec import Attr, TypeSpec, Op, num_ran, rank_ran, max_rank, dim_ran, dl_rank_ran, max_num
+from ..spec import Attr, TypeSpec, Op, in_num_ran, rank_ran, max_rank, dim_ran, dl_rank_ran, \
+    max_out_num
 
 
 def _create_reduce():
@@ -158,7 +159,7 @@ def _create_concat():
         attrs=[
             Attr('axis', 1 if TypeSpec.for_graph else Var(ty=INT, ran=Range(0, IN[0].rank)))
         ],
-        in_num=Var(ran=num_ran),
+        in_num=Var(ran=in_num_ran),
         in_ranks=List(IN.num, lambda _: Var(ran=rank_ran)),
         in_dtypes=List(IN.num, lambda _: Var()),
         in_shapes=Concat(
@@ -191,7 +192,7 @@ def _create_split():
             Attr('axis', 1 if TypeSpec.for_graph else Var(ty=INT, ran=Range(0, IN[0].rank))),
             Attr('indices_or_sections',
                  List(Var(ran=Range(begin=0,
-                                    end=IN[0].shape[a('axis')].min(max_num))),
+                                    end=IN[0].shape[a('axis')].min(max_out_num))),
                       lambda _: Var(INT, tmpl=True)))
         ],
         in_num=1,
