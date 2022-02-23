@@ -1,4 +1,4 @@
-from typing import Iterable, List, cast, Optional
+from typing import Iterable, List, cast, Optional, Dict
 
 import numpy as np
 from numpy.random import Generator
@@ -7,9 +7,9 @@ from .base import Input, Operation, Value, Graph, Output
 from .lookup import OpLookup, ValueLookup
 from ..config import config
 from ..expr.ty import float_dtypes, common_dtypes
-from ..solve import TensorType, TypeSolver, SolveError
+from ..solve import TensorType, TypeSolver, SolveError, OpTypeInfo
 from ..solve.store import ArrayNode, ScalarNode
-from ..spec import Op, max_rank, max_dim, int_expr_choices, expr_choices, TypeSpec
+from ..spec import Op, max_rank, max_dim, int_expr_choices, expr_choices, TypeSpec, max_in_num
 
 max_opr_num: int = config['graph.max_opr_num']
 opr_trials: int = config['graph.opr_trials']
@@ -84,8 +84,7 @@ class GraphGenerator:
             -> Optional[Operation]:
         spec = op.spec
         if spec.is_variadic:
-            # TODO: Resolve variadic operators
-            return None
+            return self._gen_variadic_opr(op, spec, fst_in, value_lu, graph_inputs)
         else:
             for _ in range(opr_trials):
                 opr = self._gen_normal_opr(op, spec, fst_in, value_lu, graph_inputs)
@@ -118,8 +117,8 @@ class GraphGenerator:
                 continue
 
             # Sample values in lookup table with matching shape and data type
-            shape_node = cast(ArrayNode, shapes_node.children_[0])
-            dtype_node = cast(ScalarNode, dtypes_node.children_[0])
+            shape_node = cast(ArrayNode, shapes_node.children_[t_idx])
+            dtype_node = cast(ScalarNode, dtypes_node.children_[t_idx])
             value = self._sample_matched_value(value_lu, shape_node, dtype_node)
             if value is None:
                 continue
@@ -133,6 +132,60 @@ class GraphGenerator:
         except SolveError:
             return None
 
+        # Create operation
+        return self._create_opr(op, info, matched, value_lu, graph_inputs)
+
+    def _gen_variadic_opr(self, op: Op, spec: TypeSpec, fst_in: Value, value_lu: ValueLookup,
+                          graph_inputs: List[Input]) -> Optional[Operation]:
+        # Create solver and manually set input number
+        solver = TypeSolver(spec, {0: fst_in.type_}, self._rng)
+        store = solver.store_
+        store.in_shapes_.set_len_solved(2)
+        store.in_dtypes_.set_len_solved(2)
+
+        # Perform initial solving
+        try:
+            solver.solve_initial()
+        except SolveError:
+            return None
+        shape_node = store.in_shapes_.children_[1]
+        dtype_node = store.in_dtypes_.children_[1]
+
+        # Try finding matching values
+        matched = {0: fst_in}
+        info: Optional[OpTypeInfo] = None
+        while len(matched) < max_in_num:
+            # Find another value matching the pattern
+            found = False
+            for _ in range(opr_trials):
+                # Sample matched value
+                value = self._sample_matched_value(value_lu, shape_node, dtype_node)
+                if value is None:
+                    break
+
+                # Check if the new inputs satisfy type constraints
+                idx = len(matched)
+                known = dict((i, v.type_) for i, v in matched.items())
+                known[idx] = value.type_
+                solver = TypeSolver(spec, known, self._rng)
+                try:
+                    info = solver.solve()
+                except SolveError:
+                    continue
+
+                # Add this value to matched set
+                matched[idx] = value
+
+            # Stop finding if no values is found in this iteration
+            if not found:
+                break
+
+        # Create operation
+        return self._create_opr(op, info, matched, value_lu, graph_inputs)
+
+    @staticmethod
+    def _create_opr(op: Op, info: OpTypeInfo, matched: Dict[int, Value],
+                    value_lu: ValueLookup, graph_inputs: List[Input]):
         # Create operation
         inputs = []
         for idx in range(len(info.in_types_)):
