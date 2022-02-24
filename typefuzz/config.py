@@ -18,7 +18,7 @@ config: Dict[str, Any] = {
     # Maximal number of operation vertices in a graph
     'graph.max_opr_num': 50,
     # Penalty coefficient on number of uses of a value
-    'graph.use_penal': 1,
+    'graph.use_penal': 4,
     # Number of trials for generating one operation
     # For variadic operators, this is the maximal number of trials of adding a new input value
     'graph.opr_trials': 3,

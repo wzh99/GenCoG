@@ -111,7 +111,6 @@ def _create_reshape():
         extra=[
             And(
                 a('newshape')[0] == IN[0].shape[0],
-                a('newshape')[1] == IN[0].shape[1],
             ) if TypeSpec.for_graph else True,
             ReduceArray(a('newshape'), ArithOp.MUL, 1) == ReduceArray(IN[0].shape, ArithOp.MUL, 1)
         ],

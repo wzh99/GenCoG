@@ -38,6 +38,15 @@ def filter_none(lst: List[Optional[T]]) -> List[T]:
     return list(filter(lambda e: e is not None, lst))
 
 
+# Dict
+
+def inc_cnt(cnt_map: Dict[T, int], key: T):
+    if key in cnt_map:
+        cnt_map[key] += 1
+    else:
+        cnt_map[key] = 1
+
+
 # Reference
 
 class Ref(Generic[T]):

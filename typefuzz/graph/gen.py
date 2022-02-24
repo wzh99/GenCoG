@@ -9,7 +9,8 @@ from ..config import config
 from ..expr.ty import float_dtypes, common_dtypes
 from ..solve import TensorType, TypeSolver, SolveError, OpTypeInfo
 from ..solve.store import ArrayNode, ScalarNode
-from ..spec import Op, max_rank, max_dim, int_expr_choices, expr_choices, TypeSpec, max_in_num
+from ..spec import Op, TypeSpec, int_expr_choices, expr_choices, max_in_num, max_rank, max_dim
+from ..util import inc_cnt
 
 max_opr_num: int = config['graph.max_opr_num']
 opr_trials: int = config['graph.opr_trials']
@@ -44,7 +45,7 @@ class GraphGenerator:
         # Iteratively construct computation graph
         while len(oprs) < max_opr_num:
             # Choose a value
-            value = self._sample_value(list(value_lu.values))
+            value = self._sample_value(list(value_lu.values), {})
 
             # Choose an operator whose first input matches this value
             op = self._sample_op(value)
@@ -52,7 +53,6 @@ class GraphGenerator:
             # Generate operation vertex
             opr = self._gen_opr(op, value, value_lu, inputs)
             if opr is None:
-                print(op.name_)
                 continue
             else:
                 oprs.append(opr)
@@ -70,8 +70,8 @@ class GraphGenerator:
         dtype = self._rng.choice(float_dtypes)
         return Input(TensorType(shape, dtype), False)
 
-    def _sample_value(self, values: List[Value]):
-        num_uses = [len(v.uses_) for v in values]
+    def _sample_value(self, values: List[Value], add_cnt: Dict[Value, int]):
+        num_uses = [len(v.uses_) + add_cnt.get(v, 0) for v in values]
         scores = softmax(-use_penal * np.array(num_uses, dtype='float32'))
         return self._rng.choice(values, p=scores)
 
@@ -111,6 +111,7 @@ class GraphGenerator:
 
         # Matching existing values with remaining inputs of this operator
         matched = {0: fst_in}
+        matched_cnt = {fst_in: 1}
         for t_idx in range(1, num):
             # Skip if this input tensor is a parameter
             if t_idx in op.params_:
@@ -119,10 +120,11 @@ class GraphGenerator:
             # Sample values in lookup table with matching shape and data type
             shape_node = cast(ArrayNode, shapes_node.children_[t_idx])
             dtype_node = cast(ScalarNode, dtypes_node.children_[t_idx])
-            value = self._sample_matched_value(value_lu, shape_node, dtype_node)
+            value = self._sample_match_value(value_lu, shape_node, dtype_node, matched_cnt)
             if value is None:
                 continue
             matched[t_idx] = value
+            inc_cnt(matched_cnt, value)
 
         # Perform complete solving to check whether inputs satisfy type constraints
         known = dict((i, v.type_) for i, v in matched.items())
@@ -153,21 +155,25 @@ class GraphGenerator:
 
         # Try finding matching values
         matched = {0: fst_in}
+        matched_cnt = {fst_in: 1}
         info: Optional[OpTypeInfo] = None
         while len(matched) < max_in_num:
             # Find another value matching the pattern
             found = False
+            idx = len(matched)
+
             for _ in range(opr_trials):
                 # Sample matched value
-                value = self._sample_matched_value(value_lu, shape_node, dtype_node)
+                value = self._sample_match_value(value_lu, shape_node, dtype_node, matched_cnt)
                 if value is None:
                     break
 
                 # Check if the new inputs satisfy type constraints
-                idx = len(matched)
                 known = dict((i, v.type_) for i, v in matched.items())
                 known[idx] = value.type_
                 solver = TypeSolver(spec, known, self._rng)
+                solver.store_.in_shapes_.set_len_solved(len(known))
+                solver.store_.in_dtypes_.set_len_solved(len(known))
                 try:
                     info = solver.solve()
                 except SolveError:
@@ -175,12 +181,16 @@ class GraphGenerator:
 
                 # Add this value to matched set
                 matched[idx] = value
+                inc_cnt(matched_cnt, value)
+                break
 
             # Stop finding if no values is found in this iteration
             if not found:
                 break
 
         # Create operation
+        if info is None:
+            return None
         return self._create_opr(op, info, matched, value_lu, graph_inputs)
 
     @staticmethod
@@ -206,16 +216,16 @@ class GraphGenerator:
 
         return opr
 
-    def _sample_matched_value(self, value_lu: ValueLookup, shape: ArrayNode, dtype: ScalarNode) \
-            -> Optional[Value]:
+    def _sample_match_value(self, value_lu: ValueLookup, shape: ArrayNode, dtype: ScalarNode,
+                            add_cnt: Dict[Value, int]) -> Optional[Value]:
         # Compute choices of ranks and data types
         rank_choices = int_expr_choices(shape.len_.expr, 2, max_rank + 1)
         dtype_choices = expr_choices(dtype.expr, common_dtypes)
 
         # Query value lookup table
-        matched = list(filter(lambda v: self._match_shape(shape, v),
+        matches = list(filter(lambda v: self._match_shape(shape, v),
                               value_lu.by_choices(rank_choices, dtype_choices)))
-        return None if len(matched) == 0 else self._sample_value(matched)
+        return None if len(matches) == 0 else self._sample_value(matches, add_cnt)
 
     @staticmethod
     def _match_shape(shape: ArrayNode, value: Value):
