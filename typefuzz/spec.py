@@ -38,7 +38,7 @@ class TypeSpec:
     """
 
     # Whether specification is used for computation graph generation. When specifying for graphs,
-    # the space of input types and attributes expressed by the constraints is usually more
+    # the space of input types and attributes specified by the constraints is usually more
     # restricted.
     for_graph = False
 

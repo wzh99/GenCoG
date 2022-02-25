@@ -21,12 +21,10 @@ def _create_leaky_relu():
 Op('nn.leaky_relu', _create_leaky_relu)
 
 
-def _create_prelu():
+def _create_bcast_axis():
     spec = create_ew()
-    if TypeSpec.for_graph:
-        spec.add_attr(Attr('axis', 1))
-    else:
-        spec.add_attr(Attr('axis', Var(INT, ran=Range(end=IN[0].rank))))
+    spec.add_attr(Attr('axis', 1 if TypeSpec.for_graph else Var(
+        INT, ran=Range(end=IN[0].rank))))
     spec.in_num = 2
     spec.in_ranks = [Var(), 1]
     spec.in_dtypes = List(2, lambda _: Var())
@@ -37,7 +35,21 @@ def _create_prelu():
     return spec
 
 
-Op('nn.prelu', _create_prelu, params=[1])
+Op('nn.prelu', _create_bcast_axis, params=[1])
+Op('nn.bias_add', _create_bcast_axis, params=[1])
+
+
+def _create_softmax():
+    spec = create_ew()
+    if TypeSpec.for_graph:
+        spec.add_attr(Attr('axis', 1))
+        spec.in_dtypes = [Var(choices=float_dtypes)]
+    else:
+        spec.add_attr(Attr('axis', Var(INT, ran=Range(end=IN[0].rank))))
+    return spec
+
+
+Op('nn.softmax', _create_softmax)
 
 
 def _conv_dim_no_stride(i: Expr, w: Expr, dil: Expr, pad_b: Expr, pad_e: Expr):
@@ -663,11 +675,15 @@ def _create_pad():
     pad_width = a('pad_width')
     return TypeSpec(
         attrs=[
-            Attr('pad_width', List(IN[0].rank, lambda _: [Var(INT, ran=pad_ran, tmpl=True)] * 2)),
+            Attr('pad_width',
+                 Concat([[0, 0], [0, 0]],
+                        List(IN[0].rank - 2, lambda _: [Var(INT, ran=pad_ran, tmpl=True)] * 2))
+                 if TypeSpec.for_graph else List(
+                     IN[0].rank, lambda _: [Var(INT, ran=pad_ran, tmpl=True)] * 2)),
             Attr('pad_mode', Var(STR, choices=['constant', 'reflect', 'edge'])),
         ],
         in_num=2,
-        in_ranks=[Var(), 0],
+        in_ranks=[Var(ran=Range(3, max_rank)), 0],
         in_dtypes=List(2, lambda _: Var()),
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True)), []],
         extra=[],
@@ -680,7 +696,7 @@ def _create_pad():
     )
 
 
-Op('nn.pad', _create_pad, params=[1], register=False)
+Op('nn.pad', _create_pad, params=[1])
 
 
 def _create_norm():

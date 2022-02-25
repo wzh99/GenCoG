@@ -230,6 +230,7 @@ Op('split', _create_split, register=False)
 
 def _create_strided_slice():
     stride_ran = iran(1, config['op.max_stride'])
+    indices = List(IN[0].rank, lambda i: i)
     num_axes = Len(a('axes'))
     begin = a('begin')
     end = a('end')
@@ -238,7 +239,8 @@ def _create_strided_slice():
 
     return TypeSpec(
         attrs=[
-            Attr('axes', List(Var(), lambda _: Var(INT, tmpl=True))),
+            Attr('axes', indices[2:] if TypeSpec.for_graph else List(
+                Var(), lambda _: Var(INT, tmpl=True))),
             Attr('begin', List(num_axes, lambda i: Var(INT, ran=Range(end=IN[0].shape[axes[i]]),
                                                        tmpl=True))),
             Attr('end', List(num_axes, lambda i: Var(INT, ran=iran(1, IN[0].shape[axes[i]]),
@@ -246,11 +248,15 @@ def _create_strided_slice():
             Attr('strides', List(num_axes, lambda _: Var(INT, ran=stride_ran, tmpl=True))),
         ],
         in_num=1,
-        in_ranks=[Var()],
+        in_ranks=[Var(ran=Range(3, max_rank) if TypeSpec.for_graph else rank_ran)],
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[
-            Subset(a('axes'), List(IN[0].rank, lambda i: i)),
+            ForAll(Range(end=num_axes),
+                   lambda i: (end[i] - begin[i] + strides[i] - 1) / strides[i] == (
+                           IN[0].shape[i + 2] / 2).max(1))
+        ] if TypeSpec.for_graph else [
+            Subset(a('axes'), indices),
             ForAll(Range(end=num_axes), lambda i: end[i] - begin[i] > 0)
         ],
         out_num=1,
@@ -267,4 +273,4 @@ def _create_strided_slice():
     )
 
 
-Op('strided_slice', _create_strided_slice, register=False)
+Op('strided_slice', _create_strided_slice)

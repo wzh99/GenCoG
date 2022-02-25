@@ -84,6 +84,7 @@ def _create_bcast():
 
 
 Op('add', _create_bcast)
+Op('subtract', _create_bcast)
 Op('multiply', _create_bcast)
 Op('maximum', _create_bcast)
 Op('minimum', _create_bcast)
