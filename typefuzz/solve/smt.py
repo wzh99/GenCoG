@@ -7,12 +7,10 @@ from numpy.random import Generator
 
 from .store import ValueStore
 from ..config import config
-from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
-    Filter, InSet, Subset, Perm
+from ..expr.array import Tuple, ReduceArray, ReduceIndex
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, \
-    ForAll, Cond, GetAttr, Dummy, ArithOp, CmpOp
-from ..expr.tensor import Num, Shape, Rank, GetDType, LayoutMap, LayoutIndex
-from ..expr.ty import Type, ValueType, BOOL, INT, FLOAT
+    ArithOp, CmpOp
+from ..expr.ty import Type, ValueType, BOOL, INT
 from ..expr.visitor import ExprVisitor
 from ..util import NameGenerator, Ref
 
@@ -27,14 +25,12 @@ class Z3SolveError(Exception):
 _z3_var_funcs: Dict[Type, Callable[[str], z3.ExprRef]] = {
     BOOL: lambda s: z3.Bool(s),
     INT: lambda s: z3.BitVec(s, bit_vec_len),
-    FLOAT: lambda s: z3.Real(s),
 }
 
 _z3_extract_funcs: Dict[
     Type, Callable[[Union[z3.BoolRef, z3.BitVecNumRef, z3.RatNumRef]], ValueType]] = {
     BOOL: z3.BoolRef.__bool__,
     INT: z3.BitVecNumRef.as_long,
-    FLOAT: lambda v: float(z3.RatNumRef.as_decimal(v, 5)),
 }
 
 
@@ -106,7 +102,6 @@ class Z3ExprGen(ExprVisitor[Env[z3.ExprRef], z3.ExprRef]):
     val_funcs: Dict[Type, Callable[[ValueType], z3.ExprRef]] = {
         BOOL: lambda v: z3.BoolVal(v),
         INT: lambda v: z3.BitVecVal(v, bit_vec_len),
-        FLOAT: lambda v: z3.RealVal(v),
     }
 
     def visit_const(self, const: Const, env: Env[z3.ExprRef]) -> z3.ExprRef:
@@ -185,57 +180,6 @@ class Z3ExprGen(ExprVisitor[Env[z3.ExprRef], z3.ExprRef]):
     def visit_or(self, o: Or, env: Env[z3.ExprRef]) -> z3.ExprRef:
         return z3.Or(*(self.visit(c, env) for c in o.clauses_))
 
-    def visit_forall(self, forall: ForAll, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_cond(self, cond: Cond, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_attr(self, attr: GetAttr, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_dummy(self, dum: Dummy, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_num(self, num: Num, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_shape(self, shape: Shape, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_rank(self, rank: Rank, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_dtype(self, dtype: GetDType, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_layout_index(self, i: LayoutIndex, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_layout_map(self, m: LayoutMap, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_tuple(self, tup: Tuple, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_list(self, lst: List, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_getitem(self, getitem: GetItem, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_len(self, ln: Len, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_concat(self, concat: Concat, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_slice(self, slc: Slice, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_map(self, m: Map, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
     def visit_reduce_array(self, red: ReduceArray, env: Env[z3.ExprRef]) -> z3.ExprRef:
         if red.arr_.kind != ExprKind.TUPLE:
             raise Z3SolveError()
@@ -257,15 +201,3 @@ class Z3ExprGen(ExprVisitor[Env[z3.ExprRef], z3.ExprRef]):
             ),
             range(begin, end), self.visit(red.init_, env)
         )
-
-    def visit_filter(self, flt: Filter, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_inset(self, inset: InSet, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_subset(self, subset: Subset, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
-
-    def visit_perm(self, perm: Perm, env: Env[z3.ExprRef]) -> z3.ExprRef:
-        raise Z3SolveError()
