@@ -671,6 +671,73 @@ Op('nn.adaptive_avg_pool2d', lambda: _create_adapt_pool_nd(2))
 Op('nn.adaptive_avg_pool3d', lambda: _create_adapt_pool_nd(3))
 
 
+def _create_upsampling_2d():
+    return TypeSpec(
+        attrs=[
+            Attr('scale_h', Var(INT, choices=[2] if TypeSpec.for_graph else [1, 2])),
+            Attr('scale_w', Var(INT, choices=[2] if TypeSpec.for_graph else [1, 2])),
+            Attr('layout', 'NCHW' if TypeSpec.for_graph else Var(STR, choices=['NCHW', 'NHWC'])),
+            Attr('method', Var(STR, choices=['nearest_neighbor', 'bilinear', 'bicubic'])),
+            Attr('align_corners', Var(BOOL)),
+        ],
+        in_num=1,
+        in_ranks=[4],
+        in_dtypes=[Var()],
+        in_shapes=[
+            [Var() for _ in range(4)],
+        ],
+        extra=[],
+        out_num=1,
+        out_ranks=[4],
+        out_dtypes=[IN[0].dtype],
+        out_shapes=[
+            LayoutMap(a('layout'), 'NCHW', [
+                IN[0].shape[0], IN[0].shape[LayoutIndex(a('layout'), 'C')],
+                IN[0].shape[LayoutIndex(a('layout'), 'H')] * a('scale_h'),
+                IN[0].shape[LayoutIndex(a('layout'), 'W')] * a('scale_w'),
+            ]),
+        ]
+    )
+
+
+Op('nn.upsampling', _create_upsampling_2d)
+
+
+def _create_upsampling_3d():
+    return TypeSpec(
+        attrs=[
+            Attr('scale_d', Var(INT, choices=[2] if TypeSpec.for_graph else [1, 2])),
+            Attr('scale_h', Var(INT, choices=[2] if TypeSpec.for_graph else [1, 2])),
+            Attr('scale_w', Var(INT, choices=[2] if TypeSpec.for_graph else [1, 2])),
+            Attr('layout', 'NCDHW' if TypeSpec.for_graph else Var(STR, choices=['NCDHW', 'NDHWC'])),
+            Attr('method', Var(STR, choices=['nearest_neighbor', 'trilinear'])),
+            Attr('coordinate_transformation_mode',
+                 Var(STR, choices=['half_pixel', 'align_corners', 'asymmetric'])),
+        ],
+        in_num=1,
+        in_ranks=[5],
+        in_dtypes=[Var()],
+        in_shapes=[
+            [Var() for _ in range(5)],
+        ],
+        extra=[],
+        out_num=1,
+        out_ranks=[5],
+        out_dtypes=[IN[0].dtype],
+        out_shapes=[
+            LayoutMap(a('layout'), 'NCDHW', [
+                IN[0].shape[0], IN[0].shape[LayoutIndex(a('layout'), 'C')],
+                IN[0].shape[LayoutIndex(a('layout'), 'D')] * a('scale_d'),
+                IN[0].shape[LayoutIndex(a('layout'), 'H')] * a('scale_h'),
+                IN[0].shape[LayoutIndex(a('layout'), 'W')] * a('scale_w'),
+            ]),
+        ]
+    )
+
+
+Op('nn.upsampling3d', _create_upsampling_3d)
+
+
 def _create_pad():
     pad_width = a('pad_width')
     return TypeSpec(

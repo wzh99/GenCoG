@@ -16,7 +16,7 @@ config: Dict[str, Any] = {
     'solver.bit_vec_len': 32,
 
     # Maximal number of operation vertices in a graph
-    'graph.max_opr_num': 50,
+    'graph.max_opr_num': 32,
     # Penalty coefficient on number of uses of a value
     'graph.use_penal': 4,
     # Number of trials for generating one operation
