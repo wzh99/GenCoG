@@ -1,6 +1,6 @@
 from typing import Dict, Any
 
-config: Dict[str, Any] = {
+params: Dict[str, Any] = {
     # Maximal number of input tensors for variadic operators
     'spec.max_in_num': 5,
     # Maximal number of output tensors for variadic operators
@@ -32,3 +32,44 @@ config: Dict[str, Any] = {
     # Maximal dilation rate of convolution
     'op.max_dilation': 2,
 }
+
+# Operators that have correspondences with Keras layers in Muffin (ICSE'22)
+muffin_ops = [
+    'add',
+    'subtract',
+    'multiply',
+    'maximum',
+    'minimum',
+    'reshape',
+    'transpose',
+    'concatenate',
+    'strided_slice',
+    'nn.relu',
+    'nn.leaky_relu',
+    'nn.prelu',
+    'nn.bias_add',
+    'nn.softmax',
+    'nn.conv1d',
+    'nn.conv2d',
+    'nn.conv3d',
+    'nn.conv1d_transpose',
+    'nn.conv2d_transpose',
+    'nn.conv3d_transpose',
+    'nn.max_pool1d',
+    'nn.max_pool2d',
+    'nn.max_pool3d',
+    'nn.avg_pool1d',
+    'nn.avg_pool2d',
+    'nn.avg_pool3d',
+    'nn.adaptive_max_pool1d',
+    'nn.adaptive_max_pool2d',
+    'nn.adaptive_max_pool3d',
+    'nn.adaptive_avg_pool1d',
+    'nn.adaptive_avg_pool2d',
+    'nn.adaptive_avg_pool3d',
+    'nn.upsampling',
+    'nn.upsampling3d',
+    'nn.pad',
+    'nn.batch_norm',
+    'nn.dense'
+]

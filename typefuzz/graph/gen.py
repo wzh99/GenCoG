@@ -5,16 +5,16 @@ from numpy.random import Generator
 
 from .base import Input, Operation, Value, Graph, Output
 from .lookup import OpLookup, ValueLookup
-from ..config import config
+from ..config import params
 from ..expr.ty import float_dtypes, common_dtypes
 from ..solve import TensorType, TypeSolver, SolveError, OpTypeInfo
 from ..solve.store import ArrayNode, ScalarNode
 from ..spec import Op, TypeSpec, int_expr_choices, expr_choices, max_in_num, max_rank, max_dim
 from ..util import inc_cnt
 
-max_opr_num: int = config['graph.max_opr_num']
-opr_trials: int = config['graph.opr_trials']
-use_penal: float = config['graph.use_penal']
+max_opr_num: int = params['graph.max_opr_num']
+opr_trials: int = params['graph.opr_trials']
+use_penal: float = params['graph.use_penal']
 
 
 def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:

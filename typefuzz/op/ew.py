@@ -17,7 +17,7 @@ def create_ew():
     )
 
 
-Op('exp', create_ew, register=False)
+Op('exp', create_ew)
 
 
 def _create_bcast():
@@ -96,4 +96,4 @@ def _create_bcast_cmp():
     return cmp
 
 
-Op('less', _create_bcast_cmp, register=False)
+Op('less', _create_bcast_cmp)

@@ -6,7 +6,7 @@ import z3
 from numpy.random import Generator
 
 from .store import ValueStore
-from ..config import config
+from ..config import params
 from ..expr.array import Tuple, ReduceArray, ReduceIndex
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, \
     ArithOp, CmpOp
@@ -15,7 +15,7 @@ from ..expr.visitor import ExprVisitor
 from ..util import NameGenerator, Ref
 
 z3.set_param('smt.phase_selection', 5)
-bit_vec_len = config['solver.bit_vec_len']
+bit_vec_len = params['solver.bit_vec_len']
 
 
 class Z3SolveError(Exception):
@@ -63,7 +63,7 @@ def solve_smt(var_set: Iterable[Ref[Var]], extra: Iterable[Expr], store: ValueSt
     # Solve constraints multiple times
     z3.set_param('smt.random_seed', rng.integers(1024))
     cand_models = []
-    for _ in range(config['solver.max_model_cand']):
+    for _ in range(params['solver.max_model_cand']):
         if solver.check() != z3.sat:
             break
         model = solver.model()

@@ -1,13 +1,13 @@
 from .ew import create_ew
-from ..config import config
+from ..config import params
 from ..expr import *
 from ..expr.ty import float_dtypes
 from ..spec import Attr, TypeSpec, Op, dim_ran, max_rank
 
-kernel_ran = iran(1, config['op.max_kernel'])
-stride_ran = iran(1, config['op.max_stride'])
-pad_ran = iran(0, config['op.max_padding'])
-dil_ran = iran(1, config['op.max_dilation'])
+kernel_ran = iran(1, params['op.max_kernel'])
+stride_ran = iran(1, params['op.max_stride'])
+pad_ran = iran(0, params['op.max_padding'])
+dil_ran = iran(1, params['op.max_dilation'])
 
 Op('nn.relu', create_ew)
 
@@ -787,7 +787,7 @@ def _create_norm():
     )
 
 
-Op('nn.layer_norm', _create_norm, params=[1, 2], register=False)
+Op('nn.layer_norm', _create_norm, params=[1, 2])
 
 
 def _create_instance_norm():
@@ -798,7 +798,7 @@ def _create_instance_norm():
     return spec
 
 
-Op('nn.instance_norm', _create_instance_norm, params=[1, 2], register=False)
+Op('nn.instance_norm', _create_instance_norm, params=[1, 2])
 
 
 def _create_group_norm():
@@ -810,7 +810,7 @@ def _create_group_norm():
     return spec
 
 
-Op('nn.group_norm', _create_group_norm, params=[1, 2], register=False)
+Op('nn.group_norm', _create_group_norm, params=[1, 2])
 
 
 def _create_batch_norm():
@@ -891,4 +891,4 @@ def _create_matmul():
     )
 
 
-Op('nn.matmul', _create_matmul, register=False)
+Op('nn.matmul', _create_matmul)

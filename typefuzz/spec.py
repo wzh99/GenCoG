@@ -2,7 +2,7 @@ import typing as t
 from typing import Dict, TypeVar, Callable, Optional, Iterable, cast, List
 from warnings import warn
 
-from .config import config
+from .config import params
 from .expr import Expr, ExprLike, Var, Range, DataType, BOOL, INT, DTYPE
 from .expr.array import Tuple, List
 from .expr.basic import ExprKind, Const, to_expr, iran
@@ -11,14 +11,14 @@ from .expr.infer import ExprTypeError, infer_type
 from .expr.ty import Type, ListType, TyVar, common_dtypes
 from .util import CodeBuffer, cls_name, unwrap_or
 
-max_in_num = config['spec.max_in_num']
+max_in_num = params['spec.max_in_num']
 in_num_ran = iran(1, max_in_num)
-max_out_num = config['spec.max_out_num']
+max_out_num = params['spec.max_out_num']
 out_num_ran = iran(1, max_out_num)
-max_rank = config['spec.max_rank']
+max_rank = params['spec.max_rank']
 rank_ran = iran(1, max_rank)
 dl_rank_ran = iran(2, max_rank)
-max_dim = config['spec.max_dim']
+max_dim = params['spec.max_dim']
 dim_ran = iran(1, max_dim)
 
 

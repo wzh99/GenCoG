@@ -1,4 +1,4 @@
-from ..config import config
+from ..config import params
 from ..expr import *
 from ..spec import Attr, TypeSpec, Op, in_num_ran, rank_ran, max_rank, dim_ran, dl_rank_ran, \
     max_out_num
@@ -42,7 +42,7 @@ def _create_reduce():
     )
 
 
-Op('sum', _create_reduce, register=False)
+Op('sum', _create_reduce)
 
 
 def _create_expand_dims():
@@ -69,7 +69,7 @@ def _create_expand_dims():
     )
 
 
-Op('expand_dims', _create_expand_dims, register=False)
+Op('expand_dims', _create_expand_dims)
 
 
 def _create_squeeze():
@@ -95,7 +95,7 @@ def _create_squeeze():
     )
 
 
-Op('squeeze', _create_squeeze, register=False)
+Op('squeeze', _create_squeeze)
 
 
 def _create_reshape():
@@ -225,11 +225,11 @@ def _create_split():
     )
 
 
-Op('split', _create_split, register=False)
+Op('split', _create_split)
 
 
 def _create_strided_slice():
-    stride_ran = iran(1, config['op.max_stride'])
+    stride_ran = iran(1, params['op.max_stride'])
     indices = List(IN[0].rank, lambda i: i)
     num_axes = Len(a('axes'))
     begin = a('begin')

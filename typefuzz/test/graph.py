@@ -5,6 +5,7 @@ from numpy.random import Generator, PCG64
 from tqdm import trange
 from tvm import parser
 
+from typefuzz.config import muffin_ops
 from typefuzz.graph.gen import GraphGenerator
 from typefuzz.graph.relay import print_relay
 from typefuzz.graph.viz import visualize
@@ -26,7 +27,7 @@ if __name__ == '__main__':
     parse_args()
     TypeSpec.for_graph = True
     rng = Generator(PCG64(seed=options.seed))
-    gen = GraphGenerator(OpRegistry.ops(), rng)
+    gen = GraphGenerator((OpRegistry.get(name) for name in muffin_ops), rng)
     for idx in trange(options.number, file=stdout):
         graph = gen.generate()
         src = print_relay(graph)
