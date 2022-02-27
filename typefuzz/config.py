@@ -71,5 +71,6 @@ muffin_ops = [
     'nn.upsampling3d',
     'nn.pad',
     'nn.batch_norm',
-    'nn.dense'
+    'nn.dense',
+    'nn.batch_flatten',
 ]

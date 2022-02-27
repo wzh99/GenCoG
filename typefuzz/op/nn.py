@@ -2,7 +2,7 @@ from .ew import create_ew
 from ..config import params
 from ..expr import *
 from ..expr.ty import float_dtypes
-from ..spec import Attr, TypeSpec, Op, dim_ran, max_rank
+from ..spec import Attr, TypeSpec, Op, dim_ran, max_rank, dl_rank_ran, rank_ran
 
 kernel_ran = iran(1, params['op.max_kernel'])
 stride_ran = iran(1, params['op.max_stride'])
@@ -892,3 +892,25 @@ def _create_matmul():
 
 
 Op('nn.matmul', _create_matmul)
+
+
+def _create_batch_flatten():
+    return TypeSpec(
+        attrs=[],
+        in_num=1,
+        in_ranks=[Var(ran=dl_rank_ran if TypeSpec.for_graph else rank_ran)],
+        in_dtypes=[Var()],
+        in_shapes=[
+            List(IN[0].rank, lambda _: Var(tmpl=True)),
+        ],
+        extra=[],
+        out_num=1,
+        out_ranks=[2],
+        out_dtypes=[IN[0].dtype],
+        out_shapes=[
+            [IN[0].shape[0], ReduceArray(IN[0].shape[1:], ArithOp.MUL, 1)]
+        ]
+    )
+
+
+Op('nn.batch_flatten', _create_batch_flatten)
