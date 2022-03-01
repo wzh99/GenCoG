@@ -125,8 +125,8 @@ class TypeSolver:
 
     def solve_initial(self):
         """
-        Only try initial solving without using SMT solver. This method is mainly used to provide
-        hint for computation graph generation.
+        Only try initial solving without sampling or SMT solving. This method is mainly used to
+        provide hint for computation graph generation.
         """
         while self._solve_one_iter():
             pass

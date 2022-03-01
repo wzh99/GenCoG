@@ -6,9 +6,7 @@ from tqdm import trange
 from tvm import parser
 
 from typefuzz.config import muffin_ops
-from typefuzz.graph.gen import GraphGenerator
-from typefuzz.graph.relay import print_relay
-from typefuzz.graph.viz import visualize
+from typefuzz.graph import GraphGenerator, print_relay, visualize
 from typefuzz.spec import OpRegistry, TypeSpec
 
 options = Namespace()

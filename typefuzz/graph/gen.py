@@ -77,7 +77,6 @@ class GraphGenerator:
 
     def _sample_op(self, value: Value) -> Op:
         ops = list(self._ops.by_first_type(value.type_))
-        # TODO: Design fusion-aware heuristics to choose operators
         return self._rng.choice(ops)
 
     def _gen_opr(self, op: Op, fst_in: Value, value_lu: ValueLookup, graph_inputs: List[Input]) \
