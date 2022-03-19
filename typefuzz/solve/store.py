@@ -309,7 +309,7 @@ class ValueStore:
                 buf.writeln(',')
         buf.write('}')
 
-    def __str__(self):
+    def __repr__(self):
         buf = CodeBuffer()
         self.print(buf)
         return str(buf)

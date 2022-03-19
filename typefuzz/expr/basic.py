@@ -129,11 +129,19 @@ class Expr:
         if isinstance(item, Range):
             return Slice(self, item)
         elif isinstance(item, slice):
-            from typefuzz import Len
+            from . import Len
             return Slice(self, Range(begin=unwrap_or(item.start, 0),
                                      end=unwrap_or(item.stop, Len(self))))
         else:
             return GetItem(self, item)
+
+    def __repr__(self):
+        from ..expr.fmt import print_expr
+        from ..util import CodeBuffer
+
+        buf = CodeBuffer()
+        print_expr(self, buf, [])
+        return str(buf)
 
 
 ExprLike = Union[Expr, ValueType]

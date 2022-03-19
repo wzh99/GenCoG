@@ -117,9 +117,9 @@ def parse_args():
     p.add_argument('-v', '--verbose', action='store_true', help='Run in verbose mode.')
     p.add_argument('-s', '--separate', action='store_true',
                    help='Compile module in a separate process.')
-    p.add_argument('-name', type=str, help='Name of the operator to be tested.')
-    p.add_argument('-iter', type=int, help='Iteration number of each operator.')
-    p.add_argument('-seed', type=int, default=42, help='Random seed of test case generator.')
+    p.add_argument('-n', '--name', type=str, help='Name of the operator to be tested.')
+    p.add_argument('-i', '--iter', type=int, help='Iteration number of each operator.')
+    p.add_argument('--seed', type=int, default=42, help='Random seed of test case generator.')
     options = p.parse_args()
 
     if options.graph:

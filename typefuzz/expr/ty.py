@@ -50,7 +50,7 @@ class Type:
     def __hash__(self):
         return self.kind.__hash__()
 
-    def __str__(self):
+    def __repr__(self):
         return self.kind.name
 
 
@@ -147,9 +147,6 @@ class DataType:
 
     def __str__(self):
         return self.code_.name + str(self.bits_)
-
-    def __repr__(self):
-        return str(self)
 
 
 common_dtypes = [

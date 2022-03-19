@@ -526,7 +526,7 @@ class TypeSolver:
         node.set_elem_defined(cast(Tuple, tup))
         return True
 
-    def __str__(self):
+    def __repr__(self):
         buf = CodeBuffer()
         buf.writeln('==== SOLVER DUMP BEGIN ====')
         buf.writeln('---- Value Store ----')
@@ -540,9 +540,3 @@ class TypeSolver:
         buf.writeln()
         buf.writeln('==== SOLVER DUMP END ====')
         return str(buf)
-
-    @staticmethod
-    def _print_expr(e):
-        buf = CodeBuffer()
-        print_expr(e, buf, [])
-        print(buf)

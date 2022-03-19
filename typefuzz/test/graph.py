@@ -16,8 +16,9 @@ def parse_args():
     global options
     p = ArgumentParser()
     p.add_argument('-n', '--number', type=int, help='Number of graphs to generate.')
-    p.add_argument('-seed', type=int, default=42, help='Random seed of graph generator.')
-    p.add_argument('-view', action='store_true', help='Open graph visualization after rendering.')
+    p.add_argument('-s', '--seed', type=int, default=42, help='Random seed of graph generator.')
+    p.add_argument('-v', '--view', action='store_true',
+                   help='Open graph visualization after rendering.')
     options = p.parse_args()
 
 
