@@ -279,8 +279,6 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
         return self._try_fold(n, env, lambda: Not(self.visit(n.prop_, env)))
 
     def visit_and(self, a: And, env: Env[Expr]) -> Expr:
-        if len(a.clauses_) == 0:
-            return Const(True)
         clauses = []
         for c in a.clauses_:
             post = self.visit(c, env)
@@ -291,11 +289,10 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
                 else:
                     continue
             clauses.append(post)
-        return And(*clauses)
+
+        return Const(True) if len(clauses) == 0 else And(*clauses)
 
     def visit_or(self, o: Or, env: Env[Expr]) -> Expr:
-        if len(o.clauses_) == 0:
-            return Const(False)
         clauses = []
         for c in o.clauses_:
             post = self.visit(c, env)
@@ -306,7 +303,7 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
                 else:
                     continue
             clauses.append(post)
-        return Or(*clauses)
+        return Const(False) if len(clauses) == 0 else Or(*clauses)
 
     def visit_forall(self, forall: ForAll, env: Env[Expr]) -> Expr:
         ran = self.visit_range(forall.ran_, env)
