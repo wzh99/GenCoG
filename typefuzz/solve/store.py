@@ -205,7 +205,7 @@ class ArrayNode(StoreNode):
     def value(self) -> Optional[ValueType]:
         if not self.len_solved:
             return None
-        return [node.value for node in self.children_]  # some elements can be None
+        return tuple(node.value for node in self.children_)  # some elements can be None
 
 
 class ValueStore:

@@ -248,7 +248,7 @@ def _create_strided_slice():
             Attr('strides', List(num_axes, lambda _: Var(INT, ran=stride_ran, tmpl=True))),
         ],
         in_num=1,
-        in_ranks=[Var(ran=Range(3, max_rank) if TypeSpec.for_graph else rank_ran)],
+        in_ranks=[Var(ran=iran(3, max_rank) if TypeSpec.for_graph else rank_ran)],
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[

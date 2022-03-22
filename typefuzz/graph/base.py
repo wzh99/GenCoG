@@ -4,7 +4,6 @@ from typing import List, TypeVar, Generic, Dict, Callable, Any, Optional, Tuple
 from ..expr.ty import ValueType
 from ..solve import TensorType
 from ..spec import Op
-from ..util import Ref
 
 
 class VertexKind(IntEnum):
@@ -92,14 +91,13 @@ class GraphVisitor(Generic[R]):
             VertexKind.OUT: self.visit_output,
             VertexKind.OPR: self.visit_operation,
         }
-        self._vert_memo: Dict[Ref[Vertex], R] = {}
+        self._vert_memo: Dict[Vertex, R] = {}
 
     def visit(self, v: Vertex):
-        ref = Ref(v)
-        if ref in self._vert_memo:
-            return self._vert_memo[ref]
+        if v in self._vert_memo:
+            return self._vert_memo[v]
         r = self._methods[v.kind](v)
-        self._vert_memo[ref] = r
+        self._vert_memo[v] = r
         return r
 
     def visit_input(self, i: Input) -> R:

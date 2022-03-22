@@ -324,6 +324,10 @@ def expr_choices(e: Expr, default: Iterable[T]) -> t.List[T]:
         var = cast(Var, e)
         if var.choices_ is not None:
             return extract_const_choices(cast(Var, e).choices_, default)
+        elif var.type_ == BOOL:
+            return [True, False]
+        elif var.type_ == INT and var.ran_ is not None:
+            return int_range_choices(var.ran_, 0, max_dim + 1)
         else:
             return list(default)
     else:

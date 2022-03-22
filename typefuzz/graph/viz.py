@@ -8,9 +8,8 @@ from ..solve import TensorType
 from ..util import NameGenerator
 
 
-def visualize(graph: Graph, name: str, directory: str, fontname: str = 'Linux Biolinum O',
-              view: bool = False):
-    GraphVisualizer(name, directory, fontname).visualize(graph, view)
+def visualize(graph: Graph, name: str, directory: str, fontname: str = 'Linux Biolinum O'):
+    GraphVisualizer(name, directory, fontname).visualize(graph)
 
 
 class GraphVisualizer(GraphVisitor[None]):
@@ -30,10 +29,10 @@ class GraphVisualizer(GraphVisitor[None]):
         self._out_gen = NameGenerator('out')
         self._opr_gen = NameGenerator('opr')
 
-    def visualize(self, graph: Graph, view: bool):
+    def visualize(self, graph: Graph):
         for out in graph.outputs_:
             self.visit(out)
-        self._viz.render(view=view)
+        self._viz.render()
 
     def visit_input(self, i: Input):
         name = self._inp_gen.generate()

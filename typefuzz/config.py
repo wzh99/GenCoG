@@ -1,5 +1,41 @@
 from typing import Dict, Any
 
+# Use this set of parameters for diversity evaluation
+params: Dict[str, Any] = {
+    # Maximal number of input tensors for variadic operators
+    'spec.max_in_num': 5,
+    # Maximal number of output tensors for variadic operators
+    'spec.max_out_num': 3,
+    # Maximal rank of tensor
+    'spec.max_rank': 5,
+    # Maximal dimension value in tensor shape
+    'spec.max_dim': 4,
+
+    # Maximal number of model candidates
+    'solver.max_model_cand': 4,
+    # Length (in bits) of bit vector
+    'solver.bit_vec_len': 32,
+
+    # Maximal number of operation vertices in a graph
+    'graph.max_opr_num': 32,
+    # Penalty coefficient on number of uses of a value
+    'graph.use_penal': 4,
+    # Number of trials for generating one operation
+    # For variadic operators, this is the maximal number of trials of adding a new input value
+    'graph.opr_trials': 3,
+
+    # Maximal kernel size of convolution
+    'op.max_kernel': 3,
+    # Maximal stride of convolution
+    'op.max_stride': 2,
+    # Maximal padding
+    'op.max_padding': 2,
+    # Maximal dilation rate of convolution
+    'op.max_dilation': 2,
+}
+
+# Use this set of parameters for real testing
+"""
 params: Dict[str, Any] = {
     # Maximal number of input tensors for variadic operators
     'spec.max_in_num': 5,
@@ -32,6 +68,7 @@ params: Dict[str, Any] = {
     # Maximal dilation rate of convolution
     'op.max_dilation': 2,
 }
+"""
 
 # Operators that have correspondences with Keras layers in Muffin (ICSE'22)
 muffin_ops = [
