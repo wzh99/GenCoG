@@ -6,6 +6,7 @@ from tensorflow import keras
 from .dag import DAG
 from .layer_info_generator import LayerInfoGenerator
 from .model_template import ModelTemplate
+from .selection import Roulette
 from .utils import construct_layer_name, normal_layer_types, reduction_layer_types, get_layer_func
 from .variable_generator import VariableGenerator
 
@@ -14,7 +15,7 @@ class ModelGenerator(object):
     '''模型信息生成器
     '''
 
-    def __init__(self, config: dict, db_manager, selector, generate_mode, weight_range: tuple):
+    def __init__(self, config: dict, selector: Roulette, generate_mode: str, weight_range: tuple):
         super().__init__()
         self.__node_num_range = config['node_num_range']
         self.__dag_io_num_range = config['dag_io_num_range']
