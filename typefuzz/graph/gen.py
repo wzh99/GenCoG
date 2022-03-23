@@ -155,8 +155,8 @@ class GraphGenerator:
         # Try finding matching values
         matched = {0: fst_in}
         matched_cnt = {fst_in: 1}
-        info: Optional[OpTypeInfo] = None
-        while len(matched) < max_in_num:
+        opr_in_num = self._rng.integers(1, max_in_num, endpoint=True)
+        while len(matched) < opr_in_num:
             # Find another value matching the pattern
             found = False
             idx = len(matched)
@@ -170,27 +170,36 @@ class GraphGenerator:
                 # Check if the new inputs satisfy type constraints
                 known = dict((i, v.type_) for i, v in matched.items())
                 known[idx] = value.type_
-                solver = TypeSolver(spec, known, self._rng)
-                solver.store_.in_shapes_.set_len_solved(len(known))
-                solver.store_.in_dtypes_.set_len_solved(len(known))
                 try:
-                    info = solver.solve()
+                    self._solve_with_known_len(spec, known)
                 except SolveError:
                     continue
 
                 # Add this value to matched set
                 matched[idx] = value
                 inc_cnt(matched_cnt, value)
+                found = True
                 break
 
             # Stop finding if no values is found in this iteration
             if not found:
                 break
 
-        # Create operation
-        if info is None:
+        # Perform final solving
+        known = {i: v.type_ for i, v in matched.items()}
+        try:
+            info = self._solve_with_known_len(spec, known)
+        except SolveError:
             return None
+
+        # Create operation
         return self._create_opr(op, info, matched, value_lu, graph_inputs)
+
+    def _solve_with_known_len(self, spec: TypeSpec, known: Dict[int, TensorType]):
+        solver = TypeSolver(spec, known, self._rng)
+        solver.store_.in_shapes_.set_len_solved(len(known))
+        solver.store_.in_dtypes_.set_len_solved(len(known))
+        return solver.solve()
 
     @staticmethod
     def _create_opr(op: Op, info: OpTypeInfo, matched: Dict[int, Value],
