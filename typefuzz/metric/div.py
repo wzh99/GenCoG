@@ -60,7 +60,7 @@ class VertexDiversity(Diversity):
     def __init__(self, ops: Iterable[Op]):
         self._ops = list(ops)
         self._specs: Dict[Op, TypeSpec] = {op: op.spec for op in self._ops}
-        self._stat: Dict[Op, Set[int]] = {op: set() for op in self._ops}
+        self._hash: Dict[Op, Set[int]] = {op: set() for op in self._ops}
         self._space: Dict[Op, VertexSpace] = {op: _est_space(op, self._specs[op]) for op in
                                               self._ops}
 
@@ -84,12 +84,11 @@ class VertexDiversity(Diversity):
             h ^= hash((n, v))
 
         # Record hash for this operation
-        self._stat[op].add(h)
+        self._hash[op].add(h)
 
     @property
     def result(self) -> float:
-        op_div = np.array([min(len(self._stat[op]) / self._space[op].est, 1) for op in self._ops])
-        print(op_div)
+        op_div = np.array([min(len(self._hash[op]) / self._space[op].total, 1) for op in self._ops])
         return float(np.mean(op_div))
 
 
@@ -108,7 +107,7 @@ class OperationCollector(GraphVisitor[None]):
 
 
 class VertexSpace(NamedTuple):
-    est: int
+    total: int
     attr: Dict[str, int]
 
 

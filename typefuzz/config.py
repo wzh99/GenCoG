@@ -3,7 +3,7 @@ from typing import Dict, Any
 # Use this set of parameters for diversity evaluation
 params: Dict[str, Any] = {
     # Maximal number of input tensors for variadic operators
-    'spec.max_in_num': 5,
+    'spec.max_in_num': 4,
     # Maximal number of output tensors for variadic operators
     'spec.max_out_num': 3,
     # Maximal rank of tensor
