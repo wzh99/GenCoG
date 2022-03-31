@@ -10,6 +10,8 @@ from .selection import Roulette
 from .utils import construct_layer_name, normal_layer_types, reduction_layer_types, get_layer_func
 from .variable_generator import VariableGenerator
 
+keras.backend.set_image_data_format('channels_first')
+
 
 class ModelGenerator(object):
     '''模型信息生成器
@@ -56,15 +58,6 @@ class ModelGenerator(object):
                     node_num_per_reduction_cell=self.__node_num_per_reduction_cell)
             else:
                 raise ValueError(f"UnKnown generate mode '{self.__generate_mode}'")
-
-        else:
-            node_num = len(model_info['model_structure'])
-            input_shapes = {construct_layer_name(input_id, 'input_object'): tuple(
-                model_info['model_structure'][str(input_id)]['output_shape'])
-                for input_id in model_info['input_id_list']}
-            output_shapes = {model_info['model_structure'][str(output_id)]['args']['name']: tuple(
-                model_info['model_structure'][str(output_id)]['output_shape'])
-                for output_id in model_info['output_id_list']}
 
         # Generate model from model info
         model = self.__generate_model(model_info)

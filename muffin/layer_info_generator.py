@@ -244,7 +244,7 @@ class LayerInfo(object):
     def depthwise_conv2D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入4D向量
         '''
-        is_channels_last = self.__random.boolean()
+        is_channels_last = False
         window_limitation = input_shape[1:3] if is_channels_last else input_shape[2:4]
         _strides = self.__random.sizes_with_limitation(window_limitation)
         v = min(_strides)
@@ -270,7 +270,7 @@ class LayerInfo(object):
     def conv2D_transpose_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入4D向量
         '''
-        is_channels_last = self.__random.boolean()
+        is_channels_last = False
         window_limitation = input_shape[1:3] if is_channels_last else input_shape[2:4]
         args = dict(
             filters=self.__random.ele_size(),
@@ -294,7 +294,7 @@ class LayerInfo(object):
     def conv3D_transpose_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入5D向量
         '''
-        is_channels_last = self.__random.boolean()
+        is_channels_last = False
         window_limitation = input_shape[1:4] if is_channels_last else input_shape[2:5]
         args = dict(
             filters=self.__random.ele_size(),
@@ -330,7 +330,7 @@ class LayerInfo(object):
     def max_pooling2D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入4D向量
         '''
-        is_channels_last = self.__random.boolean()
+        is_channels_last = False
         window_limitation = input_shape[1:3] if is_channels_last else input_shape[2:4]
         args = dict(
             pool_size=self.__random.kernel_size(window_limitation),
@@ -345,7 +345,7 @@ class LayerInfo(object):
     def max_pooling3D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入5D向量
         '''
-        is_channels_last = self.__random.boolean()
+        is_channels_last = False
         window_limitation = input_shape[1:4] if is_channels_last else input_shape[2:5]
         args = dict(
             pool_size=self.__random.kernel_size(window_limitation),
@@ -372,7 +372,7 @@ class LayerInfo(object):
     def average_pooling2D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入4D向量
         '''
-        is_channels_last = self.__random.boolean()
+        is_channels_last = False
         window_limitation = input_shape[1:3] if is_channels_last else input_shape[2:4]
         args = dict(
             pool_size=self.__random.kernel_size(window_limitation),
@@ -387,7 +387,7 @@ class LayerInfo(object):
     def average_pooling3D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入5D向量
         '''
-        is_channels_last = self.__random.boolean()
+        is_channels_last = False
         window_limitation = input_shape[1:4] if is_channels_last else input_shape[2:5]
         args = dict(
             pool_size=self.__random.kernel_size(window_limitation),
@@ -781,7 +781,7 @@ class LayerInfo(object):
     def locally_connected1D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入3D向量
         '''
-        is_channels_last = self.__random.boolean()
+        is_channels_last = False
         window_limitation = input_shape[1:2]  # if is_channels_last else input_shape[2:3]
         args = dict(
             filters=self.__random.ele_size(),
@@ -805,7 +805,7 @@ class LayerInfo(object):
     def locally_connected2D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入4D向量
         '''
-        is_channels_last = self.__random.boolean()
+        is_channels_last = False
         window_limitation = input_shape[1:3] if is_channels_last else input_shape[2:4]
         args = dict(
             filters=self.__random.ele_size(),

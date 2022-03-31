@@ -1,9 +1,0 @@
-{
-  "debug_mode": 0,
-  "dataset_name": "mnist",
-  "case_num": 2,
-  "generate_mode": "merge",
-  "data_dir": "out",
-  "timeout": 300,
-  "use_heuristic": 0
-}

@@ -79,7 +79,7 @@ def get_layer_func(layer_type):
 seq_layer_types = [
     'dense',
     # 'masking',
-    'embedding',
+    # 'embedding',
 
     'conv1D',
     'conv2D',
@@ -103,56 +103,56 @@ seq_layer_types = [
     'global_average_pooling2D',
     'global_average_pooling3D',
 
-    'time_distributed',
-    'bidirectional',
+    # 'time_distributed',
+    # 'bidirectional',
 
     'batch_normalization',
 
     'reshape',
     'flatten',
-    'repeat_vector',
+    # 'repeat_vector',
     'permute',
     'cropping1D',
     'cropping2D',
     'cropping3D',
-    'up_sampling1D',
+    # 'up_sampling1D',
     'up_sampling2D',
     'up_sampling3D',
     'zero_padding1D',
     'zero_padding2D',
     'zero_padding3D',
 
-    'locally_connected1D',
-    'locally_connected2D',
+    # 'locally_connected1D',
+    # 'locally_connected2D',
 ]
 
 RNN_layer_types = [
-    'LSTM',
-    'GRU',
-    'simpleRNN',
-    'convLSTM2D',
+    # 'LSTM',
+    # 'GRU',
+    # 'simpleRNN',
+    # 'convLSTM2D',
 ]
 
 activation_layer_types = [
-    'activation',
+    # 'activation',
 
     'ReLU',
     'softmax',
     'leakyReLU',
     'PReLU',
-    'ELU',
-    'thresholded_ReLU',
+    # 'ELU',
+    # 'thresholded_ReLU',
 ]
 
 merging_layer_types = [
     'concatenate',
-    'average',
+    # 'average',
     'maximum',
     'minimum',
     'add',
     'subtract',
     'multiply',
-    'dot',
+    # 'dot',
 ]
 
 # 所有layer类型
