@@ -34,9 +34,7 @@ __all__ = ["from_keras"]
 
 
 def _check_data_format(keras_layer):
-    if hasattr(keras_layer, ("data_format")):
-        if keras_layer.data_format != "channels_last":
-            raise ValueError("Keras frontend currently supports data_format = channels_last only.")
+    pass
 
 
 def _get_pad_pair(input1d, kernel1d, stride1d):
@@ -83,8 +81,7 @@ def _convert_activation(inexpr, keras_layer, etab):
         beta = _expr.const(beta, dtype="float32")
         return _op.add(_op.multiply(inexpr, alpha), beta)
     if act_type == "softmax":
-        axis = 1 if etab.data_layout == "NCHW" else -1
-        return _op.nn.softmax(inexpr, axis)
+        return _op.nn.softmax(inexpr, 1)
     if act_type == "sigmoid":
         return _op.sigmoid(inexpr)
     if act_type == "tanh":
@@ -135,22 +132,8 @@ def _convert_advanced_activation(inexpr, keras_layer, etab):
             raise tvm.error.OpAttributeUnImplemented(
                 "Softmax with axes {} is not supported.".format(axis)
             )
-        if etab.data_layout == "NCHW":
-            if axis == -1:
-                axis = 1
-            else:
-                axis = axis + 1 if axis < dims - 1 else 1
-        return _op.nn.softmax(inexpr, axis=axis)
+        return _op.nn.softmax(inexpr, axis=1)
     if act_type == "ReLU":
-        threshold = _expr.const(keras_layer.threshold, dtype="float32")
-        if keras_layer.max_value and float(keras_layer.threshold) == 0:
-            # f(x) = max_value, for x >= max_value
-            # f(x) = x,         for threshold <= x < max_value
-            return _op.clip(inexpr, a_min=0.0, a_max=float(keras_layer.max_value))
-        if keras_layer.max_value and _op.greater(threshold, inexpr).astype("float32"):
-            # f(x) = negative_slope * (inexpr - threshold)
-            negative_slope = _expr.const(keras_layer.negative_slope, dtype="float32")
-            return _op.multiply(negative_slope, _op.subtract(inexpr, threshold))
         return _op.nn.relu(inexpr)
     if act_type == "LeakyReLU":
         return _op.nn.leaky_relu(inexpr, alpha=float(keras_layer.alpha))
@@ -159,14 +142,8 @@ def _convert_advanced_activation(inexpr, keras_layer, etab):
         alpha = _expr.const(alpha, dtype="float32")
         return _get_elu(inexpr, alpha)
     if act_type == "PReLU":
-        assert hasattr(keras_layer, "alpha"), "alpha required for PReLU."
-        _check_data_format(keras_layer)
-        size = len(keras_layer.alpha.shape)
-        if etab.data_layout == "NCHW":
-            alpha = etab.new_const(keras_layer.get_weights()[0].transpose(np.roll(range(size), 1)))
-        else:
-            alpha = etab.new_const(keras_layer.get_weights()[0])
-        return _op.negative(alpha) * _op.nn.relu(_op.negative(inexpr)) + _op.nn.relu(inexpr)
+        alpha = etab.new_const(np.random.random((keras_layer.get_input_shape_at(0)[1],)))
+        return _op.nn.prelu(inexpr, alpha)
     if act_type == "ThresholdedReLU":
         theta = keras_layer.theta if hasattr(keras_layer, "theta") else 1.0
         return _op.multiply(
@@ -240,9 +217,9 @@ def _convert_embedding(inexpr, keras_layer, etab):
 
 
 def _convert_dense(inexpr, keras_layer, etab):
-    weightList = keras_layer.get_weights()
-    weight = etab.new_const(weightList[0].transpose([1, 0]))
-    params = {"weight": weight, "units": weightList[0].shape[1]}
+    weight_list = keras_layer.get_weights()
+    weight = etab.new_const(weight_list[0].transpose([1, 0]))
+    params = {"weight": weight, "units": weight_list[0].shape[1]}
     input_shape = keras_layer.input_shape
     input_dim = len(input_shape)
     # In case of RNN dense, input shape will be (1, 1, n)
@@ -255,7 +232,7 @@ def _convert_dense(inexpr, keras_layer, etab):
         inexpr = _op.squeeze(inexpr, axis=[0])
     out = _op.nn.dense(data=inexpr, **params)
     if keras_layer.use_bias:
-        bias = etab.new_const(weightList[1])
+        bias = etab.new_const(weight_list[1])
         out = _op.nn.bias_add(out, bias)
     # defuse activation
     if sys.version_info.major < 3:
@@ -271,27 +248,18 @@ def _convert_dense(inexpr, keras_layer, etab):
 
 def _convert_convolution1d(inexpr, keras_layer, etab):
     _check_data_format(keras_layer)
-    weightList = keras_layer.get_weights()
-    weight = weightList[0]
-
-    if etab.data_layout == "NWC":
-        kernel_layout = "WIO"
-    else:
-        kernel_layout = "OIW"
-        msg = (
-            "Kernel layout with {} is not supported for operator Convolution1D "
-            "in frontend Keras."
-        )
-        raise tvm.error.OpAttributeUnImplemented(msg.format(etab.data_layout))
+    weight_list = keras_layer.get_weights()
+    weight = weight_list[0]
+    kernel_layout = "OIW"
 
     is_deconv = type(keras_layer).__name__ == "Conv1DTranspose"
 
     if is_deconv:
-        if kernel_layout == "OIW":
-            weight = weight.transpose([2, 0, 1])
         kernel_w, n_filters, _ = weight.shape
+        weight = np.transpose(weight, axes=(2, 1, 0))
     else:
         kernel_w, _, n_filters = weight.shape
+        weight = np.transpose(weight, axes=(2, 1, 0))
 
     dilation_rate = keras_layer.dilation_rate
     if isinstance(dilation_rate, (list, tuple)):
@@ -301,16 +269,9 @@ def _convert_convolution1d(inexpr, keras_layer, etab):
 
     dilated_kernel_w = (kernel_w - 1) * dilation[0] + 1
     stride_w = keras_layer.strides[0]
-    params = {
-        "weight": etab.new_const(weight),
-        "kernel_size": [kernel_w],
-        "strides": [stride_w],
-        "dilation": dilation,
-        "padding": [0],
-        "data_layout": etab.data_layout,
-        "kernel_layout": kernel_layout,
-    }
-    params["channels"] = n_filters
+    params = {"weight": etab.new_const(weight), "kernel_size": [kernel_w], "strides": [stride_w],
+              "dilation": dilation, "padding": [0], "data_layout": "NCW",
+              "kernel_layout": kernel_layout, "channels": n_filters}
 
     if keras_layer.padding == "valid":
         pass
@@ -328,10 +289,9 @@ def _convert_convolution1d(inexpr, keras_layer, etab):
     else:
         out = _op.nn.conv1d(data=inexpr, **params)
 
-    channel_axis = -1 if etab.data_layout == "NWC" else 1
     if keras_layer.use_bias:
-        bias = etab.new_const(weightList[1])
-        out = _op.nn.bias_add(out, bias, channel_axis)
+        bias = etab.new_const(weight_list[1])
+        out = _op.nn.bias_add(out, bias, 1)
 
     # defuse activation
     if sys.version_info.major < 3:
@@ -348,18 +308,12 @@ def _convert_convolution(inexpr, keras_layer, etab):
     _check_data_format(keras_layer)
     is_deconv = type(keras_layer).__name__ == "Conv2DTranspose"
     is_depthconv = type(keras_layer).__name__ == "DepthwiseConv2D"
-    weightList = keras_layer.get_weights()
-    weight = weightList[0]
-    if etab.data_layout == "NHWC":
-        if is_depthconv:
-            kernel_layout = "HWOI"
-        else:
-            kernel_layout = "HWIO"
+    weight_list = keras_layer.get_weights()
+    weight = weight_list[0]
+    if is_deconv:
+        kernel_layout = "IOHW"
     else:
-        if is_deconv:
-            kernel_layout = "IOHW"
-        else:
-            kernel_layout = "OIHW"
+        kernel_layout = "OIHW"
 
     if is_deconv:
         kernel_h, kernel_w, n_filters, in_channels = weight.shape
@@ -369,11 +323,9 @@ def _convert_convolution(inexpr, keras_layer, etab):
         kernel_h, kernel_w, in_channels, depth_mult = weight.shape
         if kernel_layout == "OIHW":
             weight = weight.transpose([2, 3, 0, 1])
-    elif etab.data_layout == "NCHW":
-        kernel_h, kernel_w, in_channels, n_filters = weight.shape
-        weight = weight.transpose([3, 2, 0, 1])
     else:
         kernel_h, kernel_w, in_channels, n_filters = weight.shape
+        weight = weight.transpose([3, 2, 0, 1])
     if isinstance(keras_layer.dilation_rate, (list, tuple)):
         dilation = [keras_layer.dilation_rate[0], keras_layer.dilation_rate[1]]
     else:
@@ -387,7 +339,7 @@ def _convert_convolution(inexpr, keras_layer, etab):
         "strides": [stride_h, stride_w],
         "dilation": dilation,
         "padding": [0, 0],
-        "data_layout": etab.data_layout,
+        "data_layout": 'NCHW',
         "kernel_layout": kernel_layout,
     }
     if is_depthconv:
@@ -413,11 +365,8 @@ def _convert_convolution(inexpr, keras_layer, etab):
         out = _op.nn.conv2d(data=inexpr, **params)
 
     if keras_layer.use_bias:
-        bias = etab.new_const(weightList[1])
-        if etab.data_layout == "NCHW":
-            out = _op.nn.bias_add(out, bias)
-        else:
-            out = _op.nn.bias_add(out, bias, axis=-1)
+        bias = etab.new_const(weight_list[1])
+        out = _op.nn.bias_add(out, bias)
     # defuse activation
     if sys.version_info.major < 3:
         act_type = keras_layer.activation.func_name
@@ -430,27 +379,19 @@ def _convert_convolution(inexpr, keras_layer, etab):
 
 def _convert_convolution3d(inexpr, keras_layer, etab):
     _check_data_format(keras_layer)
-    weightList = keras_layer.get_weights()
-    weight = weightList[0]
+    weight_list = keras_layer.get_weights()
+    weight = weight_list[0]
 
-    if etab.data_layout == "NDHWC":
-        kernel_layout = "DHWIO"
-    else:
-        kernel_layout = "OIDHW"
-        msg = (
-            "Kernel layout with {} is not supported for operator Convolution3D "
-            "in frontend Keras."
-        )
-        raise tvm.error.OpAttributeUnImplemented(msg.format(etab.data_layout))
+    kernel_layout = "OIDHW"
 
     is_deconv = type(keras_layer).__name__ == "Conv3DTranspose"
 
     if is_deconv:
         kernel_d, kernel_h, kernel_w, n_filters, _ = weight.shape
-        if kernel_layout == "OIDHW":
-            weight = weight.transpose([4, 3, 2, 0, 1])
+        weight = weight.transpose([4, 3, 0, 1, 2])
     else:
         kernel_d, kernel_h, kernel_w, _, n_filters = weight.shape
+        weight = np.transpose(weight, axes=(4, 3, 0, 1, 2))
 
     dilation_rate = keras_layer.dilation_rate
     if isinstance(dilation_rate, (list, tuple)):
@@ -462,16 +403,10 @@ def _convert_convolution3d(inexpr, keras_layer, etab):
     dilated_kernel_h = (kernel_h - 1) * dilation[1] + 1
     dilated_kernel_w = (kernel_w - 1) * dilation[2] + 1
     stride_d, stride_h, stride_w = keras_layer.strides
-    params = {
-        "weight": etab.new_const(weight),
-        "kernel_size": [kernel_d, kernel_h, kernel_w],
-        "strides": [stride_d, stride_h, stride_w],
-        "dilation": dilation,
-        "padding": [0, 0, 0],
-        "data_layout": etab.data_layout,
-        "kernel_layout": kernel_layout,
-    }
-    params["channels"] = n_filters
+    params = {"weight": etab.new_const(weight), "kernel_size": [kernel_d, kernel_h, kernel_w],
+              "strides": [stride_d, stride_h, stride_w], "dilation": dilation, "padding": [0, 0, 0],
+              "data_layout": "NCDHW", "kernel_layout": kernel_layout,
+              "channels": n_filters}
 
     if keras_layer.padding == "valid":
         pass
@@ -492,10 +427,10 @@ def _convert_convolution3d(inexpr, keras_layer, etab):
     else:
         out = _op.nn.conv3d(data=inexpr, **params)
 
-    channel_axis = -1 if etab.data_layout == "NDHWC" else 1
+    channel_axis = 1
     if keras_layer.use_bias:
-        bias = etab.new_const(weightList[1])
-        out = _op.nn.bias_add(out, bias, channel_axis)
+        bias = etab.new_const(weight_list[1])
+        out = _op.nn.bias_add(out, bias, 1)
 
     # defuse activation
     if sys.version_info.major < 3:
@@ -510,18 +445,12 @@ def _convert_convolution3d(inexpr, keras_layer, etab):
 
 def _convert_separable_convolution(inexpr, keras_layer, etab):
     _check_data_format(keras_layer)
-    if etab.data_layout == "NHWC":
-        kernel_layout = "HWOI"
-    else:
-        kernel_layout = "OIHW"
-    weightList = keras_layer.get_weights()
+    kernel_layout = "OIHW"
+    weight_list = keras_layer.get_weights()
     # depthwise conv
-    kernel_h, kernel_w, in_channels, depth_mult = weightList[0].shape
+    kernel_h, kernel_w, in_channels, depth_mult = weight_list[0].shape
     stride_h, stride_w = keras_layer.strides
-    if kernel_layout == "OIHW":
-        weight0 = weightList[0].transpose([2, 3, 0, 1])
-    else:
-        weight0 = weightList[0]
+    weight0 = weight_list[0].transpose([2, 3, 0, 1])
     params0 = {
         "weight": etab.new_const(weight0),
         "channels": in_channels * depth_mult,
@@ -530,8 +459,8 @@ def _convert_separable_convolution(inexpr, keras_layer, etab):
         "strides": [stride_h, stride_w],
         "dilation": [1, 1],
         "padding": [0, 0],
-        "data_layout": etab.data_layout,
-        "kernel_layout": kernel_layout,
+        "data_layout": 'NCHW',
+        "kernel_layout": 'OIHW',
     }
     if keras_layer.padding == "valid":
         pass
@@ -550,28 +479,21 @@ def _convert_separable_convolution(inexpr, keras_layer, etab):
         raise tvm.error.OpAttributeUnImplemented(msg.format(keras_layer.padding))
     depthconv = _op.nn.conv2d(data=inexpr, **params0)
     # pointwise conv
-    if kernel_layout == "OIHW":
-        weight1 = weightList[1].transpose([3, 2, 0, 1])
-    else:
-        weight1 = weightList[1]
-        kernel_layout = "HWIO"
+    weight1 = weight_list[1].transpose([3, 2, 0, 1])
     params1 = {
         "weight": etab.new_const(weight1),
-        "channels": weightList[1].shape[3],
+        "channels": weight_list[1].shape[3],
         "groups": 1,
         "kernel_size": [1, 1],
         "strides": [1, 1],
         "dilation": [1, 1],
-        "data_layout": etab.data_layout,
+        "data_layout": 'NCHW',
         "kernel_layout": kernel_layout,
     }
     out = _op.nn.conv2d(data=depthconv, **params1)
     if keras_layer.use_bias:
-        bias = etab.new_const(weightList[2])
-        if etab.data_layout == "NCHW":
-            out = _op.nn.bias_add(out, bias)
-        else:
-            out = _op.nn.bias_add(out, bias, axis=-1)
+        bias = etab.new_const(weight_list[2])
+        out = _op.nn.bias_add(out, bias)
     # defuse activation
     if sys.version_info.major < 3:
         act_type = keras_layer.activation.func_name
@@ -585,31 +507,73 @@ def _convert_separable_convolution(inexpr, keras_layer, etab):
 def _convert_flatten(inexpr, keras_layer, etab):
     _check_data_format(keras_layer)
     # NCHW -> NHWC so that dense can be correctly converted
-    if etab.data_layout == "NCHW":
-        inexpr = _op.transpose(inexpr, axes=[0, 2, 3, 1])
+    # if etab.data_layout == "NCHW":
+    #     inexpr = _op.transpose(inexpr, axes=[0, 2, 3, 1])
     return _op.nn.batch_flatten(inexpr)
+
+
+def _convert_pooling1d(inexpr, keras_layer, etab):
+    _check_data_format(keras_layer)
+    pool_type = type(keras_layer).__name__
+    # global pool in keras = global pool + flatten in relay
+    if pool_type == "GlobalMaxPooling1D":
+        return _convert_flatten(
+            _op.nn.adaptive_max_pool1d(inexpr, output_size=(1,)), keras_layer, etab
+        )
+    if pool_type == "GlobalAveragePooling1D":
+        return _convert_flatten(
+            _op.nn.adaptive_avg_pool1d(inexpr, output_size=(1,)), keras_layer, etab
+        )
+
+    pool_w = keras_layer.pool_size[0]
+    stride_w = keras_layer.strides[0]
+    params = {
+        "pool_size": [pool_w],
+        "strides": [stride_w],
+        "padding": [0, 0],
+        "layout": 'NCW',
+    }
+    if keras_layer.padding == "valid":
+        pass
+    elif keras_layer.padding == "same":
+        in_h = keras_layer.input_shape[1]
+        in_w = keras_layer.input_shape[2]
+        pad_l, pad_r = _get_pad_pair(in_w, pool_w, stride_w)
+        params["padding"] = [pad_l, pad_r]
+    else:
+        raise tvm.error.OpAttributeUnImplemented(
+            "Padding with {} is not supported in operator Pooling.".format(keras_layer.padding)
+        )
+    if pool_type == "MaxPooling1D":
+        return _op.nn.max_pool1d(inexpr, **params)
+    if pool_type == "AveragePooling1D":
+        params["count_include_pad"] = False
+        return _op.nn.avg_pool1d(inexpr, **params)
+    raise tvm.error.OpNotImplemented(
+        "Operator {} is not supported for frontend Keras.".format(keras_layer)
+    )
 
 
 def _convert_pooling(inexpr, keras_layer, etab):
     _check_data_format(keras_layer)
     pool_type = type(keras_layer).__name__
     # global pool in keras = global pool + flatten in relay
-    global_pool_params = {"layout": etab.data_layout}
     if pool_type == "GlobalMaxPooling2D":
         return _convert_flatten(
-            _op.nn.global_max_pool2d(inexpr, **global_pool_params), keras_layer, etab
+            _op.nn.adaptive_max_pool2d(inexpr, output_size=(1, 1)), keras_layer, etab
         )
     if pool_type == "GlobalAveragePooling2D":
         return _convert_flatten(
-            _op.nn.global_avg_pool2d(inexpr, **global_pool_params), keras_layer, etab
+            _op.nn.adaptive_avg_pool2d(inexpr, output_size=(1, 1)), keras_layer, etab
         )
+
     pool_h, pool_w = keras_layer.pool_size
     stride_h, stride_w = keras_layer.strides
     params = {
         "pool_size": [pool_h, pool_w],
         "strides": [stride_h, stride_w],
         "padding": [0, 0],
-        "layout": etab.data_layout,
+        "layout": 'NCHW',
     }
     if keras_layer.padding == "valid":
         pass
@@ -637,6 +601,15 @@ def _convert_pooling3d(inexpr, keras_layer, etab):
     _check_data_format(keras_layer)
     pool_type = type(keras_layer).__name__
 
+    if pool_type == "GlobalMaxPooling3D":
+        return _convert_flatten(
+            _op.nn.adaptive_max_pool3d(inexpr, output_size=(1, 1, 1)), keras_layer, etab
+        )
+    if pool_type == "GlobalAveragePooling3D":
+        return _convert_flatten(
+            _op.nn.adaptive_avg_pool2d(inexpr, output_size=(1, 1, 1)), keras_layer, etab
+        )
+
     if pool_type not in ["MaxPooling3D", "AveragePooling3D"]:
         raise tvm.error.OpNotImplemented(
             "Operator {} is not supported for frontend Keras.".format(keras_layer)
@@ -648,7 +621,7 @@ def _convert_pooling3d(inexpr, keras_layer, etab):
         "pool_size": [pool_d1, pool_d2, pool_d3],
         "strides": [stride_d1, stride_d2, stride_d3],
         "padding": [0, 0, 0],
-        "layout": etab.data_layout,
+        "layout": "NCDHW",
     }
 
     if keras_layer.padding == "valid":
@@ -666,21 +639,22 @@ def _convert_pooling3d(inexpr, keras_layer, etab):
             "Padding with {} is not supported in operator Pooling3D.".format(keras_layer.padding)
         )
 
-    out = _op.transpose(inexpr, axes=(0, 4, 1, 2, 3))
     params["layout"] = "NCDHW"
     if pool_type == "MaxPooling3D":
-        out = _op.nn.max_pool3d(out, **params)
+        out = _op.nn.max_pool3d(inexpr, **params)
     elif pool_type == "AveragePooling3D":
-        out = _op.nn.avg_pool3d(out, **params)
+        out = _op.nn.avg_pool3d(inexpr, **params)
+    else:
+        assert False
 
-    return _op.transpose(out, axes=(0, 2, 3, 4, 1))
+    return out
 
 
 def _convert_global_pooling3d(inexpr, keras_layer, etab):
     _check_data_format(keras_layer)
     pool_type = type(keras_layer).__name__
 
-    global_pool_params = {"layout": etab.data_layout}
+    global_pool_params = {"layout": 'NCDHW'}
     if pool_type == "GlobalMaxPooling3D":
         out = _op.nn.global_max_pool3d(inexpr, **global_pool_params)
     elif pool_type == "GlobalAveragePooling3D":
@@ -702,8 +676,6 @@ def _convert_upsample(inexpr, keras_layer, etab):
         params["scale_h"] = h
     elif upsample_type == "UpSampling2D":
         h, w = keras_layer.size
-        if h != w:
-            raise tvm.error.OpAttributeInvalid("Height must equal width for operator Upsample.")
         params["scale_h"] = h
         params["scale_w"] = h
 
@@ -717,7 +689,7 @@ def _convert_upsample(inexpr, keras_layer, etab):
         raise tvm.error.OpNotImplemented(
             "Operator {} is not supported for frontend Keras.".format(upsample_type)
         )
-    params["layout"] = etab.data_layout
+    params["layout"] = 'NCHW'
     out = _op.nn.upsampling(inexpr, **params)
     return out
 
@@ -729,7 +701,7 @@ def _convert_upsample3d(inexpr, keras_layer, etab):
     params["scale_d"] = d
     params["scale_h"] = h
     params["scale_w"] = w
-    params["layout"] = etab.data_layout
+    params["layout"] = 'NCDHW'
     params["coordinate_transformation_mode"] = "asymmetric"
     out = _op.nn.upsampling3d(inexpr, **params)
     return out
@@ -739,7 +711,7 @@ def _convert_cropping(inexpr, keras_layer, _):
     _check_data_format(keras_layer)
     crop_type = type(keras_layer).__name__
     if crop_type == "Cropping2D":
-        (_, in_h, in_w, _) = keras_layer.input_shape
+        (_, _, in_h, in_w) = keras_layer.input_shape
         ((crop_t, crop_b), (crop_l, crop_r)) = keras_layer.cropping
     else:
         raise tvm.error.OpNotImplemented(
@@ -753,11 +725,19 @@ def _convert_cropping(inexpr, keras_layer, _):
     )
 
 
+def _convert_cropping3d(inexpr, keras_layer, _):
+    (_, _, in_d, in_h, in_w) = keras_layer.input_shape
+    ((dl, dr), (hl, hr), (wl, wr)) = keras_layer.cropping
+    int32_max = np.iinfo(np.int32).max
+    return _op.strided_slice(
+        inexpr,
+        begin=[0, 0, dl, hl, wl],
+        end=[int32_max, int32_max, in_d - dr, in_h - hr, in_w - wr]
+    )
+
+
 def _convert_batchnorm(inexpr, keras_layer, etab):
-    if etab.data_layout == "NCHW" or len(keras_layer.input_shape) < 4:
-        axis = 1
-    else:
-        axis = 3
+    axis = 1
 
     params = {"scale": False, "center": False, "epsilon": keras_layer.epsilon, "axis": axis}
     idx = 0
@@ -810,16 +790,12 @@ def _convert_padding(inexpr, keras_layer, etab):
     else:
         msg = "Operator {} is not supported in frontend Keras."
         raise tvm.error.OpNotImplemented(msg.format(padding_type))
-    if etab.data_layout == "NCHW":
-        return _op.nn.pad(data=inexpr, pad_width=((0, 0), (0, 0), (top, bottom), (left, right)))
-    return _op.nn.pad(data=inexpr, pad_width=((0, 0), (top, bottom), (left, right), (0, 0)))
+    return _op.nn.pad(data=inexpr, pad_width=((0, 0), (0, 0), (top, bottom), (left, right)))
 
 
 def _convert_padding3d(inexpr, keras_layer, etab):
     _check_data_format(keras_layer)
     padding = keras_layer.padding
-
-    d_pad = h_pad = w_pad = [0, 0]
 
     # padding can be 'int' or 'tuple of 3 ints' or 'tuple of 3 tuples of 2 ints' or 'tuple
     # of 3 tuples of 2 ints different values'. In all these scenarios keras will send 3
@@ -832,37 +808,21 @@ def _convert_padding3d(inexpr, keras_layer, etab):
         msg = 'Value {} in attribute "padding" of operator ZeroPadding3D is ' "not valid."
         raise tvm.error.OpAttributeInvalid(msg.format(str(padding)))
 
-    if etab.data_layout == "NCDHW":
-        out = _op.nn.pad(
-            data=inexpr,
-            pad_width=(
-                (0, 0),
-                (0, 0),
-                (d_pad[0], d_pad[1]),
-                (h_pad[0], h_pad[1]),
-                (w_pad[0], w_pad[1]),
-            ),
-        )
-    else:
-        out = _op.nn.pad(
-            data=inexpr,
-            pad_width=(
-                (0, 0),
-                (d_pad[0], d_pad[1]),
-                (h_pad[0], h_pad[1]),
-                (w_pad[0], w_pad[1]),
-                (0, 0),
-            ),
-        )
-    return out
+    return _op.nn.pad(
+        data=inexpr,
+        pad_width=(
+            (0, 0),
+            (0, 0),
+            (d_pad[0], d_pad[1]),
+            (h_pad[0], h_pad[1]),
+            (w_pad[0], w_pad[1]),
+        ),
+    )
 
 
 def _convert_concat(inexpr, keras_layer, etab):
     _check_data_format(keras_layer)
-    if etab.data_layout == "NHWC" or len(keras_layer.input_shape[0]) < 4:
-        axis = -1
-    else:
-        axis = 1
+    axis = 1
     return _op.concatenate(_as_list(inexpr), axis=axis)
 
 
@@ -871,12 +831,6 @@ def _convert_reshape(inexpr, keras_layer, etab):
     inshape = keras_layer.input_shape  # includes batch
     tshape = keras_layer.target_shape  # no batch
     shape = (-1,) + tshape
-
-    if etab.data_layout == "NCHW" and (len(inshape) > 3 or len(tshape) > 2):
-        # Perform reshape in original NHWC format.
-        inexpr = _op.transpose(inexpr, [0] + list(range(2, len(inshape))) + [1])
-        inexpr = _op.reshape(inexpr, newshape=shape)
-        return _op.transpose(inexpr, axes=[0, -1] + list(range(1, len(shape) - 1)))
 
     return _op.reshape(inexpr, newshape=shape)
 
@@ -1129,10 +1083,10 @@ _convert_map = {
     "UpSampling2D": _convert_upsample,
     "Cropping2D": _convert_cropping,
     'ZeroPadding1D': _convert_padding,
-    'AveragePooling1D': _convert_pooling,
-    'MaxPooling1D': _convert_pooling,
-    'GlobalAveragePooling1D': _convert_pooling,
-    'GlobalMaxPooling1D': _convert_pooling,
+    'AveragePooling1D': _convert_pooling1d,
+    'MaxPooling1D': _convert_pooling1d,
+    'GlobalAveragePooling1D': _convert_pooling1d,
+    'GlobalMaxPooling1D': _convert_pooling1d,
     'Cropping1D': _convert_cropping,
     'UpSampling1D': _convert_upsample,
     "Conv1D": _convert_convolution1d,
@@ -1145,6 +1099,7 @@ _convert_map = {
     "GlobalMaxPooling3D": _convert_global_pooling3d,
     "GlobalAveragePooling3D": _convert_global_pooling3d,
     "UpSampling3D": _convert_upsample3d,
+    "Cropping3D": _convert_cropping3d,
     "ZeroPadding3D": _convert_padding3d,
     "Minimum": _convert_merge,
     "Maximum": _convert_merge,
@@ -1334,14 +1289,6 @@ def from_keras(model, shape=None, layout="NCHW"):
     assert isinstance(model, expected_model_class)
 
     etab = ExprTable()
-    # Set global data format.
-    assert layout in [
-        "NWC",
-        "NCHW",
-        "NHWC",
-        "NDHWC",
-    ], "Layout must be one of 'NWC', 'NCHW', NHWC or NDHWC"
-    etab.data_layout = layout
     for keras_layer in model.layers:
         if isinstance(keras_layer, input_layer_class):
             _convert_input_layer(keras_layer)

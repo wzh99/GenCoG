@@ -1,3 +1,4 @@
+import random
 from typing import Tuple, Optional
 
 from .output_shape_calculator import OutputShapeCalculator
@@ -108,8 +109,8 @@ class LayerInfo(object):
     def conv1D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入3D向量
         '''
-        padding = self.__random.choice(["valid", "same", "causal"])
-        is_channels_last = True if padding == "causal" else self.__random.boolean()
+        padding = self.__random.choice(["valid", "same"])
+        is_channels_last = False
         kernel_size, strides, data_format, dilation_rate = self.__random.conv_args(input_shape,
                                                                                    dim_num=1,
                                                                                    is_channels_last=is_channels_last)
@@ -224,7 +225,7 @@ class LayerInfo(object):
             padding=self.__random.choice(["valid", "same"]),
             data_format=data_format,
             dilation_rate=dilation_rate,
-            depth_multiplier=self.__random.ele_size(),
+            depth_multiplier=1,
             activation=self.__random.activation_func(),
             use_bias=self.__random.boolean(),
             depthwise_initializer='random_uniform',
@@ -252,7 +253,7 @@ class LayerInfo(object):
             kernel_size=self.__random.kernel_size(window_limitation),
             strides=[v] * len(_strides),
             padding=self.__random.choice(["valid", "same"]),
-            depth_multiplier=self.__random.ele_size(),
+            depth_multiplier=1,
             data_format="channels_last" if is_channels_last else "channels_first",
             activation=self.__random.activation_func(),
             use_bias=self.__random.boolean(),
@@ -323,6 +324,7 @@ class LayerInfo(object):
             strides=self.__random.sizes_with_limitation(input_shape[1:2])[
                 0] if self.__random.boolean() else None,
             padding=self.__random.choice(["valid", "same"]),
+            data_format='channels_first'
         )
         return 'max_pooling1D', args, self.__output_shape.pooling1D_layer(input_shape=input_shape,
                                                                           **args)
@@ -365,6 +367,7 @@ class LayerInfo(object):
             strides=self.__random.sizes_with_limitation(input_shape[1:2])[
                 0] if self.__random.boolean() else None,
             padding=self.__random.choice(["valid", "same"]),
+            data_format='channels_first',
         )
         return 'average_pooling1D', args, self.__output_shape.pooling1D_layer(
             input_shape=input_shape, **args)
@@ -402,7 +405,7 @@ class LayerInfo(object):
     def global_max_pooling1D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入3D向量
         '''
-        args = dict()
+        args = {'data_format': 'channels_first'}
         return 'global_max_pooling1D', args, self.__output_shape.global_pooling1D_layer(
             input_shape=input_shape, **args)
 
@@ -410,7 +413,7 @@ class LayerInfo(object):
         '''只允许输入4D向量
         '''
         args = dict(
-            data_format=self.__random.choice(["channels_last", "channels_first"]),
+            data_format=self.__random.choice(["channels_first"]),
         )
         return 'global_max_pooling2D', args, self.__output_shape.global_pool_layer(
             input_shape=input_shape, dim_num=2, **args)
@@ -419,7 +422,7 @@ class LayerInfo(object):
         '''只允许输入5D向量
         '''
         args = dict(
-            data_format=self.__random.choice(["channels_last", "channels_first"]),
+            data_format=self.__random.choice(["channels_first"]),
         )
         return 'global_max_pooling3D', args, self.__output_shape.global_pool_layer(
             input_shape=input_shape, dim_num=3, **args)
@@ -427,7 +430,7 @@ class LayerInfo(object):
     def global_average_pooling1D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入3D向量
         '''
-        args = dict()
+        args = {'data_format': 'channels_last'}
         return 'global_average_pooling1D', args, self.__output_shape.global_pooling1D_layer(
             input_shape=input_shape, **args)
 
@@ -435,7 +438,7 @@ class LayerInfo(object):
         '''只允许输入4D向量
         '''
         args = dict(
-            data_format=self.__random.choice(["channels_last", "channels_first"]),
+            data_format=self.__random.choice(["channels_first"]),
         )
         return 'global_average_pooling2D', args, self.__output_shape.global_pool_layer(
             input_shape=input_shape, dim_num=2, **args)
@@ -444,7 +447,7 @@ class LayerInfo(object):
         '''只允许输入5D向量
         '''
         args = dict(
-            data_format=self.__random.choice(["channels_last", "channels_first"]),
+            data_format=self.__random.choice(["channels_first"]),
         )
         return 'global_average_pooling3D', args, self.__output_shape.global_pool_layer(
             input_shape=input_shape, dim_num=3, **args)
@@ -598,9 +601,9 @@ class LayerInfo(object):
 
     def batch_normalization_layer(self, input_shape: Tuple[Optional[int]]):
         args = dict(
-            axis=self.__random.axis(len(input_shape)),
+            axis=1,
             momentum=self.__random.small_val(),
-            epsilon=self.__random.small_val(),
+            epsilon=1e-5,
             center=self.__random.boolean(),
             scale=self.__random.boolean(),
             beta_initializer='random_uniform',
@@ -631,7 +634,7 @@ class LayerInfo(object):
         '''
         args = dict(
             data_format=self.__random.choice(
-                ["channels_last", "channels_first"]) if self.__random.boolean() else None,
+                ["channels_first"]) if self.__random.boolean() else None,
         )
         return 'flatten', args, self.__output_shape.flatten_layer(input_shape=input_shape)
 
@@ -660,13 +663,13 @@ class LayerInfo(object):
         )
         return 'cropping1D', args, self.__output_shape.cropping_layer(input_shape=input_shape,
                                                                       dim_num=1,
-                                                                      data_format="channels_last",
+                                                                      data_format="channels_first",
                                                                       **args)
 
     def cropping2D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入4D向量
         '''
-        channels_last = self.__random.boolean()
+        channels_last = False
         idx = 1 if channels_last else 2
         a = self.__random.randint_in_range([0, input_shape[idx] - 1])
         b = self.__random.randint_in_range([0, input_shape[idx] - 1 - a])
@@ -684,7 +687,7 @@ class LayerInfo(object):
     def cropping3D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入5D向量
         '''
-        channels_last = self.__random.boolean()
+        channels_last = False
         idx = 1 if channels_last else 2
         a = self.__random.randint_in_range([0, input_shape[idx] - 1])
         b = self.__random.randint_in_range([0, input_shape[idx] - 1 - a])
@@ -709,7 +712,7 @@ class LayerInfo(object):
         )
         return 'up_sampling1D', args, self.__output_shape.up_sampling_layer(input_shape=input_shape,
                                                                             dim_num=1,
-                                                                            data_format="channels_last",
+                                                                            data_format="channels_first",
                                                                             **args)
 
     def up_sampling2D_layer(self, input_shape: Tuple[Optional[int]]):
@@ -719,7 +722,7 @@ class LayerInfo(object):
         b = self.__random.ele_size()
         args = dict(
             size=self.__random.choice([a, (a, b)]),
-            data_format=self.__random.choice(["channels_last", "channels_first"]),
+            data_format=self.__random.choice(["channels_first"]),
         )
         return 'up_sampling2D', args, self.__output_shape.up_sampling_layer(input_shape=input_shape,
                                                                             dim_num=2, **args)
@@ -732,7 +735,7 @@ class LayerInfo(object):
         c = self.__random.ele_size()
         args = dict(
             size=self.__random.choice([a, (a, b, c)]),
-            data_format=self.__random.choice(["channels_last", "channels_first"]),
+            data_format=self.__random.choice(["channels_first"]),
         )
         return 'up_sampling3D', args, self.__output_shape.up_sampling_layer(input_shape=input_shape,
                                                                             dim_num=3, **args)
@@ -740,24 +743,24 @@ class LayerInfo(object):
     def zero_padding1D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入3D向量
         '''
-        a = self.__random.ele_size()
-        b = self.__random.ele_size()
+        a = random.randint(0, 2)
+        b = random.randint(0, 2)
         args = dict(
             padding=self.__random.choice([a, (a, b)]),
         )
         return 'zero_padding1D', args, self.__output_shape.zero_padding_layer(
-            input_shape=input_shape, dim_num=1, data_format="channels_last", **args)
+            input_shape=input_shape, dim_num=1, data_format="channels_first", **args)
 
     def zero_padding2D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入4D向量
         '''
-        a = self.__random.ele_size()
-        b = self.__random.ele_size()
-        c = self.__random.ele_size()
-        d = self.__random.ele_size()
+        a = random.randint(0, 2)
+        b = random.randint(0, 2)
+        c = random.randint(0, 2)
+        d = random.randint(0, 2)
         args = dict(
             padding=self.__random.choice([a, (a, c), ((a, b), (c, d))]),
-            data_format=self.__random.choice(["channels_last", "channels_first"]),
+            data_format=self.__random.choice(["channels_first"]),
         )
         return 'zero_padding2D', args, self.__output_shape.zero_padding_layer(
             input_shape=input_shape, dim_num=2, **args)
@@ -765,15 +768,15 @@ class LayerInfo(object):
     def zero_padding3D_layer(self, input_shape: Tuple[Optional[int]]):
         '''只允许输入5D向量
         '''
-        a = self.__random.ele_size()
-        b = self.__random.ele_size()
-        c = self.__random.ele_size()
-        d = self.__random.ele_size()
-        e = self.__random.ele_size()
-        f = self.__random.ele_size()
+        a = random.randint(0, 2)
+        b = random.randint(0, 2)
+        c = random.randint(0, 2)
+        d = random.randint(0, 2)
+        e = random.randint(0, 2)
+        f = random.randint(0, 2)
         args = dict(
             padding=self.__random.choice([a, (a, c, e), ((a, b), (c, d), (e, f))]),
-            data_format=self.__random.choice(["channels_last", "channels_first"]),
+            data_format=self.__random.choice(["channels_first"]),
         )
         return 'zero_padding3D', args, self.__output_shape.zero_padding_layer(
             input_shape=input_shape, dim_num=3, **args)
@@ -871,7 +874,7 @@ class LayerInfo(object):
         input_shape_list, output_shape, axis = self.__random.concatenate_shapes(input_num=input_num,
                                                                                 output_shape=output_shape)
         args = dict(
-            axis=axis
+            axis=1
         )
         return 'concatenate', args, input_shape_list, output_shape
 

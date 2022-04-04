@@ -108,6 +108,7 @@ class ModelGenerator(object):
 
             # 检查形状
             from tensorflow.keras import backend as K
+            K.set_image_data_format('channels_first')
             if K.int_shape(layer_dict[layer_id]) != tuple(ouput_shape):
                 raise Exception(
                     f"[Debug] layer_id: {layer_id} expected shape: {tuple(ouput_shape)}  actual shape: {K.int_shape(layer_dict[layer_id])}")
@@ -174,7 +175,7 @@ class ModelGenerator(object):
 
             # 形状太大的就抛出错误
             if self.__shape_too_big(cur_shape):
-                raise ValueError("Shape too big!!")
+                raise ValueError(f"Invalid shape: {cur_shape}")
 
             model_structure[j] = dict(type=layer_type,
                                       args=dict(**layer_args, name=layer_name),

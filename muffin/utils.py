@@ -84,9 +84,9 @@ seq_layer_types = [
     'conv1D',
     'conv2D',
     'conv3D',
-    'separable_conv1D',
+    # 'separable_conv1D', # TVM does not support depth-wise 1d convolution
     'separable_conv2D',
-    'depthwise_conv2D',
+    'depthwise_conv2D',  # TVM use different weights for each group, while Keras use the same
     'conv2D_transpose',
     'conv3D_transpose',
 
@@ -112,13 +112,13 @@ seq_layer_types = [
     'flatten',
     # 'repeat_vector',
     'permute',
-    'cropping1D',
+    # 'cropping1D',  # NCHW not supported in Keras
     'cropping2D',
     'cropping3D',
-    # 'up_sampling1D',
+    # 'up_sampling1D',  # NCHW not supported in Keras
     'up_sampling2D',
     'up_sampling3D',
-    'zero_padding1D',
+    # 'zero_padding1D',  # NCHW not supported in Keras
     'zero_padding2D',
     'zero_padding3D',
 
@@ -225,6 +225,7 @@ reduction_layer_types = pooling_layer_types + merging_layer_types
 activation_cond = (
     lambda **kwargs: kwargs['e1'] in ['dense', *conv_layer_types, *recurrent_layer_types])
 
+dim_2_cond = (lambda **kwargs: kwargs.get('input_dim', None) == 2)
 dim_3_cond = (lambda **kwargs: kwargs.get('input_dim', None) == 3)
 dim_4_cond = (lambda **kwargs: kwargs.get('input_dim', None) == 4)
 dim_5_cond = (lambda **kwargs: kwargs.get('input_dim', None) == 5)
@@ -235,7 +236,7 @@ layer_conditions = {
     'embedding': (
         lambda **kwargs: kwargs.get('e1', None) == 'input_object' and kwargs.get('input_dim',
                                                                                  None) == 2),
-
+    'dense': dim_2_cond,
     'conv1D': dim_3_cond,
     'conv2D': dim_4_cond,
     'conv3D': dim_5_cond,

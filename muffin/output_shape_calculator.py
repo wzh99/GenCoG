@@ -65,7 +65,7 @@ class OutputShapeCalculator(object):
     def pooling1D_layer(self, input_shape, pool_size, strides, padding, **kwargs):
         return self.pooling_layer(input_shape, 1, [pool_size],
                                   [pool_size] if strides is None else [strides], padding,
-                                  "channels_last", **kwargs)
+                                  **kwargs)
 
     def global_pool_layer(self, input_shape, dim_num, data_format, **kwargs):
         is_channels_last = (data_format == "channels_last")
@@ -73,7 +73,7 @@ class OutputShapeCalculator(object):
                                                                                        :-dim_num]
 
     def global_pooling1D_layer(self, input_shape, **kwargs):
-        return self.global_pool_layer(input_shape, 1, "channels_last", **kwargs)
+        return self.global_pool_layer(input_shape, 1, **kwargs)
 
     def RNN(self, input_shape, return_sequences, units, **kwargs):
         return (*input_shape[:-1], units) if return_sequences else (*input_shape[:-2], units)

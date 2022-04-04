@@ -89,7 +89,6 @@ muffin_ops = [
     'nn.conv1d',
     'nn.conv2d',
     'nn.conv3d',
-    'nn.conv1d_transpose',
     'nn.conv2d_transpose',
     'nn.conv3d_transpose',
     'nn.max_pool1d',

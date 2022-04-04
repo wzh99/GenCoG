@@ -37,7 +37,7 @@ config = {
             'small_value_range': (0, 1),
             'vocabulary_size': 1001,
         },
-        'node_num_range': (32, 32),
+        'node_num_range': (16, 16),
         'dag_io_num_range': (1, 3),
         'dag_max_branch_num': 2,
         'cell_num': 3,
@@ -49,20 +49,35 @@ config = {
 }
 
 
-def main():
-    from tvm.relay.transform import SimplifyExpr
+def sample_model():
+    from tensorflow.keras import Model, Input
+    from tensorflow.keras.layers import Conv2DTranspose
 
-    case_num = 5
+    x = Input(shape=(1, 2, 4))
+    y = Conv2DTranspose(4, (1, 1), strides=(2, 2), data_format='channels_first')(x)
+    model = Model(inputs=[x], outputs=[y])
+    return model
+
+
+def main():
+    from tvm.relay.transform import AnnotateSpans
+
+    case_num = 10
     use_heuristic = False  # 是否开启启发式规则
-    generate_mode = 'seq'  # seq\merge\dag\template
+    generate_mode = 'template'  # seq\merge\dag\template
 
     debugger = TrainingDebugger(config, use_heuristic, generate_mode)
 
     for _ in range(case_num):
-        model = debugger.run_generation()
+        try:
+            model = debugger.run_generation()
+            # model = sample_model()
+        except ValueError as err:
+            print(err.__cause__)
         input_shapes = {inp.name: (1,) + tuple(inp.shape.as_list()[1:]) for inp in model.inputs}
         mod, params = from_keras(model, shape=input_shapes)
-        mod = SimplifyExpr()(mod)
+        print(mod)
+        mod = AnnotateSpans()(mod)
         print(mod)
 
 

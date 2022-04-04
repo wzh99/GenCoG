@@ -118,17 +118,17 @@ class VariableGenerator(object):
             'relu',
             'sigmoid',
             'softmax',
-            'softplus',
+            # 'softplus',
             # 'softsign'  # x / (abs(x) + 1) 会导致值都很接近0.99,
             'tanh',
-            'selu',
-            'elu',
-            'linear',
+            # 'selu',
+            # 'elu',
+            # 'linear',
         ])
 
     def conv_args(self, input_shape: Tuple[int], dim_num: int,
                   is_channels_last: Optional[bool] = None):
-        is_channels_last = self.boolean() if is_channels_last is None else is_channels_last
+        is_channels_last = False
         data_format = "channels_last" if is_channels_last else "channels_first"
         window_limitation = input_shape[1:1 + dim_num] if is_channels_last else input_shape[
                                                                                 2:2 + dim_num]
@@ -145,7 +145,7 @@ class VariableGenerator(object):
     def concatenate_shapes(self, input_num: int, output_shape: Optional[tuple]):
         if output_shape is None:
             input_shape_1 = self.shape()
-            axis = self.axis(len(input_shape_1))
+            axis = 1
             temp_axis = axis % len(input_shape_1)
 
             input_shape_list = [input_shape_1]
@@ -158,8 +158,7 @@ class VariableGenerator(object):
                 total_len += new_len
             output_shape = (*input_shape_1[:temp_axis], total_len, *input_shape_1[temp_axis + 1:])
         else:
-            import numpy as np
-            axis = np.argmax(list(output_shape[1:])) + 1
+            axis = 1
             total_len = output_shape[axis]
             new_len_list = self.divide_len(total_len, input_num)
             input_shape_list = [(*output_shape[:axis], new_len, *output_shape[axis + 1:]) for
