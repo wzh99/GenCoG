@@ -34,7 +34,7 @@ params: Dict[str, Any] = {
     'op.max_dilation': 2,
 }
 
-# Use this set of parameters for real testing
+# Use this set of parameters for actual testing
 """
 params: Dict[str, Any] = {
     # Maximal number of input tensors for variadic operators
@@ -72,6 +72,8 @@ params: Dict[str, Any] = {
 
 # Operators that have correspondences with Keras layers in Muffin (ICSE'22)
 muffin_ops = [
+    'sigmoid',
+    'tanh',
     'add',
     'subtract',
     'multiply',

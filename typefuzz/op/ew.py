@@ -18,6 +18,8 @@ def create_ew():
 
 
 Op('exp', create_ew)
+Op('sigmoid', create_ew)
+Op('tanh', create_ew)
 
 
 def _create_bcast():

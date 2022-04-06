@@ -708,7 +708,7 @@ class LayerInfo(object):
         '''只允许输入3D向量
         '''
         args = dict(
-            size=self.__random.ele_size()
+            size=2
         )
         return 'up_sampling1D', args, self.__output_shape.up_sampling_layer(input_shape=input_shape,
                                                                             dim_num=1,
@@ -721,7 +721,7 @@ class LayerInfo(object):
         a = self.__random.ele_size()
         b = self.__random.ele_size()
         args = dict(
-            size=self.__random.choice([a, (a, b)]),
+            size=(2, 2),
             data_format=self.__random.choice(["channels_first"]),
         )
         return 'up_sampling2D', args, self.__output_shape.up_sampling_layer(input_shape=input_shape,
@@ -734,7 +734,7 @@ class LayerInfo(object):
         b = self.__random.ele_size()
         c = self.__random.ele_size()
         args = dict(
-            size=self.__random.choice([a, (a, b, c)]),
+            size=(2, 2, 2),
             data_format=self.__random.choice(["channels_first"]),
         )
         return 'up_sampling3D', args, self.__output_shape.up_sampling_layer(input_shape=input_shape,

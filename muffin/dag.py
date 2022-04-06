@@ -60,7 +60,7 @@ class DAG(object):
                 self.nodes.append(self.Node(i))
         self.nodes.sort(key=lambda n: n.id)  # 拓扑排序
         self.__generate()
-        self.show()
+        # self.show()
 
     def __generate(self, adjoin_prob: float = 0.9):
         # 从每个非output出发向后连至少一个，连接对象必须非input

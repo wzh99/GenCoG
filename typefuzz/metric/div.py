@@ -33,6 +33,8 @@ class EdgeDiversity(Diversity):
             vis.visit(o)
 
     def mark(self, tail: Op, head: Op):
+        if tail not in self._ops or head not in self._ops:
+            return
         ti, hi = self._idx_map[tail], self._idx_map[head]
         self._mat[ti, hi] = True
 
@@ -72,6 +74,8 @@ class VertexDiversity(Diversity):
     def record(self, opr: Operation):
         # Hash input shape
         op = opr.op_
+        if op not in self._specs:
+            return
         shapes = tuple(tuple(v.type_.shape_) for i, v in enumerate(opr.inputs_)
                        if i not in op.params_)
         h = hash(shapes)
@@ -79,6 +83,8 @@ class VertexDiversity(Diversity):
         # Hash attributes
         space = self._space[op]
         for n, v in opr.attrs_:
+            if n not in space.attr:
+                continue
             if space.attr[n] == 1:
                 continue  # skip attributes whose space cannot be estimated
             h ^= hash((n, v))
@@ -87,9 +93,12 @@ class VertexDiversity(Diversity):
         self._hash[op].add(h)
 
     @property
+    def op_div(self):
+        return np.array([min(len(self._hash[op]) / self._space[op].total, 1) for op in self._ops])
+
+    @property
     def result(self) -> float:
-        op_div = np.array([min(len(self._hash[op]) / self._space[op].total, 1) for op in self._ops])
-        return float(np.mean(op_div))
+        return float(np.mean(self.op_div))
 
 
 class OperationCollector(GraphVisitor[None]):

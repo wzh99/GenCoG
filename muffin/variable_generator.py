@@ -104,11 +104,12 @@ class VariableGenerator(object):
         return self.__vocabulary_size
 
     def kernel_size(self, window_max_shape: Tuple[int]) -> List[int]:
-        length = random.randint(1, min(window_max_shape))
+        length = random.randint(1, min(window_max_shape + (3,)))
         return [length for _ in window_max_shape]
 
     def sizes_with_limitation(self, window_max_shape: Tuple[int]) -> List[int]:
-        length = random.randint(1, min(window_max_shape))
+        window_max_shape = tuple(window_max_shape)
+        length = random.randint(1, min(window_max_shape + (2,)))
         return [length for _ in window_max_shape]
 
     def activation_func(self):

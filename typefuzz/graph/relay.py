@@ -1,8 +1,13 @@
-from typing import Dict
+from typing import Dict, List, cast
 
-from .base import GraphVisitor, Value, Graph, VertexKind, Input, Output, Operation
+import numpy as np
+from tvm import relay, tir, runtime, ir
+from tvm.ir import IRModule
+
+from .base import GraphVisitor, Value, Graph, VertexKind, Input, Output, Operation, TensorType
 from ..expr.ty import ValueType, DataType
-from ..util import Ref, NameGenerator, CodeBuffer
+from ..spec import OpRegistry
+from ..util import NameGenerator, CodeBuffer
 
 # Operators that accept tuple as input
 tuple_in_ops = {
@@ -26,6 +31,8 @@ def fmt_val(v: ValueType):
         return '"' + v + '"'
     elif isinstance(v, (tuple, list)):
         return '[' + ', '.join(fmt_val(e) for e in v) + ']'
+    elif v is None:
+        return fmt_val([])
     else:
         assert False
 
@@ -34,7 +41,7 @@ class RelayPrinter(GraphVisitor[None]):
     def __init__(self):
         super().__init__()
         self._buf = CodeBuffer()
-        self._val_id: Dict[Ref[Value], str] = {}
+        self._val_names: Dict[Value, str] = {}
         self._arg_gen = NameGenerator('%x')
         self._res_gen = NameGenerator('%')
 
@@ -106,12 +113,127 @@ class RelayPrinter(GraphVisitor[None]):
                 self._buf.writeln(f'{self.visit_value(v)} = {tup_name}.{i};')
 
     def visit_value(self, v: Value):
-        ref = Ref(v)
-        if ref in self._val_id:
-            return self._val_id[ref]
+        if v in self._val_names:
+            return self._val_names[v]
         if v.def_.kind == VertexKind.IN:
             name = self._arg_gen.generate()
         else:
             name = self._res_gen.generate()
-        self._val_id[ref] = name
+        self._val_names[v] = name
         return name
+
+
+def build_graph(mod: IRModule, params: Dict[str, np.ndarray]):
+    return GraphBuilder(params).visit(mod['main'])
+
+
+class GraphBuilder(relay.ExprFunctor):
+    def __init__(self, params: Dict[str, np.ndarray]):
+        super().__init__()
+        self._params = params
+        self._name2val: Dict[str, Value] = {}
+        self._inputs: List[Input] = []
+        self._oprs: List[Operation] = []
+
+    def visit_function(self, fn: relay.Function):
+        # Create inputs
+        self._inputs = [Input(_cvt_type(var.checked_type), var.name_hint in self._params)
+                        for var in fn.params]
+        self._name2val = {p.name_hint: inp.value_ for p, inp in zip(fn.params, self._inputs)}
+
+        # Build operations
+        if isinstance(fn.body, (relay.Call, relay.TupleGetItem, relay.Var)):
+            outputs = [Output(self.visit(fn.body))]
+        elif isinstance(fn.body, relay.Tuple):
+            outputs = [Output(self.visit(f)) for f in fn.body.fields]
+        else:
+            raise TypeError('{} not supported.'.format(type(fn.body).__name__))
+
+        # Create graph
+        return Graph(self._inputs, outputs, self._oprs)
+
+    def visit_var(self, var: relay.Var):
+        return self._name2val[var.name_hint]
+
+    def visit_constant(self, const: relay.Constant):
+        inp = Input(_cvt_type(const.checked_type), True)
+        self._inputs.append(inp)
+        return inp.value_
+
+    def visit_tuple(self, tup: relay.Tuple):
+        return [self.visit(f) for f in tup.fields]
+
+    def visit_tuple_getitem(self, getitem: relay.TupleGetItem):
+        opr = cast(Value, self.visit(getitem.tuple_value)).def_
+        return cast(Operation, opr).outputs_[getitem.index]
+
+    def visit_call(self, call: relay.Call):
+        # Collect input values
+        name = call.op.name
+        if name in tuple_in_ops:
+            inputs = self.visit_tuple(call.args[0])
+        else:
+            inputs = [self.visit(a) for a in call.args]
+
+        # Convert attribute values
+        if call.attrs is None or (not hasattr(call.attrs, 'keys')):
+            attrs = []
+        else:
+            attrs = [(str(k), _cvt_ir_value(call.attrs[k])) for k in call.attrs.keys()]
+
+        # Create output values
+        out_ty = call.checked_type
+        if isinstance(out_ty, relay.TensorType):
+            outputs = [Value(_cvt_type(out_ty))]
+        elif isinstance(out_ty, relay.TupleType):
+            outputs = [Value(_cvt_type(f)) for f in out_ty.fields]
+        else:
+            raise TypeError('{} not supported.'.format(type(out_ty).__name__))
+
+        # Create operation
+        opr = Operation(OpRegistry.get(name), attrs, inputs, outputs)
+        self._oprs.append(opr)
+
+        return opr.outputs_[0]
+
+    def visit_let(self, _):
+        raise NotImplemented
+
+    def visit_if(self, _):
+        raise NotImplemented
+
+    def visit_global_var(self, _):
+        raise NotImplemented
+
+    def visit_op(self, _):
+        raise NotImplemented
+
+    def visit_ref_create(self, _):
+        raise NotImplemented
+
+    def visit_ref_write(self, _):
+        raise NotImplemented
+
+    def visit_ref_read(self, _):
+        raise NotImplemented
+
+    def visit_constructor(self, _):
+        raise NotImplemented
+
+    def visit_match(self, _):
+        raise NotImplemented
+
+
+def _cvt_type(ty: relay.TensorType):
+    return TensorType(_cvt_ir_value(ty.shape), DataType.from_str(ty.dtype))
+
+
+def _cvt_ir_value(val) -> ValueType:
+    if isinstance(val, (tir.IntImm, tir.FloatImm, tir.StringImm)):
+        return val.value
+    elif isinstance(val, runtime.String):
+        return str(val)
+    elif isinstance(val, (list, ir.Array)):
+        return tuple(_cvt_ir_value(e) for e in val)
+    else:
+        return val

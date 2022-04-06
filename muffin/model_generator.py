@@ -7,17 +7,34 @@ from .dag import DAG
 from .layer_info_generator import LayerInfoGenerator
 from .model_template import ModelTemplate
 from .selection import Roulette
-from .utils import construct_layer_name, normal_layer_types, reduction_layer_types, get_layer_func
+from .utils import construct_layer_name, normal_layer_types, reduction_layer_types, get_layer_func, \
+    layer_types, layer_conditions
 from .variable_generator import VariableGenerator
 
 keras.backend.set_image_data_format('channels_first')
+
+config = {
+    'var': {
+        'tensor_dimension_range': (2, 5),
+        'tensor_element_size_range': (1, 4),
+        'weight_value_range': (-10.0, 10.0),
+        'small_value_range': (0, 1),
+        'vocabulary_size': 1001,
+    },
+    'node_num_range': (16, 16),
+    'dag_io_num_range': (1, 3),
+    'dag_max_branch_num': 2,
+    'cell_num': 3,
+    'node_num_per_normal_cell': 10,
+    'node_num_per_reduction_cell': 2,
+}
 
 
 class ModelGenerator(object):
     '''模型信息生成器
     '''
 
-    def __init__(self, config: dict, selector: Roulette, generate_mode: str, weight_range: tuple):
+    def __init__(self, ):
         super().__init__()
         self.__node_num_range = config['node_num_range']
         self.__dag_io_num_range = config['dag_io_num_range']
@@ -26,11 +43,13 @@ class ModelGenerator(object):
         self.__node_num_per_normal_cell = config['node_num_per_normal_cell']
         self.__node_num_per_reduction_cell = config['node_num_per_reduction_cell']
         self.__random = VariableGenerator(config['var'])
+        selector = Roulette(layer_types=layer_types,
+                            layer_conditions=layer_conditions,
+                            use_heuristic=False)
         self.__layer_generator = LayerInfoGenerator(self.__random, selector)
-        self.__generate_mode = generate_mode
-        self.__weight_range = weight_range
+        self.__weight_range = config['var']['weight_value_range']
 
-    def generate(self, save_dir: str, node_num: Optional[int] = None,
+    def generate(self, generate_mode: str, node_num: Optional[int] = None,
                  model_info: Optional[dict] = None):
         '''生成模型信息, 可通过model_info指定模型信息，若不指定则随机生成
 
@@ -42,22 +61,22 @@ class ModelGenerator(object):
             if node_num is None:
                 node_num = self.__random.randint_in_range(self.__node_num_range)
 
-            if self.__generate_mode == 'seq':
+            if generate_mode == 'seq':
                 model_info, input_shapes, output_shapes, node_num = self.generate_seq_model(
                     node_num=node_num)
-            elif self.__generate_mode == 'merge':
+            elif generate_mode == 'merge':
                 model_info, input_shapes, output_shapes, node_num = self.generate_merge_model(
                     node_num=node_num)
-            elif self.__generate_mode == 'dag':
+            elif generate_mode == 'dag':
                 model_info, input_shapes, output_shapes, node_num = self.generate_dag_model(
                     node_num=node_num)
-            elif self.__generate_mode == 'template':
+            elif generate_mode == 'template':
                 model_info, input_shapes, output_shapes, node_num = self.generate_template_model(
                     cell_num=self.__cell_num,
                     node_num_per_normal_cell=self.__node_num_per_normal_cell,
                     node_num_per_reduction_cell=self.__node_num_per_reduction_cell)
             else:
-                raise ValueError(f"UnKnown generate mode '{self.__generate_mode}'")
+                raise ValueError(f"UnKnown generate mode '{generate_mode}'")
 
         # Generate model from model info
         model = self.__generate_model(model_info)
@@ -171,7 +190,7 @@ class ModelGenerator(object):
                     continue
             j = i - skip
             layer_name = construct_layer_name(j, layer_type, cell_type)
-            print(f"{layer_name}: {cur_shape}")
+            # print(f"{layer_name}: {cur_shape}")
 
             # 形状太大的就抛出错误
             if self.__shape_too_big(cur_shape):
@@ -249,7 +268,7 @@ class ModelGenerator(object):
 
         # merge层
         layer_name = construct_layer_name(cur_id, layer_type, cell_type)
-        print(f"{layer_name}: {merge_output_shape}")
+        # print(f"{layer_name}: {merge_output_shape}")
 
         if self.__shape_too_big(merge_output_shape):
             raise ValueError("Shape too big!!")
@@ -457,7 +476,7 @@ class ModelGenerator(object):
                           args=dict(**layer_args, name=layer_name),
                           pre_layers=pre_layers,
                           output_shape=cur_shape)
-        print(f"{layer_name}: {cur_shape}")
+        # print(f"{layer_name}: {cur_shape}")
         model_structure[layer_id] = layer_info
         return layer_name, layer_id + 1, cur_shape
 
