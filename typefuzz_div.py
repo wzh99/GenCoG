@@ -1,3 +1,4 @@
+import time
 from argparse import Namespace, ArgumentParser
 from sys import stdout
 
@@ -34,6 +35,9 @@ def main():
     # Generation loop
     opr_count = 0
     progress = tqdm(total=opr_limit, file=stdout)
+    div_record = []
+    record_file = 'out/typefuzz-{}.txt'.format(time.strftime("%Y%m%d-%H%M%S", time.localtime()))
+    loop_idx = 0
     while True:
         # Generate graph
         graph = gen.generate()
@@ -44,8 +48,19 @@ def main():
         opr_num = len(graph.oprs_)
         opr_count += opr_num
         progress.update(n=opr_num)
+
+        # Write record to file
+        div_record.append([opr_count, vert_div.result, edge_div.result])
+        if loop_idx % 10 == 0:
+            # noinspection PyTypeChecker
+            np.savetxt(record_file, np.array(div_record), fmt='%.4f')
+
+        # Stop if operation limit is reached
         if opr_count >= opr_limit:
+            # noinspection PyTypeChecker
+            np.savetxt(record_file, np.array(div_record), fmt='%.4f')
             break
+        loop_idx += 1
 
     # Output diversity
     np.set_printoptions(precision=3)
@@ -67,6 +82,4 @@ Operator detail:
  0.131 1.    0.244]
 Vertex diversity: 0.20436015676193436
 Edge diversity: 0.7928994082840237
-
-
 """

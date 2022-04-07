@@ -225,7 +225,7 @@ def run_process(f: Callable[[Any], Dict[str, Any]], args: Tuple[Any, ...]):
     # Start process
     ps = Process(target=_ps_work, args=(f, args, ret, out_q, err_q))
     ps.start()
-    ps.join()
+    ps.join(timeout=60)
 
     return ProcessResult(ps.exitcode, dict(ret), out_read.join(), err_read.join())
 

@@ -1,3 +1,4 @@
+import time
 from argparse import ArgumentParser, Namespace
 from sys import stdout
 
@@ -44,6 +45,8 @@ def main():
     # Generation loop
     opr_count = 0
     progress = tqdm(total=opr_limit, file=stdout)
+    div_record = []
+    record_file = 'out/muffin-{}.txt'.format(time.strftime("%Y%m%d-%H%M%S", time.localtime()))
     while True:
         if options.mode == 'hybrid':
             mode = np.random.choice(_gen_modes)
@@ -80,6 +83,13 @@ def main():
         opr_num = len(graph.oprs_)
         opr_count += opr_num
         progress.update(n=opr_num)
+
+        # Write record to file
+        div_record.append([opr_count, vert_div.result, edge_div.result])
+        # noinspection PyTypeChecker
+        np.savetxt(record_file, np.array(div_record), fmt='%.4f')
+
+        # Stop if operation limit is reached
         if opr_count >= opr_limit:
             break
 
@@ -93,3 +103,13 @@ def main():
 if __name__ == '__main__':
     _parse_args()
     main()
+
+"""
+[0.1   0.098 0.032 0.025 0.032 0.025 0.028 0.066 0.155 0.022 0.121 0.11
+ 0.031 0.03  0.201 0.113 0.091 0.047 0.004 0.012 0.003 0.124 0.029 0.007
+ 0.119 0.027 0.007 0.318 0.211 0.074 0.182 0.215 0.079 0.063 0.022 0.249
+ 0.086 1.    0.452]
+Vertex diversity: 0.11820851272891202
+Edge diversity: 0.3879026955950033
+50020it [2:23:31,  5.81it/s]
+"""
