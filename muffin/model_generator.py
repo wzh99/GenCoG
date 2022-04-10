@@ -21,7 +21,7 @@ config = {
         'small_value_range': (0, 1),
         'vocabulary_size': 1001,
     },
-    'node_num_range': (16, 16),
+    'node_num_range': (32, 32),
     'dag_io_num_range': (1, 3),
     'dag_max_branch_num': 2,
     'cell_num': 3,
@@ -59,7 +59,7 @@ class ModelGenerator(object):
         # 若未规定现成结构
         if model_info is None:
             if node_num is None:
-                node_num = self.__random.randint_in_range(self.__node_num_range)
+                node_num = 16 if generate_mode in ['dag', 'template'] else 32
 
             if generate_mode == 'seq':
                 model_info, input_shapes, output_shapes, node_num = self.generate_seq_model(
