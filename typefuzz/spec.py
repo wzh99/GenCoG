@@ -40,7 +40,7 @@ class TypeSpec:
     # Whether specification is used for computation graph generation. When specifying for graphs,
     # the space of input types and attributes specified by the constraints is usually more
     # restricted.
-    for_graph = False
+    for_graph = True
 
     def __init__(self,
                  attrs: t.List[Attr],

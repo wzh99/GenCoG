@@ -11,7 +11,7 @@ from tvm_util.frontend import from_keras
 from typefuzz.config import muffin_ops
 from typefuzz.graph.relay import build_graph
 from typefuzz.metric.div import VertexDiversity, EdgeDiversity
-from typefuzz.spec import TypeSpec, OpRegistry
+from typefuzz.spec import OpRegistry
 from typefuzz.util import run_process
 
 _gen_modes = ['seq', 'merge', 'dag', 'template']
@@ -23,8 +23,7 @@ def _parse_args():
     global options
     p = ArgumentParser()
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
-    p.add_argument('-m', '--mode', type=str, choices=_gen_modes + ['hybrid'],
-                   help='Generation mode.')
+    p.add_argument('-m', '--mode', type=str, choices=_gen_modes, help='Generation mode.')
     options = p.parse_args()
 
 
@@ -35,7 +34,6 @@ def _check_relay(src: str):
 
 def main():
     # Initialization
-    TypeSpec.for_graph = True
     opr_limit = options.limit
     model_gen = ModelGenerator()
     ops = [OpRegistry.get(name) for name in muffin_ops]
@@ -46,14 +44,10 @@ def main():
     opr_count = 0
     progress = tqdm(total=opr_limit, file=stdout)
     div_record = []
-    record_file = 'out/muffin-{}.txt'.format(time.strftime("%Y%m%d-%H%M%S", time.localtime()))
+    record_file = time.strftime("out/muffin-%Y%m%d-%H%M%S.txt", time.localtime())
     while True:
-        if options.mode == 'hybrid':
-            mode = np.random.choice(_gen_modes)
-        else:
-            mode = options.mode
-
         # Generate Keras model
+        mode = options.mode
         try:
             model = model_gen.generate(mode)
         except ValueError:
@@ -91,6 +85,7 @@ def main():
 
         # Stop if operation limit is reached
         if opr_count >= opr_limit:
+            progress.close()
             break
 
     # Output diversity

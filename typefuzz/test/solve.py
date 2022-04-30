@@ -122,8 +122,7 @@ def parse_args():
     p.add_argument('--seed', type=int, default=42, help='Random seed of test case generator.')
     options = p.parse_args()
 
-    if options.graph:
-        TypeSpec.for_graph = True
+    TypeSpec.for_graph = options.graph
     if not options.separate:
         environ['TVM_BACKTRACE'] = '1'
 

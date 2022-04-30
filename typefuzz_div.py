@@ -9,7 +9,7 @@ from tqdm import tqdm
 from typefuzz.config import muffin_ops
 from typefuzz.graph import GraphGenerator
 from typefuzz.metric.div import EdgeDiversity, VertexDiversity
-from typefuzz.spec import OpRegistry, TypeSpec
+from typefuzz.spec import OpRegistry
 
 options = Namespace()
 
@@ -24,7 +24,6 @@ def _parse_args():
 
 def main():
     # Initialization
-    TypeSpec.for_graph = True
     opr_limit = options.limit
     rng = Generator(PCG64(seed=options.seed))
     ops = [OpRegistry.get(name) for name in muffin_ops]
@@ -36,7 +35,7 @@ def main():
     opr_count = 0
     progress = tqdm(total=opr_limit, file=stdout)
     div_record = []
-    record_file = 'out/typefuzz-{}.txt'.format(time.strftime("%Y%m%d-%H%M%S", time.localtime()))
+    record_file = time.strftime("out/typefuzz-%Y%m%d-%H%M%S.txt", time.localtime())
     loop_idx = 0
     while True:
         # Generate graph
@@ -59,6 +58,7 @@ def main():
         if opr_count >= opr_limit:
             # noinspection PyTypeChecker
             np.savetxt(record_file, np.array(div_record), fmt='%.4f')
+            progress.close()
             break
         loop_idx += 1
 
