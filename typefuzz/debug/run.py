@@ -15,18 +15,35 @@ class ErrorKind(IntEnum):
     COMPUTE = auto()
 
 
-class RelayRunner:
-    def __init__(self, rng: Generator, path: str):
-        self._rng = rng
-        self._path = path
+class ModuleError(Exception):
+    def __init__(self, kind: ErrorKind, code: str, err: str, opt_level: int):
+        self.kind_ = kind
+        self.code_ = code
+        self.err_ = err
+        self.opt_level_ = opt_level
 
-    def run(self, src: str) -> bool:
+    def write_txt(self, path: str):
+        if not os.path.exists(path):
+            os.mkdir(path)
+        with open(os.path.join(path, self.kind_.name), 'w'):
+            pass
+        with open(os.path.join(path, 'code.txt'), 'w') as file:
+            file.write(self.code_)
+        with open(os.path.join(path, 'error.txt'), 'w') as file:
+            file.write(f'opt_level={self.opt_level_}\n')
+            file.write(self.err_)
+
+
+class ModuleRunner:
+    def __init__(self, rng: Generator):
+        self._rng = rng
+
+    def run(self, code: str):
         # Parse module
         try:
-            mod = parser.parse(src)
+            mod = parser.parse(code)
         except TVMError as err:
-            self.write_report(ErrorKind.PARSE, src, str(err), 0)
-            return False
+            raise ModuleError(ErrorKind.PARSE, code, str(err), 0)
 
         # Generate input parameters
         main_fn = mod['main']
@@ -37,26 +54,22 @@ class RelayRunner:
         try:
             gmod = build_mod(mod, params, 0)
         except Exception as err:
-            self.write_report(ErrorKind.COMPILE, mod.astext(), str(err), 0)
-            return False
+            raise ModuleError(ErrorKind.COMPILE, mod.astext(), str(err), 0)
         try:
             ref_outputs = run_exec(gmod, inputs)
         except Exception as err:
-            self.write_report(ErrorKind.RUN, mod.astext(), str(err), 0)
-            return False
+            raise ModuleError(ErrorKind.RUN, mod.astext(), str(err), 0)
 
         # Build and run modules with different levels of optimization
         for opt_level in range(1, 4):
             try:
                 gmod = build_mod(mod, params, opt_level)
             except Exception as err:
-                self.write_report(ErrorKind.COMPILE, mod.astext(), str(err), opt_level)
-                return False
+                raise ModuleError(ErrorKind.COMPILE, mod.astext(), str(err), opt_level)
             try:
                 outputs = run_exec(gmod, inputs)
             except Exception as err:
-                self.write_report(ErrorKind.RUN, mod.astext(), str(err), opt_level)
-                return False
+                raise ModuleError(ErrorKind.RUN, mod.astext(), str(err), opt_level)
             for i, (o, ro) in enumerate(zip(outputs, ref_outputs)):
                 if not np.allclose(o, ro, rtol=1e-2, atol=1e-3, equal_nan=True):
                     msg = f'Computation error in output tensor {i}:\n' \
@@ -64,21 +77,7 @@ class RelayRunner:
                           f'{np.array_repr(ro)}\n' \
                           f'Actual:\n' \
                           f'{np.array_repr(o)}'
-                    self.write_report(ErrorKind.COMPUTE, mod.astext(), msg, opt_level)
-                    return False
-
-        return True
-
-    def write_report(self, kind: ErrorKind, code: str, err: str, opt_level: int):
-        if not os.path.exists(self._path):
-            os.mkdir(self._path)
-        with open(os.path.join(self._path, 'kind.txt'), 'w') as file:
-            file.write(kind.name)
-        with open(os.path.join(self._path, 'code.txt'), 'w') as file:
-            file.write(code)
-        with open(os.path.join(self._path, 'error.txt'), 'w') as file:
-            file.write(f'At optimization level {opt_level}:\n')
-            file.write(err)
+                    raise ModuleError(ErrorKind.COMPUTE, mod.astext(), msg, opt_level)
 
 
 def gen_tensor_value(var: relay.Var, rng: Generator):
@@ -89,7 +88,7 @@ def gen_tensor_value(var: relay.Var, rng: Generator):
 
 
 def build_mod(mod: IRModule, params: Dict[str, np.ndarray], opt_level: int):
-    with transform.PassContext(opt_level=opt_level):
+    with transform.PassContext(opt_level=opt_level, disabled_pass=['AlterOpLayout']):
         lib = relay.build(mod, target='llvm', params=params)
     return GraphModule(lib['default'](cpu()))
 
