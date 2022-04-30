@@ -90,12 +90,3 @@ Op('subtract', _create_bcast)
 Op('multiply', _create_bcast)
 Op('maximum', _create_bcast)
 Op('minimum', _create_bcast)
-
-
-def _create_bcast_cmp():
-    cmp = _create_bcast()
-    cmp.out_dtypes = [DataType.b()]
-    return cmp
-
-
-Op('less', _create_bcast_cmp)

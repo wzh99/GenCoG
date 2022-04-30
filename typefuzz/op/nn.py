@@ -294,7 +294,7 @@ def _create_conv_trans_nd(n: int):
             in_dtypes=List(2, lambda _: Var()),
             in_shapes=[
                 [Var() for _ in range(n + 2)],
-                Concat([a('channels') // a('groups'), in_chan], a('kernel_size')),
+                Concat([in_chan, a('channels') // a('groups')], a('kernel_size')),
             ],
             extra=
             [
@@ -447,7 +447,7 @@ def _create_conv_trans_nd_no_group(n: int):
 
 
 Op('nn.conv1d_transpose', lambda: _create_conv_trans_nd_no_group(1), params=[1])
-Op('nn.conv2d_transpose', lambda: _create_conv_trans_nd(2), params=[1])
+Op('nn.conv2d_transpose', lambda: _create_conv_trans_nd(2), params=[1], register=False)
 Op('nn.conv3d_transpose', lambda: _create_conv_trans_nd_no_group(3), params=[1])
 
 
@@ -747,7 +747,7 @@ def _create_pad():
                         List(IN[0].rank - 2, lambda _: [Var(INT, ran=pad_ran, tmpl=True)] * 2))
                  if TypeSpec.for_graph else List(
                      IN[0].rank, lambda _: [Var(INT, ran=pad_ran, tmpl=True)] * 2)),
-            Attr('pad_mode', Var(STR, choices=['constant', 'reflect', 'edge'])),
+            Attr('pad_mode', Var(STR, choices=['constant', 'edge'])),
         ],
         in_num=2,
         in_ranks=[Var(ran=Range(3, max_rank)), 0],
@@ -860,38 +860,6 @@ def _create_dense():
 
 
 Op('nn.dense', _create_dense, params=[1])
-
-
-def _create_matmul():
-    in_dim = Cond(a('transpose_a'), IN[0].shape[-2], IN[0].shape[-1])
-    return TypeSpec(
-        attrs=[
-            Attr('units', Var(INT, ran=dim_ran)),
-            Attr('transpose_a', Var(BOOL)),
-            Attr('transpose_b', Var(BOOL)),
-        ],
-        in_num=2,
-        in_ranks=[2, 2],
-        in_dtypes=List(2, lambda _: Var()),
-        in_shapes=[
-            List(IN[0].rank, lambda _: Var(tmpl=True)),
-            Cond(a('transpose_b'), [a('units'), in_dim], [in_dim, a('units')])
-        ],
-        extra=[],
-        out_num=1,
-        out_ranks=[IN[0].rank],
-        out_dtypes=[IN[0].dtype],
-        out_shapes=[
-            Concat(Cond(
-                a('transpose_a'),
-                Concat(IN[0].shape[Range(end=-2)], [IN[0].shape[-1]]),
-                IN[0].shape[Range(end=-1)]
-            ), [a('units')])
-        ]
-    )
-
-
-Op('nn.matmul', _create_matmul)
 
 
 def _create_batch_flatten():
