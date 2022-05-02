@@ -84,7 +84,8 @@ def _create_squeeze():
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[
             Subset(a('axis'), Filter(indices[2:] if TypeSpec.for_graph else indices,
-                                     lambda i: IN[0].shape[i] == 1))
+                                     lambda i: IN[0].shape[i] == 1)),
+            Len(a('axis')) > 0,
         ],
         out_num=1,
         out_ranks=[IN[0].rank - Len(a('axis'))],

@@ -34,17 +34,16 @@ def main():
         case_path = os.path.join(options.directory, case_id)
         with open(os.path.join(case_path, 'error.txt'), 'r') as f:
             err = f.read()
-        for kind, reducer in zip(
+        for kind, dedup in zip(
                 [ErrorKind.COMPILE, ErrorKind.RUN], [compile_dedup, run_dedup]
         ):
             if not os.path.exists(os.path.join(case_path, kind.name)):
                 continue
-            if reducer.is_dup(err):
+            if dedup.is_dup(err):
                 for filename in os.listdir(case_path):
                     os.remove(os.path.join(case_path, filename))
                 os.rmdir(case_path)
                 print(f'Case {case_id} removed.')
-    pass
 
 
 if __name__ == '__main__':

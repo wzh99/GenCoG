@@ -47,27 +47,26 @@ class ModuleRunner:
 
         # Generate input parameters
         main_fn = mod['main']
-        inputs = {main_fn.params[0].name_hint: gen_tensor_value(main_fn.params[0], self._rng)}
-        params = {var.name_hint: gen_tensor_value(var, self._rng) for var in main_fn.params[1:]}
+        inputs = gen_inputs(main_fn, self._rng)
 
         # Build and run unoptimized module as reference
         try:
-            gmod = build_mod(mod, params, 0)
+            gmod = build_mod(mod, 0)
         except Exception as err:
             raise ModuleError(ErrorKind.COMPILE, mod.astext(), str(err), 0)
         try:
-            ref_outputs = run_exec(gmod, inputs)
+            ref_outputs = run_gmod(gmod, inputs)
         except Exception as err:
             raise ModuleError(ErrorKind.RUN, mod.astext(), str(err), 0)
 
         # Build and run modules with different levels of optimization
         for opt_level in range(1, 4):
             try:
-                gmod = build_mod(mod, params, opt_level)
+                gmod = build_mod(mod, opt_level)
             except Exception as err:
                 raise ModuleError(ErrorKind.COMPILE, mod.astext(), str(err), opt_level)
             try:
-                outputs = run_exec(gmod, inputs)
+                outputs = run_gmod(gmod, inputs)
             except Exception as err:
                 raise ModuleError(ErrorKind.RUN, mod.astext(), str(err), opt_level)
             for i, (o, ro) in enumerate(zip(outputs, ref_outputs)):
@@ -87,12 +86,16 @@ def gen_tensor_value(var: relay.Var, rng: Generator):
     ).astype(var_ty.dtype)
 
 
-def build_mod(mod: IRModule, params: Dict[str, np.ndarray], opt_level: int):
+def gen_inputs(fn: relay.Function, rng: Generator):
+    return {var.name_hint: gen_tensor_value(var, rng) for var in fn.params}
+
+
+def build_mod(mod: IRModule, opt_level: int):
     with transform.PassContext(opt_level=opt_level, disabled_pass=['AlterOpLayout']):
-        lib = relay.build(mod, target='llvm', params=params)
+        lib = relay.build(mod, target='llvm')
     return GraphModule(lib['default'](cpu()))
 
 
-def run_exec(gmod: GraphModule, inputs: Dict[str, np.ndarray]):
+def run_gmod(gmod: GraphModule, inputs: Dict[str, np.ndarray]):
     gmod.run(**inputs)
     return [gmod.get_output(i).numpy() for i in range(gmod.get_num_outputs())]

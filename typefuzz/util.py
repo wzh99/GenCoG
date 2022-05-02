@@ -161,12 +161,14 @@ class CodeBuffer:
 
 
 class NameGenerator:
-    def __init__(self, prefix: str, check: bool = False, known: Optional[Iterable[str]] = None):
+    def __init__(self, prefix: str, known: Optional[Iterable[str]] = None):
         self._prefix = prefix
-        self._check = check
         self._known: Set[str] = set()
         if known is not None:
+            self._check = True
             self._known = set(known)
+        else:
+            self._check = False
         self._cnt = 0
 
     def generate(self):
@@ -181,7 +183,6 @@ class NameGenerator:
 
 
 # Multiprocessing
-
 
 class ProcessResult(NamedTuple):
     exitcode: int
