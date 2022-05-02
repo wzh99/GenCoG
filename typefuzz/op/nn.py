@@ -1,4 +1,4 @@
-from .ew import create_ew
+from .math import create_identity
 from ..config import params
 from ..expr import *
 from ..expr.ty import float_dtypes
@@ -9,11 +9,11 @@ stride_ran = iran(1, params['op.max_stride'])
 pad_ran = iran(0, params['op.max_padding'])
 dil_ran = iran(1, params['op.max_dilation'])
 
-Op('nn.relu', create_ew)
+Op('nn.relu', create_identity)
 
 
 def _create_leaky_relu():
-    spec = create_ew()
+    spec = create_identity()
     spec.add_attr(Attr('alpha', Var(FLOAT, ran=Range(0., 1.))))
     return spec
 
@@ -22,7 +22,7 @@ Op('nn.leaky_relu', _create_leaky_relu)
 
 
 def _create_bcast_axis():
-    spec = create_ew()
+    spec = create_identity()
     spec.add_attr(Attr('axis', 1 if TypeSpec.for_graph else Var(
         INT, ran=Range(end=IN[0].rank))))
     spec.in_num = 2
@@ -40,7 +40,7 @@ Op('nn.bias_add', _create_bcast_axis, params=[1])
 
 
 def _create_softmax():
-    spec = create_ew()
+    spec = create_identity()
     if TypeSpec.for_graph:
         spec.add_attr(Attr('axis', 1))
         spec.in_dtypes = [Var(choices=float_dtypes)]

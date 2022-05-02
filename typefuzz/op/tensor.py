@@ -23,7 +23,7 @@ def _create_reduce():
             List(IN[0].rank, lambda _: Var(tmpl=True))
         ],
         extra=[
-            Subset(a('axis'), indices[2:] if TypeSpec.for_graph else indices),
+            Subset(a('axis'), indices[1:] if TypeSpec.for_graph else indices),
             Len(a('axis')) > 0 if TypeSpec.for_graph else True,
         ],
         out_num=1,
@@ -43,6 +43,9 @@ def _create_reduce():
 
 
 Op('sum', _create_reduce)
+Op('mean', _create_reduce)
+Op('min', _create_reduce)
+Op('max', _create_reduce)
 
 
 def _create_expand_dims():
@@ -160,7 +163,8 @@ def _create_concat():
             Attr('axis', 1 if TypeSpec.for_graph else Var(ty=INT, ran=Range(0, IN[0].rank)))
         ],
         in_num=Var(ran=in_num_ran),
-        in_ranks=List(IN.num, lambda _: Var(ran=rank_ran)),
+        in_ranks=List(IN.num,
+                      lambda _: Var(ran=iran(2, max_rank) if TypeSpec.for_graph else rank_ran)),
         in_dtypes=List(IN.num, lambda _: Var()),
         in_shapes=Concat(
             [List(IN[0].rank, lambda _: Var(ran=dim_ran, tmpl=True))],

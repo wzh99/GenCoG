@@ -2,7 +2,7 @@ from ..expr import *
 from ..spec import TypeSpec, Op, rank_ran, dim_ran
 
 
-def create_ew():
+def create_identity():
     return TypeSpec(
         attrs=[],
         in_num=1,
@@ -17,9 +17,18 @@ def create_ew():
     )
 
 
-Op('exp', create_ew)
-Op('sigmoid', create_ew)
-Op('tanh', create_ew)
+Op('negative', create_identity)
+Op('abs', create_identity)
+Op('ceil', create_identity)
+Op('floor', create_identity)
+Op('round', create_identity)
+Op('trunc', create_identity)
+Op('exp', create_identity)
+Op('sin', create_identity)
+Op('cos', create_identity)
+Op('tan', create_identity)
+Op('sigmoid', create_identity)
+Op('tanh', create_identity)
 
 
 def _create_bcast():
@@ -88,5 +97,6 @@ def _create_bcast():
 Op('add', _create_bcast)
 Op('subtract', _create_bcast)
 Op('multiply', _create_bcast)
+Op('divide', _create_bcast)
 Op('maximum', _create_bcast)
 Op('minimum', _create_bcast)
