@@ -24,7 +24,7 @@ class OpLookup:
 
         # Create table from different properties
         op_specs = dict((op, op.spec) for op in ops)
-        self._first_ranks = StaticSetTable(range(2, max_rank + 1), ops, self._bit_map,
+        self._first_ranks = StaticSetTable(range(1, max_rank + 1), ops, self._bit_map,
                                            lambda op: op_specs[op].first_rank_choices)
         self._first_dtypes = StaticSetTable(common_dtypes, ops, self._bit_map,
                                             lambda op: op_specs[op].first_dtype_choices)
@@ -41,7 +41,7 @@ class ValueLookup:
 
     def __init__(self):
         self._bit_map: DynamicBitMap[Value] = DynamicBitMap()
-        self._ranks = DynamicSetTable(range(2, max_rank + 1), self._bit_map)
+        self._ranks = DynamicSetTable(range(1, max_rank + 1), self._bit_map)
         self._dtypes = DynamicSetTable(common_dtypes, self._bit_map)
 
     def add(self, value: Value):

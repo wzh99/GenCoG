@@ -366,6 +366,8 @@ class TypeSolver:
             if ran.end_ is None or ran.end_.kind != ExprKind.CONST:
                 return False
             high = cast(Const, ran.end_).val_
+            if low >= high:
+                return False
 
             # Sample numeric values
             if var.type_ == INT:

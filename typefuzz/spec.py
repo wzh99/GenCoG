@@ -134,7 +134,7 @@ class TypeSpec:
         """
         Possible choices of first input tensor's rank.
         """
-        min_rank = 2 if self.for_graph else 1
+        min_rank = 1
         if self.has_no_input:
             return []
         if self._in_ranks.kind == ExprKind.TUPLE:
