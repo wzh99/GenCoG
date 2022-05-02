@@ -5,9 +5,11 @@ from sys import stdout
 import numpy as np
 from numpy.random import Generator, PCG64
 from tqdm import tqdm
+from tvm import parser, TVMError
 
 from typefuzz.config import muffin_ops
 from typefuzz.graph import GraphGenerator
+from typefuzz.graph import print_relay
 from typefuzz.metric.div import EdgeDiversity, VertexDiversity
 from typefuzz.spec import OpRegistry
 
@@ -40,6 +42,15 @@ def main():
     while True:
         # Generate graph
         graph = gen.generate()
+
+        # Check type correctness
+        code = print_relay(graph)
+        try:
+            parser.parse(code)
+        except TVMError:
+            continue
+
+        # Evaluate diversity
         vert_div.evaluate(graph)
         edge_div.evaluate(graph)
 

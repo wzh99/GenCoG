@@ -164,7 +164,7 @@ def _create_concat():
         ],
         in_num=Var(ran=in_num_ran),
         in_ranks=List(IN.num,
-                      lambda _: Var(ran=iran(2, max_rank) if TypeSpec.for_graph else rank_ran)),
+                      lambda _: Var(ran=dl_rank_ran if TypeSpec.for_graph else rank_ran)),
         in_dtypes=List(IN.num, lambda _: Var()),
         in_shapes=Concat(
             [List(IN[0].rank, lambda _: Var(ran=dim_ran, tmpl=True))],
@@ -200,7 +200,7 @@ def _create_split():
                       lambda _: Var(INT, tmpl=True)))
         ],
         in_num=1,
-        in_ranks=[Var(ran=rank_ran)],
+        in_ranks=[Var(ran=dl_rank_ran if TypeSpec.for_graph else rank_ran)],
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[
@@ -244,7 +244,7 @@ def _create_strided_slice():
 
     return TypeSpec(
         attrs=[
-            Attr('axes', indices[2:] if TypeSpec.for_graph else List(
+            Attr('axes', indices[1:] if TypeSpec.for_graph else List(
                 Var(), lambda _: Var(INT, tmpl=True))),
             Attr('begin', List(num_axes, lambda i: Var(INT, ran=Range(end=IN[0].shape[axes[i]]),
                                                        tmpl=True))),
@@ -253,13 +253,13 @@ def _create_strided_slice():
             Attr('strides', List(num_axes, lambda _: Var(INT, ran=stride_ran, tmpl=True))),
         ],
         in_num=1,
-        in_ranks=[Var(ran=iran(3, max_rank) if TypeSpec.for_graph else rank_ran)],
+        in_ranks=[Var(ran=dl_rank_ran if TypeSpec.for_graph else rank_ran)],
         in_dtypes=[Var()],
         in_shapes=[List(IN[0].rank, lambda _: Var(tmpl=True))],
         extra=[
             ForAll(Range(end=num_axes),
                    lambda i: (end[i] - begin[i] + strides[i] - 1) / strides[i] == (
-                           IN[0].shape[i + 2] / 2).max(1))
+                           IN[0].shape[i + 1] / 2).max(1))
         ] if TypeSpec.for_graph else [
             Subset(a('axes'), indices),
             ForAll(Range(end=num_axes), lambda i: end[i] - begin[i] > 0)

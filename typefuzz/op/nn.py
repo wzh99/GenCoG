@@ -43,6 +43,7 @@ def _create_softmax():
     spec = create_identity()
     if TypeSpec.for_graph:
         spec.add_attr(Attr('axis', 1))
+        spec.in_ranks = [Var(ran=dl_rank_ran)]
         spec.in_dtypes = [Var(choices=float_dtypes)]
     else:
         spec.add_attr(Attr('axis', Var(INT, ran=Range(end=IN[0].rank))))
@@ -294,7 +295,7 @@ def _create_conv_trans_nd(n: int):
             in_dtypes=List(2, lambda _: Var()),
             in_shapes=[
                 [Var() for _ in range(n + 2)],
-                Concat([in_chan, a('channels') // a('groups')], a('kernel_size')),
+                Concat([a('channels') // a('groups'), in_chan], a('kernel_size')),
             ],
             extra=
             [
@@ -447,7 +448,7 @@ def _create_conv_trans_nd_no_group(n: int):
 
 
 Op('nn.conv1d_transpose', lambda: _create_conv_trans_nd_no_group(1), params=[1])
-Op('nn.conv2d_transpose', lambda: _create_conv_trans_nd(2), params=[1], register=False)
+Op('nn.conv2d_transpose', lambda: _create_conv_trans_nd(2), params=[1])
 Op('nn.conv3d_transpose', lambda: _create_conv_trans_nd_no_group(3), params=[1])
 
 
@@ -775,7 +776,7 @@ def _create_norm():
             Attr('scale', Var(BOOL)),
         ],
         in_num=3,
-        in_ranks=[Var(), 1, 1],
+        in_ranks=[Var(ran=dl_rank_ran if TypeSpec.for_graph else rank_ran), 1, 1],
         in_dtypes=List(3, lambda _: Var(choices=float_dtypes)),
         in_shapes=Concat([List(IN[0].rank, lambda _: Var(tmpl=True))],
                          [[IN[0].shape[a('axis')]] for _ in range(2)]),
@@ -822,7 +823,7 @@ def _create_batch_norm():
             Attr('scale', Var(BOOL)),
         ],
         in_num=5,
-        in_ranks=[Var(), 1, 1, 1, 1],
+        in_ranks=[Var(ran=dl_rank_ran if TypeSpec.for_graph else rank_ran), 1, 1, 1, 1],
         in_dtypes=List(5, lambda _: Var(choices=float_dtypes)),
         in_shapes=Concat([List(IN[0].rank, lambda _: Var(tmpl=True))],
                          [[IN[0].shape[a('axis')]] for _ in range(4)]),
