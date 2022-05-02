@@ -4,7 +4,7 @@ from typing import List, Dict, Optional, Callable, Set
 from numpy.random import Generator, PCG64
 from polyleven import levenshtein
 from tqdm import tqdm
-from tvm import relay, parser, IRModule, TVMError
+from tvm import relay, parser, IRModule
 
 from typefuzz.debug.run import build_mod, run_gmod, gen_tensor_value_dict
 from typefuzz.graph.relay import tuple_in_ops
@@ -46,6 +46,7 @@ class CaseReducer:
         outputs = _find_outputs(vertices)
         fn = RelayReducer(vertices, self.graph_.expr2vert_, NameGenerator('rx')).reduce(outputs)
         mod = IRModule.from_expr(fn)
+        mod = relay.transform.InferType()(mod)
         return mod.astext()
 
     def _reduce_dir(self, vertices: Set[Vertex],
@@ -107,7 +108,7 @@ class CompileReducer(CaseReducer):
     def has_error(self, mod: IRModule) -> bool:
         try:
             build_mod(mod, self.opt_level_)
-        except TVMError as err:
+        except Exception as err:
             return levenshtein(str(err), self.err_) < 100
         else:
             return False
@@ -120,7 +121,7 @@ class RunReducer(CaseReducer):
             rng = Generator(PCG64(seed=42))
             inputs = gen_tensor_value_dict(mod['main'].params, rng)
             run_gmod(gmod, inputs)
-        except TVMError as err:
+        except Exception as err:
             return levenshtein(str(err), self.err_) < 100
         else:
             return False
