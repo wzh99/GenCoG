@@ -6,7 +6,7 @@ from polyleven import levenshtein
 from tqdm import tqdm
 from tvm import relay, parser, IRModule, TVMError
 
-from typefuzz.debug.run import build_mod, gen_inputs, run_gmod
+from typefuzz.debug.run import build_mod, run_gmod, gen_tensor_value_dict
 from typefuzz.graph.relay import tuple_in_ops
 from typefuzz.util import filter_none, NameGenerator
 
@@ -117,7 +117,8 @@ class RunReducer(CaseReducer):
     def has_error(self, mod: IRModule) -> bool:
         try:
             gmod = build_mod(mod, self.opt_level_)
-            inputs = gen_inputs(mod['main'], Generator(PCG64(seed=42)))
+            rng = Generator(PCG64(seed=42))
+            inputs = gen_tensor_value_dict(mod['main'].params, rng)
             run_gmod(gmod, inputs)
         except TVMError as err:
             return levenshtein(str(err), self.err_) < 100

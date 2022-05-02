@@ -25,8 +25,8 @@ def main():
         with open(os.path.join(case_path, 'code.txt'), 'r') as f:
             code = f.read()
         for kind, reduce_cls in zip(
-                [ErrorKind.COMPILE, ErrorKind.RUN, ErrorKind.COMPUTE],
-                [CompileReducer, RunReducer, None]
+                [ErrorKind.COMPILE, ErrorKind.RUN],
+                [CompileReducer, RunReducer]
         ):
             if not os.path.exists(os.path.join(case_path, kind.name)):
                 continue

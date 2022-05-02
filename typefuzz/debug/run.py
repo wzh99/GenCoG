@@ -1,6 +1,6 @@
 import os.path
 from enum import IntEnum, auto
-from typing import Dict
+from typing import Dict, Optional, List
 
 import numpy as np
 from numpy.random import Generator
@@ -47,11 +47,12 @@ class ModuleRunner:
 
         # Generate input parameters
         main_fn = mod['main']
-        inputs = gen_inputs(main_fn, self._rng)
+        inputs = gen_tensor_value_dict(main_fn.params[0:1], self._rng)
+        params = gen_tensor_value_dict(main_fn.params[1:], self._rng)
 
         # Build and run unoptimized module as reference
         try:
-            gmod = build_mod(mod, 0)
+            gmod = build_mod(mod, 0, params=params)
         except Exception as err:
             raise ModuleError(ErrorKind.COMPILE, mod.astext(), str(err), 0)
         try:
@@ -62,7 +63,7 @@ class ModuleRunner:
         # Build and run modules with different levels of optimization
         for opt_level in range(1, 4):
             try:
-                gmod = build_mod(mod, opt_level)
+                gmod = build_mod(mod, opt_level, params=params)
             except Exception as err:
                 raise ModuleError(ErrorKind.COMPILE, mod.astext(), str(err), opt_level)
             try:
@@ -86,13 +87,13 @@ def gen_tensor_value(var: relay.Var, rng: Generator):
     ).astype(var_ty.dtype)
 
 
-def gen_inputs(fn: relay.Function, rng: Generator):
-    return {var.name_hint: gen_tensor_value(var, rng) for var in fn.params}
+def gen_tensor_value_dict(params: List[relay.Var], rng: Generator):
+    return {var.name_hint: gen_tensor_value(var, rng) for var in params}
 
 
-def build_mod(mod: IRModule, opt_level: int):
+def build_mod(mod: IRModule, opt_level: int, params: Optional[Dict[str, np.ndarray]] = None):
     with transform.PassContext(opt_level=opt_level, disabled_pass=['AlterOpLayout']):
-        lib = relay.build(mod, target='llvm')
+        lib = relay.build(mod, target='llvm', params=params)
     return GraphModule(lib['default'](cpu()))
 
 
