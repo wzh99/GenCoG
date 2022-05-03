@@ -41,7 +41,7 @@ def main():
         try:
             runner.run(relay_src)
         except ModuleError as err:
-            err.write_txt(os.path.join(path, str(progress.n)))
+            err.report(os.path.join(path, str(progress.n)))
         progress.update()
 
 

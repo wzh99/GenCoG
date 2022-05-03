@@ -1,12 +1,14 @@
+from io import StringIO
 from sys import stdout
-from typing import List, Dict, Optional, Callable, Set
+from typing import List, Dict, Optional, Callable, Set, Tuple
 
+import numpy as np
 from numpy.random import Generator, PCG64
 from polyleven import levenshtein
 from tqdm import tqdm
 from tvm import relay, parser, IRModule
 
-from typefuzz.debug.run import build_mod, run_gmod, gen_tensor_value_dict
+from typefuzz.debug.run import build_mod, run_gmod, gen_tensor_value_dict, TensorDict
 from typefuzz.graph.relay import tuple_in_ops
 from typefuzz.util import filter_none, NameGenerator
 
@@ -27,27 +29,30 @@ class Vertex:
 
 
 class CaseReducer:
-    def __init__(self, code: str, err: str, opt_level: int):
+    def __init__(self, code: str, err: str, opt_level: int, inputs: Optional[TensorDict] = None,
+                 params: Optional[TensorDict] = None):
         self.fn_ = parser.parse(code)['main']
         self.err_ = err
         self.opt_level_ = opt_level
+        self.inputs_ = inputs
+        self.params_ = params
         self.graph_ = GraphBuilder().visit_function(self.fn_)
 
     def has_error(self, mod: IRModule) -> bool:
-        raise NotImplementedError
+        raise False
 
-    def reduce(self) -> str:
+    def reduce(self) -> Tuple[str, str]:
         # Reduce forward and backward
         vertices = set(self.graph_.vertices_)
         vertices = self._reduce_dir(vertices, lambda v: v.pred_, lambda v: v.succ_)
         vertices = self._reduce_dir(vertices, lambda v: v.succ_, lambda v: v.pred_)
 
         # Create final function and output result
-        outputs = _find_outputs(vertices)
+        outputs = _find_zero_succ(vertices)
         fn = RelayReducer(vertices, self.graph_.expr2vert_, NameGenerator('rx')).reduce(outputs)
         mod = IRModule.from_expr(fn)
         mod = relay.transform.InferType()(mod)
-        return mod.astext()
+        return mod.astext(), ''
 
     def _reduce_dir(self, vertices: Set[Vertex],
                     pred_fn: Callable[[Vertex], List[Vertex]],
@@ -64,10 +69,7 @@ class CaseReducer:
             for vert in zero_pred:
                 # Generate Relay function
                 reduced = vertices.difference([vert])
-                outputs = _find_outputs(reduced)
-                name_gen = NameGenerator('rx')
-                fn = RelayReducer(reduced, self.graph_.expr2vert_, name_gen).reduce(outputs)
-                mod = IRModule.from_expr(fn)
+                mod = _gen_reduced_mod(reduced, self.graph_.expr2vert_)
                 mod = relay.transform.AnnotateSpans()(mod)
 
                 # Test if error occurs
@@ -100,8 +102,15 @@ def _update_zero_pred(pred_cnt: Dict[Vertex, int], zero_pred: List[Vertex]):
         del pred_cnt[v]
 
 
-def _find_outputs(vertices: Set[Vertex]):
+def _find_zero_succ(vertices: Set[Vertex]):
     return [v for v in vertices if all(s not in vertices for s in v.succ_)]
+
+
+def _gen_reduced_mod(vertices: Set[Vertex], expr2vert: Dict[relay.Expr, Vertex]):
+    outputs = _find_zero_succ(vertices)
+    name_gen = NameGenerator('rx')
+    fn = RelayReducer(vertices, expr2vert, name_gen).reduce(outputs)
+    return IRModule.from_expr(fn)
 
 
 class CompileReducer(CaseReducer):
@@ -127,12 +136,71 @@ class RunReducer(CaseReducer):
             return False
 
 
+# noinspection PyBroadException
+class ComputeReducer(CaseReducer):
+    def reduce(self) -> Tuple[str, str]:
+        # Get RPO of graph
+        assert self.inputs_ is not None and self.params_ is not None
+        rpo = _collect_rpo(self.graph_)
+        mod = _gen_reduced_mod(set(rpo), self.graph_.expr2vert_)
+
+        # Check correctness of subgraph
+        progress = tqdm(iterable=range(1, len(rpo)), file=stdout)
+        extra = StringIO()
+        for num_vert in progress:
+            # Build subgraph
+            vertices = set(rpo[:num_vert])
+            mod = _gen_reduced_mod(vertices, self.graph_.expr2vert_)
+
+            # Get reference outputs
+            gmod = build_mod(mod, 0, params=self.params_)
+            ref_outputs = run_gmod(gmod, self.inputs_)
+
+            # Get and compare outputs at optimization level
+            gmod = build_mod(mod, self.opt_level_, params=self.params_)
+            outputs = run_gmod(gmod, inputs=self.inputs_)
+
+            # Print outputs of subgraph
+            extra.write(f'At operator {num_vert - 1}:\n' + '\n'.join(
+                np.array_repr(o) for o in outputs) + '\n\n')
+
+            # Detect error
+            found_err = False
+            for o, ro in zip(outputs, ref_outputs):
+                if not np.allclose(o, ro, rtol=1e-2, atol=1e-3, equal_nan=True):
+                    found_err = True
+                    break
+            if found_err:
+                extra.write('Expected:\n' + '\n'.join(np.array_repr(o) for o in ref_outputs))
+                progress.close()
+                break
+
+        # Output reduced module
+        mod = relay.transform.InferType()(mod)
+        return mod.astext(), extra.getvalue()
+
+
 class Graph:
     def __init__(self, zero_succ: List[Vertex], vertices: List[Vertex],
-                 vert_map: Dict[relay.Expr, Optional[Vertex]]):
+                 expr2vert: Dict[relay.Expr, Optional[Vertex]]):
         self.zero_succ_ = zero_succ
         self.vertices_ = vertices
-        self.expr2vert_ = vert_map
+        self.expr2vert_ = expr2vert
+
+
+def _collect_rpo(graph: Graph):
+    rpo = []
+
+    def visit(v: Vertex):
+        for p in v.pred_:
+            visit(p)
+        if v not in rpo:
+            rpo.append(v)
+
+    for v in graph.zero_succ_:
+        visit(v)
+
+    return rpo
 
 
 class RelayReducer(relay.ExprMutator):

@@ -15,23 +15,33 @@ class ErrorKind(IntEnum):
     COMPUTE = auto()
 
 
+TensorDict = Dict[str, np.ndarray]
+
+
 class ModuleError(Exception):
-    def __init__(self, kind: ErrorKind, code: str, err: str, opt_level: int):
+    def __init__(self, kind: ErrorKind, code: str, err: str, opt_level: int,
+                 inputs: Optional[TensorDict] = None, params: Optional[TensorDict] = None):
         self.kind_ = kind
         self.code_ = code
         self.err_ = err
         self.opt_level_ = opt_level
+        self.inputs_ = inputs
+        self.params_ = params
 
-    def write_txt(self, path: str):
+    def report(self, path: str):
         if not os.path.exists(path):
             os.mkdir(path)
         with open(os.path.join(path, self.kind_.name), 'w'):
             pass
-        with open(os.path.join(path, 'code.txt'), 'w') as file:
-            file.write(self.code_)
-        with open(os.path.join(path, 'error.txt'), 'w') as file:
-            file.write(f'opt_level={self.opt_level_}\n')
-            file.write(self.err_)
+        with open(os.path.join(path, 'code.txt'), 'w') as f:
+            f.write(self.code_)
+        with open(os.path.join(path, 'error.txt'), 'w') as f:
+            f.write(f'opt_level={self.opt_level_}\n')
+            f.write(self.err_)
+        if self.inputs_ is not None:
+            np.savez(os.path.join(path, 'inputs.npz'), **self.inputs_)
+        if self.params_ is not None:
+            np.savez(os.path.join(path, 'params.npz'), **self.params_)
 
 
 class ModuleRunner:
@@ -77,7 +87,8 @@ class ModuleRunner:
                           f'{np.array_repr(ro)}\n' \
                           f'Actual:\n' \
                           f'{np.array_repr(o)}'
-                    raise ModuleError(ErrorKind.COMPUTE, mod.astext(), msg, opt_level)
+                    raise ModuleError(ErrorKind.COMPUTE, mod.astext(), msg, opt_level,
+                                      inputs=inputs, params=params)
 
 
 def gen_tensor_value(var: relay.Var, rng: Generator):
@@ -91,7 +102,7 @@ def gen_tensor_value_dict(params: List[relay.Var], rng: Generator):
     return {var.name_hint: gen_tensor_value(var, rng) for var in params}
 
 
-def build_mod(mod: IRModule, opt_level: int, params: Optional[Dict[str, np.ndarray]] = None):
+def build_mod(mod: IRModule, opt_level: int, params: Optional[TensorDict] = None):
     with transform.PassContext(opt_level=opt_level, disabled_pass=['AlterOpLayout']):
         lib = relay.build(mod, target='llvm', params=params)
     return GraphModule(lib['default'](cpu()))
