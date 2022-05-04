@@ -1,12 +1,13 @@
-import os.path
+import os
 from argparse import Namespace, ArgumentParser
+from subprocess import run, TimeoutExpired, CalledProcessError
 from sys import stdout
 from time import strftime
 
 from numpy.random import Generator, PCG64
 from tqdm import tqdm
 
-from typefuzz.debug import ModuleRunner, ModuleError
+from typefuzz.debug import ModuleRunner
 from typefuzz.graph import GraphGenerator, print_relay
 from typefuzz.spec import OpRegistry
 
@@ -35,13 +36,27 @@ def main():
     while True:
         # Generate graph
         graph = gen.generate()
-        relay_src = print_relay(graph)
+        code = print_relay(graph)
 
-        # Test TVM with Relay source
+        # Write code to case directory
+        case_id = str(progress.n)
+        case_path = os.path.join(path, case_id)
+        os.mkdir(case_path)
+        with open(os.path.join(case_path, 'code.txt'), 'w') as f:
+            f.write(code)
+
+        # Run subprocess
+        cmd = ['python3', '_test_ps.py', f'-d={case_path}', f'-s={rng.integers(65536)}']
         try:
-            runner.run(relay_src)
-        except ModuleError as err:
-            err.report(os.path.join(path, str(progress.n)))
+            run(cmd, check=True, timeout=60, stderr=open(os.devnull, 'w'))
+        except CalledProcessError:
+            print(f'Error detected in case {case_id}.')
+        except TimeoutExpired:
+            print(f'Case {case_id} timed out.')
+        else:
+            os.remove(os.path.join(case_path, 'code.txt'))
+            os.rmdir(case_path)
+
         progress.update()
 
 
