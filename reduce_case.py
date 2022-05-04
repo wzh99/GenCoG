@@ -3,8 +3,11 @@ import re
 from argparse import Namespace, ArgumentParser
 
 import numpy as np
+from tvm import parser
 
 from typefuzz.debug import ErrorKind, CompileReducer, RunReducer, ComputeReducer
+from typefuzz.graph import visualize
+from typefuzz.graph.relay import build_graph
 
 options = Namespace()
 
@@ -55,6 +58,10 @@ def main():
             if len(extra) > 0:
                 with open(os.path.join(case_path, 'extra.txt'), 'w') as f:
                     f.write(extra)
+
+            # Visualize reduced code
+            graph = build_graph(parser.parse(reduced_code), {} if params is None else params)
+            visualize(graph, 'graph', case_path)
 
 
 if __name__ == '__main__':
