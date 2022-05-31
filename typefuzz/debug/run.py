@@ -71,7 +71,7 @@ class ModuleRunner:
             raise ModuleError(ErrorKind.RUN, mod.astext(), str(err), 0)
 
         # Build and run modules with different levels of optimization
-        for opt_level in range(1, 4):
+        for opt_level in range(1, 5):
             try:
                 gmod = build_mod(mod, opt_level, params=params)
             except Exception as err:
@@ -93,9 +93,7 @@ class ModuleRunner:
 
 def gen_tensor_value(var: relay.Var, rng: Generator):
     var_ty = var.checked_type
-    return rng.standard_normal(
-        size=[int(d) for d in var_ty.shape], dtype='float64'
-    ).astype(var_ty.dtype)
+    return rng.uniform(size=[int(d) for d in var_ty.shape]).astype(var_ty.dtype)
 
 
 def gen_tensor_value_dict(params: List[relay.Var], rng: Generator):

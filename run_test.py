@@ -7,7 +7,6 @@ from time import strftime
 from numpy.random import Generator, PCG64
 from tqdm import tqdm
 
-from typefuzz.debug import ModuleRunner
 from typefuzz.graph import GraphGenerator, print_relay
 from typefuzz.spec import OpRegistry
 
@@ -29,7 +28,6 @@ def main():
     path = os.path.join(options.output, strftime('run-%Y%m%d-%H%M%S'))
     if not os.path.exists(path):
         os.mkdir(path)
-    runner = ModuleRunner(rng)
 
     # Generation loop
     progress = tqdm(file=stdout)
@@ -46,7 +44,7 @@ def main():
             f.write(code)
 
         # Run subprocess
-        cmd = ['python3', '_test_ps.py', f'-d={case_path}', f'-s={rng.integers(65536)}']
+        cmd = ['python3', '_test_ps.py', f'-d={case_path}', f'-s={rng.integers(2 ** 63)}']
         try:
             run(cmd, check=True, timeout=60, stderr=open(os.devnull, 'w'))
         except CalledProcessError:
@@ -56,7 +54,6 @@ def main():
         else:
             os.remove(os.path.join(case_path, 'code.txt'))
             os.rmdir(case_path)
-
         progress.update()
 
 

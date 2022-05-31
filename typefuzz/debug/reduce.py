@@ -8,9 +8,9 @@ from polyleven import levenshtein
 from tqdm import tqdm
 from tvm import relay, parser, IRModule
 
-from typefuzz.debug.run import build_mod, run_gmod, gen_tensor_value_dict, TensorDict
-from typefuzz.graph.relay import tuple_in_ops
-from typefuzz.util import filter_none, NameGenerator
+from ..debug.run import build_mod, run_gmod, gen_tensor_value_dict, TensorDict
+from ..graph.relay import tuple_in_ops
+from ..util import filter_none, NameGenerator
 
 
 class Vertex:
@@ -145,7 +145,7 @@ class ComputeReducer(CaseReducer):
         mod = _gen_reduced_mod(set(rpo), self.graph_.expr2vert_)
 
         # Check correctness of subgraph
-        progress = tqdm(iterable=range(1, len(rpo)), file=stdout)
+        progress = tqdm(iterable=range(1, len(rpo) + 1), file=stdout)
         extra = StringIO()
         for num_vert in progress:
             # Build subgraph
