@@ -1,7 +1,8 @@
 from functools import partial, reduce
 from typing import Optional, Tuple, List
 
-from tensorflow import keras
+import keras
+from keras.backend import set_image_data_format, int_shape
 
 from .dag import DAG
 from .layer_info_generator import LayerInfoGenerator
@@ -11,7 +12,7 @@ from .utils import construct_layer_name, normal_layer_types, reduction_layer_typ
     layer_types, layer_conditions
 from .variable_generator import VariableGenerator
 
-keras.backend.set_image_data_format('channels_first')
+set_image_data_format('channels_first')
 
 config = {
     'var': {
@@ -126,11 +127,10 @@ class ModelGenerator(object):
                 output_list.append(layer_dict[layer_id])
 
             # 检查形状
-            from tensorflow.keras import backend as K
-            K.set_image_data_format('channels_first')
-            if K.int_shape(layer_dict[layer_id]) != tuple(ouput_shape):
+            if int_shape(layer_dict[layer_id]) != tuple(ouput_shape):
                 raise Exception(
-                    f"[Debug] layer_id: {layer_id} expected shape: {tuple(ouput_shape)}  actual shape: {K.int_shape(layer_dict[layer_id])}")
+                    f"[Debug] layer_id: {layer_id} expected shape: {tuple(ouput_shape)}  "
+                    f"actual shape: {int_shape(layer_dict[layer_id])}")
 
         return keras.Model(inputs=input_list, outputs=output_list)
 
