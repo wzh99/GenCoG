@@ -1,4 +1,3 @@
-# Confirmed: https://github.com/apache/tvm/issues/11640
 # Fixed: https://github.com/apache/tvm/pull/11643
 
 from tvm import relay, ir

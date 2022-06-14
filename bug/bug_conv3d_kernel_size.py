@@ -1,4 +1,4 @@
-# Confirmed: https://github.com/apache/tvm/issues/11664
+# Fixed: https://github.com/apache/tvm/pull/11681
 
 from tvm import parser
 
