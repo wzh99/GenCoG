@@ -3,7 +3,7 @@ from typing import Dict, Callable, Iterable, Any
 
 from .store import ValueStore, StoreNode, ScalarNode, StoreVisitor, ValueStatus
 from ..expr import Expr, Var, BOOL, INT, FLOAT
-from ..expr.array import GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
+from ..expr.array import GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceRange, \
     Filter, InSet, Subset, Perm, List
 from ..expr.basic import ExprKind, ForAll, GetAttr, Dummy, Cond
 from ..expr.tensor import Num, Rank, Shape, GetDType, LayoutMap, LayoutIndex
@@ -203,7 +203,7 @@ class ExprFinder(ExprVisitor[Expr, None]):
             self._union.set_invalid(root)
         super().visit_reduce_array(red, root)
 
-    def visit_reduce_index(self, red: ReduceIndex, root: Expr):
+    def visit_reduce_index(self, red: ReduceRange, root: Expr):
         ran = red.ran_
         if ran.begin_.kind != ExprKind.CONST or ran.end_.kind != ExprKind.CONST:
             self._union.set_invalid(root)

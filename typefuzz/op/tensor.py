@@ -179,7 +179,7 @@ def _create_concat():
         out_shapes=[
             List(IN[0].rank, lambda j: Cond(
                 j == a('axis'),
-                ReduceIndex(Range(end=IN.num), ArithOp.ADD, 0, lambda i: IN[i].shape[j]),
+                ReduceRange(Range(end=IN.num), ArithOp.ADD, 0, lambda i: IN[i].shape[j]),
                 IN[0].shape[j]
             ))
         ]

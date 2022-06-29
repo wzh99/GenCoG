@@ -7,7 +7,7 @@ from numpy.random import Generator
 
 from .store import ValueStore
 from ..config import params
-from ..expr.array import Tuple, ReduceArray, ReduceIndex
+from ..expr.array import Tuple, ReduceArray, ReduceRange
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, \
     ArithOp, CmpOp
 from ..expr.ty import Type, ValueType, BOOL, INT
@@ -188,7 +188,7 @@ class Z3ExprGen(ExprVisitor[Env[z3.ExprRef], z3.ExprRef]):
         return reduce(lambda acc, e: func(acc, self.visit(e, env)), arr.fields_,
                       self.visit(red.init_, env))
 
-    def visit_reduce_index(self, red: ReduceIndex, env: Env[z3.ExprRef]) -> z3.ExprRef:
+    def visit_reduce_index(self, red: ReduceRange, env: Env[z3.ExprRef]) -> z3.ExprRef:
         ran = red.ran_
         if ran.begin_.kind != ExprKind.CONST or ran.end_.kind != ExprKind.CONST:
             raise Z3SolveError()

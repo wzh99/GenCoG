@@ -7,7 +7,7 @@ from numpy.random import Generator
 from tvm import tir
 
 from .store import ValueStore, ArrayNode
-from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
+from ..expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceRange, \
     Filter, InSet, Subset, Perm
 from ..expr.basic import Env, Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, CmpOp, Not, \
     And, Or, ForAll, Cond, GetAttr, Dummy, to_expr
@@ -192,7 +192,7 @@ class EvalExpr(ExprVisitor[Env[ValueType], ResultType]):
         except TypeError as err:
             raise EvalError(red, str(err))
 
-    def visit_reduce_index(self, red: ReduceIndex, env: Env[ValueType]) -> ResultType:
+    def visit_reduce_index(self, red: ReduceRange, env: Env[ValueType]) -> ResultType:
         begin, end = self.visit_range(red.ran_, env)
         func = Arith.op_funcs[red.op_][red.type_]
         try:
@@ -480,9 +480,9 @@ class PartialEval(ExprVisitor[Env[Expr], Expr]):
             )
         )
 
-    def visit_reduce_index(self, red: ReduceIndex, env: Env[Expr]) -> Expr:
+    def visit_reduce_index(self, red: ReduceRange, env: Env[Expr]) -> Expr:
         return self._try_fold(
-            red, env, lambda: ReduceIndex(
+            red, env, lambda: ReduceRange(
                 self.visit_range(red.ran_, env), red.op_, self.visit(red.init_, env),
                 idx=red.idx_, body=self.visit(red.body_, env + (red.idx_, red.idx_)),
                 ty=red.type_

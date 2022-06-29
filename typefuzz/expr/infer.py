@@ -2,7 +2,7 @@ import typing as t
 from functools import reduce
 from typing import NamedTuple, Dict, cast
 
-from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
+from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceRange, \
     Filter, InSet, Subset, Perm
 from .basic import Expr, ExprKind, Env, Const, Var, Symbol, Range, Arith, ArithOp, Cmp, Not, And, \
     Or, ForAll, Cond, GetAttr, Dummy
@@ -224,7 +224,7 @@ class TypeInfer(ExprVisitor[InferArg, Type]):
         ty = self.visit(red.init_, InferArg(arg.env, elem_ty))
         return self._check_arith_type(red, red.op_, ty)
 
-    def visit_reduce_index(self, red: ReduceIndex, arg: InferArg) -> Type:
+    def visit_reduce_index(self, red: ReduceRange, arg: InferArg) -> Type:
         self.visit(red.ran_, InferArg(arg.env, INT))
         env = arg.env + (red.idx_, INT)
         ty = self._unify_expr([red.body_, red.init_], InferArg(env, arg.hint))

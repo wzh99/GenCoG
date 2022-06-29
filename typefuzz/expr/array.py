@@ -131,7 +131,7 @@ class ReduceArray(Expr):
         super().__init__([self.arr_, self.init_], ty=ty)
 
 
-class ReduceIndex(Expr):
+class ReduceRange(Expr):
     """
     Reduce expressions in an integer range.
     """

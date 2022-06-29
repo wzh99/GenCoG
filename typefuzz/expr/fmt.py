@@ -3,7 +3,7 @@ from typing import Any, Callable
 
 from colorama import Fore, Back
 
-from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
+from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceRange, \
     Filter, InSet, Subset, Perm
 from .basic import Expr, Const, Var, Range, Symbol, Arith, Cmp, Not, And, Or, ForAll, Cond, \
     GetAttr, Dummy
@@ -205,7 +205,7 @@ class ExprPrinter(ExprVisitor[None, Any]):
             ('init', lambda: self.visit(red.init_, env))
         ])
 
-    def visit_reduce_index(self, red: ReduceIndex, env: None):
+    def visit_reduce_index(self, red: ReduceRange, env: None):
         self._write_cls(red)
         self._write_named_multi([
             ('ran', lambda: self.visit(red.ran_, env)),

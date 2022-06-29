@@ -1,7 +1,7 @@
 import typing as t
 from typing import Generic, TypeVar, Dict, Callable, Any, Iterable, Optional, cast
 
-from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceIndex, \
+from .array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, ReduceRange, \
     Filter, InSet, Subset, Perm
 from .basic import Expr, ExprKind, Const, Var, Symbol, Range, Arith, Cmp, Not, And, Or, ForAll, \
     Cond, GetAttr, Dummy, Env
@@ -139,7 +139,7 @@ class ExprVisitor(Generic[A, R]):
     def visit_reduce_array(self, red: ReduceArray, arg: A) -> R:
         return self._visit_sub(red, arg)
 
-    def visit_reduce_index(self, red: ReduceIndex, arg: A) -> R:
+    def visit_reduce_index(self, red: ReduceRange, arg: A) -> R:
         return self._visit_sub(red, arg)
 
     def visit_filter(self, flt: Filter, arg: A) -> R:
@@ -333,8 +333,8 @@ class StructuralEq(ExprVisitor[Expr, bool]):
             return False
         return self._cmp_expr([(red.arr_, other.arr_), (red.init_, other.init_)])
 
-    def visit_reduce_index(self, red: ReduceIndex, other: Expr) -> bool:
-        other = cast(ReduceIndex, other)
+    def visit_reduce_index(self, red: ReduceRange, other: Expr) -> bool:
+        other = cast(ReduceRange, other)
         if red.op_ != other.op_:
             return False
         return self._cmp_expr([(red.ran_, other.ran_), (red.body_, other.body_),
@@ -479,9 +479,9 @@ class CopyExpr(ExprVisitor[Env[Symbol], Expr]):
         return ReduceArray(self.visit(red.arr_, env), red.op_, self.visit(red.init_, env),
                            ty=red.type_)
 
-    def visit_reduce_index(self, red: ReduceIndex, env: Env[Symbol]) -> Expr:
+    def visit_reduce_index(self, red: ReduceRange, env: Env[Symbol]) -> Expr:
         idx = Symbol(ty=red.idx_.type_)
-        return ReduceIndex(
+        return ReduceRange(
             self.visit_range(red.ran_, env), red.op_, self.visit(red.init_, env), idx=idx,
             body=self.visit(red.body_, env + (red.idx_, idx)), ty=red.type_
         )
