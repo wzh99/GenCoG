@@ -1,4 +1,4 @@
-# Reported: https://github.com/apache/tvm/issues/11684
+# Fixed: https://github.com/apache/tvm/pull/11728
 
 from tvm import relay, transform, IRModule
 
