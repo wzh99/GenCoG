@@ -1203,11 +1203,11 @@ def from_keras(model, shape=None, layout="NCHW"):
             # - In Keras, model._network_nodes contains keys of all nodes relevant to the
             #   current model;
             # - In tf.Keras, this is already done as part of tensorflow.keras.network.get_config
-            if (
-                    not is_tf_keras
-                    and not model._node_key(keras_layer, node_idx) in model._network_nodes
-            ):
-                continue
+            # if (
+            #         not is_tf_keras
+            #         and not model._node_key(keras_layer, node_idx) in model._network_nodes
+            # ):
+            #     continue
             inexpr = []
             # Since Keras allows creating multiple layers from the same name instance,
             # we append node index to the expr name to make it unique.
@@ -1273,10 +1273,10 @@ def from_keras(model, shape=None, layout="NCHW"):
             raise ImportError("Keras must be installed")
         if keras.backend.backend() != "tensorflow":
             raise ValueError("Keras frontend currently supports tensorflow backend only.")
-        if keras.backend.image_data_format() != "channels_last":
-            raise ValueError("Keras frontend currently supports data_format = channels_last only.")
+        # if keras.backend.image_data_format() != "channels_last":
+        #     raise ValueError("Keras frontend currently supports data_format = channels_last only.")
         expected_model_class = keras.engine.training.Model
-        input_layer_class = keras.engine.InputLayer
+        input_layer_class = keras.layers.InputLayer
     else:
         # Importing from Tensorflow Keras (tf.keras)
         try:
