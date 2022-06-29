@@ -6,3 +6,4 @@ tqdm
 polyleven
 graphviz
 bitarray
+matplotlib
