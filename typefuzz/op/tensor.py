@@ -259,7 +259,8 @@ def _create_strided_slice():
         extra=[
             ForAll(Range(end=num_axes),
                    lambda i: (end[i] - begin[i] + strides[i] - 1) / strides[i] == (
-                           IN[0].shape[i + 2] / 2).max(1))
+                           IN[0].shape[i + 2] / 2).max(1)),
+            Len(a('axes')) > 0,
         ] if TypeSpec.for_graph else [
             Subset(a('axes'), indices),
             ForAll(Range(end=num_axes), lambda i: end[i] - begin[i] > 0)
