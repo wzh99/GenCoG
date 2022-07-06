@@ -9,11 +9,11 @@ from typefuzz.debug import ErrorKind, CompileReducer, RunReducer, ComputeReducer
 from typefuzz.graph import visualize
 from typefuzz.graph.relay import build_graph
 
-options = Namespace()
+args = Namespace()
 
 
 def parse_args():
-    global options
+    global args
     p = ArgumentParser()
     p.add_argument('-d', '--directory', type=str, help='Directory for storing error cases.')
     options = p.parse_args()
@@ -21,8 +21,8 @@ def parse_args():
 
 def main():
     level_matcher = re.compile('opt_level=(\\d)')
-    for case_id in sorted(os.listdir(options.directory), key=lambda s: int(s)):
-        case_path = os.path.join(options.directory, case_id)
+    for case_id in sorted(os.listdir(args.directory), key=lambda s: int(s)):
+        case_path = os.path.join(args.directory, case_id)
         with open(os.path.join(case_path, 'error.txt'), 'r') as f:
             opt_str = f.readline()
             err = f.read()

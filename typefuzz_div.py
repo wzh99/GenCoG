@@ -13,11 +13,11 @@ from typefuzz.graph import print_relay
 from typefuzz.metric.div import EdgeDiversity, VertexDiversity
 from typefuzz.spec import OpRegistry
 
-options = Namespace()
+args = Namespace()
 
 
 def _parse_args():
-    global options
+    global args
     p = ArgumentParser()
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
     p.add_argument('-s', '--seed', type=int, default=42, help='Random seed of graph generator.')
@@ -26,8 +26,8 @@ def _parse_args():
 
 def main():
     # Initialization
-    opr_limit = options.limit
-    rng = Generator(PCG64(seed=options.seed))
+    opr_limit = args.limit
+    rng = Generator(PCG64(seed=args.seed))
     ops = [OpRegistry.get(name) for name in muffin_ops]
     gen = GraphGenerator(ops, rng)
     vert_div = VertexDiversity(ops)

@@ -16,11 +16,11 @@ from typefuzz.util import run_process
 
 _gen_modes = ['seq', 'merge', 'dag', 'template']
 
-options = Namespace()
+args = Namespace()
 
 
 def _parse_args():
-    global options
+    global args
     p = ArgumentParser()
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
     p.add_argument('-m', '--mode', type=str, choices=_gen_modes, help='Generation mode.')
@@ -34,7 +34,7 @@ def _check_relay(src: str):
 
 def main():
     # Initialization
-    opr_limit = options.limit
+    opr_limit = args.limit
     model_gen = ModelGenerator()
     ops = [OpRegistry.get(name) for name in muffin_ops]
     vert_div = VertexDiversity(ops)
@@ -47,7 +47,7 @@ def main():
     record_file = time.strftime("out/muffin-%Y%m%d-%H%M%S.txt", time.localtime())
     while True:
         # Generate Keras model
-        mode = options.mode
+        mode = args.mode
         try:
             model = model_gen.generate(mode)
         except ValueError:

@@ -13,7 +13,7 @@ from typefuzz.solve import TypeSolver, OpTypeInfo, TensorType, SolveError
 from typefuzz.spec import TypeSpec, OpRegistry, max_dim
 from typefuzz.util import Ref, CodeBuffer, run_process
 
-options = Namespace()
+args = Namespace()
 
 
 def test_all_ops():
@@ -32,8 +32,8 @@ def test_one_op(name: str):
 
 
 def _test_spec(op: str, spec: TypeSpec):
-    rng = Generator(PCG64(seed=options.seed))
-    for _ in trange(options.iter, file=stdout):
+    rng = Generator(PCG64(seed=args.seed))
+    for _ in trange(args.iter, file=stdout):
         rank = rng.choice(spec.first_rank_choices)
         shape = cast(List[int], rng.integers(1, max_dim, rank, endpoint=True).tolist())
         dtype = rng.choice(spec.first_dtype_choices)
@@ -49,11 +49,11 @@ def _test_spec(op: str, spec: TypeSpec):
 
 def _compile_relay(op: str, info: OpTypeInfo):
     src = _gen_relay(op, info)
-    if options.verbose:
+    if args.verbose:
         print(src)
-    if options.separate:
+    if args.separate:
         result = run_process(_compile_func, (src,))
-        if options.verbose and result.exitcode != 0:
+        if args.verbose and result.exitcode != 0:
             print(f'Compilation error: Exit code {result.exitcode}.', file=stderr)
     else:
         _compile_func(src)
@@ -109,7 +109,7 @@ def _gen_relay(op: str, info: OpTypeInfo):
 
 
 def parse_args():
-    global options
+    global args
     p = ArgumentParser()
     p.add_argument('-a', '--all', action='store_true', help='Test all operators.')
     p.add_argument('-g', '--graph', action='store_true',
@@ -129,9 +129,9 @@ def parse_args():
 
 if __name__ == '__main__':
     parse_args()
-    if options.all:
+    if args.all:
         test_all_ops()
     else:
-        if options.name is None:
+        if args.name is None:
             raise ValueError('Operator name not specified.')
-        test_one_op(options.name)
+        test_one_op(args.name)

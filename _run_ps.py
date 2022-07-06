@@ -8,7 +8,8 @@ from typefuzz.debug import ModuleRunner, ModuleError
 # Parse arguments
 parser = ArgumentParser()
 parser.add_argument('-d', '--directory', type=str, help='Case directory.')
-parser.add_argument('-s', '--seed', type=int, help='Random seed.')
+parser.add_argument('-s', '--seed', type=int, default=42, help='Random seed.')
+parser.add_argument('-e', '--error', action='store_true')
 args = parser.parse_args()
 
 # Initialize runner
@@ -21,5 +22,6 @@ with open(os.path.join(args.directory, 'code.txt'), 'r') as f:
 try:
     runner.run(code)
 except ModuleError as err:
-    err.report(args.directory)
+    if args.error:
+        err.report(args.directory)
     exit(1)

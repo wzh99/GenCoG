@@ -5,11 +5,11 @@ from polyleven import levenshtein
 
 from typefuzz.debug.run import ErrorKind
 
-options = Namespace()
+args = Namespace()
 
 
 def parse_args():
-    global options
+    global args
     p = ArgumentParser()
     p.add_argument('-d', '--directory', type=str, help='Directory for storing error cases.')
     options = p.parse_args()
@@ -30,8 +30,8 @@ class CaseDedup:
 def main():
     compile_dedup = CaseDedup()
     run_dedup = CaseDedup()
-    for case_id in sorted(os.listdir(options.directory), key=lambda s: int(s)):
-        case_path = os.path.join(options.directory, case_id)
+    for case_id in sorted(os.listdir(args.directory), key=lambda s: int(s)):
+        case_path = os.path.join(args.directory, case_id)
         with open(os.path.join(case_path, 'error.txt'), 'r') as f:
             err = f.read()
         for kind, dedup in zip(

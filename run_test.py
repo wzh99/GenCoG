@@ -10,11 +10,11 @@ from tqdm import tqdm
 from typefuzz.graph import GraphGenerator, print_relay
 from typefuzz.spec import OpRegistry
 
-options = Namespace()
+args = Namespace()
 
 
 def parse_args():
-    global options
+    global args
     p = ArgumentParser()
     p.add_argument('-s', '--seed', type=int, default=42, help='Random seed of graph generator.')
     p.add_argument('-o', '--output', type=str, default='out', help='Output directory.')
@@ -23,9 +23,9 @@ def parse_args():
 
 def main():
     # Initialization
-    rng = Generator(PCG64(seed=options.seed))
+    rng = Generator(PCG64(seed=args.seed))
     gen = GraphGenerator(OpRegistry.ops(), rng)
-    path = os.path.join(options.output, strftime('run-%Y%m%d-%H%M%S'))
+    path = os.path.join(args.output, strftime('run-%Y%m%d-%H%M%S'))
     if not os.path.exists(path):
         os.mkdir(path)
 
@@ -44,7 +44,7 @@ def main():
             f.write(code)
 
         # Run subprocess
-        cmd = ['python3', '_test_ps.py', f'-d={case_path}', f'-s={rng.integers(2 ** 63)}']
+        cmd = ['python3', '_run_ps.py', f'-d={case_path}', '-e', f'-s={rng.integers(2 ** 63)}']
         try:
             run(cmd, check=True, timeout=60, stderr=open(os.devnull, 'w'))
         except CalledProcessError:
