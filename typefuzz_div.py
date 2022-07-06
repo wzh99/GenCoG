@@ -21,7 +21,7 @@ def _parse_args():
     p = ArgumentParser()
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
     p.add_argument('-s', '--seed', type=int, default=42, help='Random seed of graph generator.')
-    options = p.parse_args()
+    args = p.parse_args()
 
 
 def main():

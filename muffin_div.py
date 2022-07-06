@@ -24,7 +24,7 @@ def _parse_args():
     p = ArgumentParser()
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
     p.add_argument('-m', '--mode', type=str, choices=_gen_modes, help='Generation mode.')
-    options = p.parse_args()
+    args = p.parse_args()
 
 
 def _check_relay(src: str):

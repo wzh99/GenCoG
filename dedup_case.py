@@ -12,7 +12,7 @@ def parse_args():
     global args
     p = ArgumentParser()
     p.add_argument('-d', '--directory', type=str, help='Directory for storing error cases.')
-    options = p.parse_args()
+    args = p.parse_args()
 
 
 class CaseDedup:
