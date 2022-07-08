@@ -1,11 +1,11 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-names = ['Muffin-Chain', 'Muffin-Cell', 'DeepTyper']
+names = ['Muffin-Chain', 'Muffin-Cell', 'DeepTyper-M']
 paths = [
     'out/muffin-dag.txt',
     'out/muffin-template.txt',
-    'out/typefuzz-penalty4.txt'
+    'out/typefuzz.txt'
 ]
 colors = ['deepskyblue', 'limegreen', 'darkorange']
 assert len(names) == len(paths), len(names) == len(colors)

@@ -6,12 +6,13 @@ from sys import stdout
 from time import strftime
 
 import numpy as np
-from numpy.random import Generator, PCG64
 from tqdm import tqdm
+from tvm import parser
 
-from typefuzz.config import muffin_ops
-from typefuzz.graph import GraphGenerator, print_relay
-from typefuzz.spec import OpRegistry
+from muffin.model_generator import ModelGenerator
+from tvm_util.frontend import from_keras
+from typefuzz.graph.relay import build_graph
+from typefuzz.util import run_process
 
 args = Namespace()
 
@@ -20,12 +21,11 @@ def parse_args():
     global args
     p = ArgumentParser()
     p.add_argument('-r', '--root', type=str, help='Root directory of TVM source code.')
-    p.add_argument('--opset', type=str, choices=['all', 'muffin'],
-                   help='Operator set for generating graphs.')
+    p.add_argument('-m', '--mode', type=str, choices=['seq', 'merge', 'dag', 'template'],
+                   help='Generation mode.')
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of vertices.')
     p.add_argument('-s', '--step', type=int,
                    help='Number of vertices between two coverage collections.')
-    p.add_argument('--seed', type=int, default=42, help='Random seed of graph generator.')
     p.add_argument('-o', '--output', type=str, default='out', help='Output directory.')
     args = p.parse_args()
 
@@ -41,15 +41,15 @@ def get_line_cov(root: str, out_dir: str, delete_gcda: bool):
     return cov
 
 
+def _check_relay(src: str):
+    mod = parser.parse(src)
+    return {'src': mod.astext()}
+
+
 def main():
     # Initialization
-    rng = Generator(PCG64(seed=args.seed))
-    if args.opset == 'muffin':
-        ops = [OpRegistry.get(name) for name in muffin_ops]
-    else:
-        ops = OpRegistry.ops()
-    gen = GraphGenerator(ops, rng)
-    cov_dir = os.path.join(args.output, strftime(f'cov-typefuzz-{args.opset}-%Y%m%d-%H%M%S'))
+    model_gen = ModelGenerator()
+    cov_dir = os.path.join(args.output, strftime(f'cov-muffin-{args.mode}-%Y%m%d-%H%M%S'))
     if not os.path.exists(cov_dir):
         os.mkdir(cov_dir)
     env = os.environ.copy()
@@ -69,13 +69,30 @@ def main():
         np.savetxt(os.path.join(cov_dir, 'data.txt'), np.array(cov_data), fmt='%d')
 
     while True:
-        # Generate graph
-        graph = gen.generate()
-        code = print_relay(graph)
+        # Generate Keras model
+        try:
+            model = model_gen.generate(args.mode)
+        except ValueError:
+            continue
+
+        # Convert to Relay
+        batch_size = np.random.randint(1, 5)
+        input_shapes = {inp.name: (batch_size,) + tuple(inp.shape.as_list()[1:])
+                        for inp in model.inputs}
+        mod, params = from_keras(model, shape=input_shapes)
+
+        # Check type correctness
+        ps_result = run_process(_check_relay, (mod.astext(),))
+        if ps_result.exitcode != 0:
+            continue
+        mod = parser.parse(ps_result.ret['src'])
+
+        # Convert to graph representation
+        graph = build_graph(mod, params)
 
         # Write code to output directory
         with open(os.path.join(cov_dir, 'code.txt'), 'w') as f:
-            f.write(code)
+            f.write(mod.astext())
 
         # Run subprocess
         cmd = ['python3', '_run_ps.py', f'-d={cov_dir}']

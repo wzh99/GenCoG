@@ -81,7 +81,7 @@ class ModuleRunner:
             except Exception as err:
                 raise ModuleError(ErrorKind.RUN, mod.astext(), str(err), opt_level)
             for i, (o, ro) in enumerate(zip(outputs, ref_outputs)):
-                if not np.allclose(o, ro, rtol=1e-2, atol=1e-3, equal_nan=True):
+                if not np.allclose(o, ro, rtol=1e-3, atol=1e-2, equal_nan=True):
                     msg = f'Computation error in output tensor {i}:\n' \
                           f'Expect:\n' \
                           f'{np.array_repr(ro)}\n' \
