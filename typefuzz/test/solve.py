@@ -120,10 +120,10 @@ def parse_args():
     p.add_argument('-n', '--name', type=str, help='Name of the operator to be tested.')
     p.add_argument('-i', '--iter', type=int, help='Iteration number of each operator.')
     p.add_argument('--seed', type=int, default=42, help='Random seed of test case generator.')
-    options = p.parse_args()
+    args = p.parse_args()
 
-    TypeSpec.for_graph = options.graph
-    if not options.separate:
+    TypeSpec.for_graph = args.graph
+    if not args.separate:
         environ['TVM_BACKTRACE'] = '1'
 
 
