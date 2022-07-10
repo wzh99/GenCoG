@@ -167,7 +167,7 @@ class ComputeReducer(CaseReducer):
             # Detect error
             found_err = False
             for o, ro in zip(outputs, ref_outputs):
-                if not np.allclose(o, ro, rtol=1e-2, atol=1e-3, equal_nan=True):
+                if not np.allclose(o, ro, rtol=1e-3, atol=1e-2, equal_nan=True):
                     found_err = True
                     break
             if found_err:
