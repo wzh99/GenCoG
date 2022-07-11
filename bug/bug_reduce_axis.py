@@ -3,6 +3,6 @@
 from tvm import relay, ir
 
 x = relay.var('x', shape=(1, 2, 3))
-y = relay.sum(x, axis=(), keepdims=True, exclude=True)
+y = relay.sum(x, axis=())
 mod = ir.IRModule.from_expr(y)
 mod = relay.transform.InferType()(mod)
