@@ -44,12 +44,11 @@ def main():
     opr_count = 0
     progress = tqdm(total=opr_limit, file=stdout)
     div_record = []
-    record_file = time.strftime("out/muffin-%Y%m%d-%H%M%S.txt", time.localtime())
+    record_file = time.strftime(f'out/muffin-{args.mode}-%Y%m%d-%H%M%S.txt', time.localtime())
     while True:
         # Generate Keras model
-        mode = args.mode
         try:
-            model = model_gen.generate(mode)
+            model = model_gen.generate(args.mode)
         except ValueError:
             # print('Generation failed:', err)
             continue

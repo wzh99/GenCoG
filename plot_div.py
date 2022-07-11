@@ -18,7 +18,7 @@ plt.figure(figsize=(6, 4))
 plt.gca().set_box_aspect(3 / 5)
 for i in range(len(names)):
     plt.plot(data[i][:, 0], data[i][:, 1], color=colors[i], linewidth=2, label=names[i])
-plt.ylim(0, 0.25)
+plt.ylim(0, 0.6)
 plt.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
 plt.xlabel('#Vertices')
 plt.ylabel('Vertex Diversity')

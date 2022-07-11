@@ -6,7 +6,6 @@ import numpy as np
 from .. import Op, TypeSpec, Const, Expr
 from ..expr.array import Tuple, List
 from ..expr.basic import ExprKind
-from ..expr.ty import float_dtypes
 from ..graph import Graph, GraphVisitor, Output, Operation
 from ..graph.base import VertexKind
 from ..spec import max_dim, expr_choices
@@ -123,7 +122,7 @@ class VertexSpace(NamedTuple):
 def _est_space(op: Op, spec: TypeSpec) -> VertexSpace:
     # Compute type space estimate for first input
     max_rank = max(spec.first_rank_choices)
-    in_space = (max_dim ** max_rank) * len(float_dtypes)
+    in_space = (max_dim ** max_rank)
 
     # Double space if the operator accepts more than one non-parameter input
     multi_in = False
