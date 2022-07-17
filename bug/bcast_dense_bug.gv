@@ -1,0 +1,23 @@
+digraph bcast_dense_bug {
+    graph [margin = 0.2 ranksep = 0.3]
+    node [shape = box style = rounded fontname = "IBM Plex Mono"]
+    edge [fontname = "IBM Plex Mono"]
+
+    x0 [label = "%x0"]
+    x1 [label = "%x1"]
+    x2 [label = "%x2"]
+    w [label = "%w"]
+    maximum "nn.dense" expand_dims multiply add
+    out [shape = none label = ""]
+
+    x0 -> maximum [label = "(1,2)"]
+    maximum -> expand_dims [label = "(1,2)"]
+    expand_dims -> add [label = "(1,1,2)"]
+    x1 -> maximum [label = "(1,2)"]
+    maximum -> multiply [label = "(1,2)"]
+    x2 -> "nn.dense" [label = "(1,2)"]
+    "nn.dense" -> multiply [label = "(1,2)"]
+    multiply -> add [label = "(1,2)"]
+    w -> "nn.dense" [label = "(2,2)"]
+    add -> out [label = "(1,1,2)"]
+}
