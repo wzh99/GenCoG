@@ -261,7 +261,7 @@ def _create_conv_nd_no_group(n: int):
 
 Op('nn.conv1d', lambda: _create_conv_nd_no_group(1), params=[1])
 Op('nn.conv2d', lambda: _create_conv_nd(2), params=[1])
-Op('nn.conv3d', lambda: _create_conv_nd_no_group(3), params=[1])
+Op('nn.conv3d', lambda: _create_conv_nd(3), params=[1])
 
 
 def _conv_trans_dim(i: Expr, w: Expr, stride: Expr, dil: Expr, pad_b: Expr, pad_e: Expr,
