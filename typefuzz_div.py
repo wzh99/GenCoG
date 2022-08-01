@@ -5,9 +5,10 @@ from sys import stdout
 import numpy as np
 from numpy.random import Generator, PCG64
 from tqdm import tqdm
+from tvm import parser, TVMError
 
 from typefuzz.config import muffin_ops
-from typefuzz.graph import GraphGenerator
+from typefuzz.graph import GraphGenerator, print_relay
 from typefuzz.metric.div import EdgeDiversity, VertexDiversity
 from typefuzz.spec import OpRegistry
 
@@ -17,6 +18,8 @@ args = Namespace()
 def _parse_args():
     global args
     p = ArgumentParser()
+    p.add_argument('--opset', type=str, choices=['all', 'muffin'],
+                   help='Operator set for generating graphs.')
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
     p.add_argument('-s', '--seed', type=int, default=42, help='Random seed of graph generator.')
     args = p.parse_args()
@@ -25,8 +28,11 @@ def _parse_args():
 def main():
     # Initialization
     opr_limit = args.limit
+    if args.opset == 'muffin':
+        ops = [OpRegistry.get(name) for name in muffin_ops]
+    else:
+        ops = list(OpRegistry.ops())
     rng = Generator(PCG64(seed=args.seed))
-    ops = [OpRegistry.get(name) for name in muffin_ops]
     gen = GraphGenerator(ops, rng)
     vert_div = VertexDiversity(ops)
     edge_div = EdgeDiversity(ops)
@@ -35,11 +41,18 @@ def main():
     opr_count = 0
     progress = tqdm(total=opr_limit, file=stdout)
     div_record = []
-    record_file = time.strftime("out/typefuzz-%Y%m%d-%H%M%S.txt", time.localtime())
+    record_file = time.strftime(f'out/typefuzz-{args.opset}-%Y%m%d-%H%M%S.txt')
     loop_idx = 0
     while True:
         # Generate graph
         graph = gen.generate()
+        code = print_relay(graph)
+
+        # Check type correctness
+        try:
+            parser.parse(code)
+        except TVMError:
+            continue
 
         # Evaluate diversity
         vert_div.evaluate(graph)
