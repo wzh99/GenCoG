@@ -4,7 +4,7 @@ from tvm import relay, transform, IRModule
 
 x0 = relay.var('x0', shape=(1, 2))
 x1 = relay.var('x1', shape=(1, 2))
-x2 = relay.var('x2', shape=(1, 2))
+x2 = relay.var('x2', shape=(2, 2))
 w = relay.var('w', shape=(2, 2))
 y0 = relay.maximum(x0, x1)
 y1 = relay.nn.dense(x2, w)
