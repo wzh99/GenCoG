@@ -1,6 +1,7 @@
 tvm==0.8.0
 numpy~=1.22
 keras~=2.8
+z3-solver
 colorama
 tqdm
 polyleven
