@@ -5,10 +5,10 @@ from graphviz import Digraph
 from numpy.random import Generator, PCG64
 from tqdm import trange
 
-from typefuzz.config import params, muffin_ops
-from typefuzz.graph import GraphGenerator, GraphVisitor, Graph, Input, Output, Operation
-from typefuzz.spec import OpRegistry
-from typefuzz.util import NameGenerator
+from gencog.config import params, muffin_ops
+from gencog.graph import GraphGenerator, GraphVisitor, Graph, Input, Output, Operation
+from gencog.spec import OpRegistry
+from gencog.util import NameGenerator
 
 args = Namespace()
 

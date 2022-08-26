@@ -8,10 +8,10 @@ from tqdm import trange
 from tvm import parser, relay, transform, device
 from tvm.contrib.graph_executor import GraphModule
 
-from typefuzz.graph.relay import tuple_in_ops, tuple_out_ops, fmt_val
-from typefuzz.solve import TypeSolver, OpTypeInfo, TensorType, SolveError
-from typefuzz.spec import TypeSpec, OpRegistry, max_dim
-from typefuzz.util import Ref, CodeBuffer, run_process
+from gencog.graph.relay import tuple_in_ops, tuple_out_ops, fmt_val
+from gencog.solve import TypeSolver, OpTypeInfo, TensorType, SolveError
+from gencog.spec import TypeSpec, OpRegistry, max_dim
+from gencog.util import Ref, CodeBuffer, run_process
 
 args = Namespace()
 

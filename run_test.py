@@ -7,8 +7,8 @@ from time import strftime
 from numpy.random import Generator, PCG64
 from tqdm import tqdm
 
-from typefuzz.graph import GraphGenerator, print_relay
-from typefuzz.spec import OpRegistry
+from gencog.graph import GraphGenerator, print_relay
+from gencog.spec import OpRegistry
 
 args = Namespace()
 

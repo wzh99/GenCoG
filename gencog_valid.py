@@ -5,9 +5,9 @@ from numpy.random import Generator, PCG64
 from tqdm import tqdm
 from tvm import parser, TVMError
 
-from typefuzz.config import muffin_ops
-from typefuzz.graph import GraphGenerator, print_relay
-from typefuzz.spec import OpRegistry
+from gencog.config import muffin_ops
+from gencog.graph import GraphGenerator, print_relay
+from gencog.spec import OpRegistry
 
 args = Namespace()
 

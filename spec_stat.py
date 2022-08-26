@@ -2,12 +2,12 @@ from enum import IntEnum
 
 import numpy as np
 
-from typefuzz.expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, \
+from gencog.expr.array import Tuple, List, GetItem, Len, Concat, Slice, Map, ReduceArray, \
     ReduceRange, Filter, InSet, Subset, Perm
-from typefuzz.expr.basic import Const, Var, Arith, Cmp, Not, And, Or, ForAll, Cond, GetAttr, Expr
-from typefuzz.expr.tensor import Num, Shape, Rank
-from typefuzz.expr.visitor import ExprVisitor
-from typefuzz.spec import OpRegistry
+from gencog.expr.basic import Const, Var, Arith, Cmp, Not, And, Or, ForAll, Cond, GetAttr, Expr
+from gencog.expr.tensor import Num, Shape, Rank
+from gencog.expr.visitor import ExprVisitor
+from gencog.spec import OpRegistry
 
 
 def main():

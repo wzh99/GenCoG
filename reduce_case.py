@@ -5,9 +5,9 @@ from argparse import Namespace, ArgumentParser
 import numpy as np
 from tvm import parser
 
-from typefuzz.debug import ErrorKind, CompileReducer, RunReducer, ComputeReducer
-from typefuzz.graph import visualize
-from typefuzz.graph.relay import build_graph
+from gencog.debug import ErrorKind, CompileReducer, RunReducer, ComputeReducer
+from gencog.graph import visualize
+from gencog.graph.relay import build_graph
 
 args = Namespace()
 

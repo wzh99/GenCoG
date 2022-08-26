@@ -9,9 +9,9 @@ import numpy as np
 from numpy.random import Generator, PCG64
 from tqdm import tqdm
 
-from typefuzz.config import muffin_ops
-from typefuzz.graph import GraphGenerator, print_relay
-from typefuzz.spec import OpRegistry
+from gencog.config import muffin_ops
+from gencog.graph import GraphGenerator, print_relay
+from gencog.spec import OpRegistry
 
 args = Namespace()
 
@@ -49,7 +49,7 @@ def main():
     else:
         ops = OpRegistry.ops()
     gen = GraphGenerator(ops, rng)
-    cov_dir = os.path.join(args.output, strftime(f'cov-typefuzz-{args.opset}-%Y%m%d-%H%M%S'))
+    cov_dir = os.path.join(args.output, strftime(f'cov-gencog-{args.opset}-%Y%m%d-%H%M%S'))
     if not os.path.exists(cov_dir):
         os.mkdir(cov_dir)
     env = os.environ.copy()

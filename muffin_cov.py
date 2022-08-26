@@ -9,10 +9,10 @@ import numpy as np
 from tqdm import tqdm
 from tvm import parser
 
+from gencog.graph.relay import build_graph
+from gencog.util import run_process
 from muffin.model_generator import ModelGenerator
 from tvm_util.frontend import from_keras
-from typefuzz.graph.relay import build_graph
-from typefuzz.util import run_process
 
 args = Namespace()
 

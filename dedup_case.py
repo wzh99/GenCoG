@@ -3,7 +3,7 @@ from argparse import Namespace, ArgumentParser
 
 from polyleven import levenshtein
 
-from typefuzz.debug.run import ErrorKind
+from gencog.debug.run import ErrorKind
 
 args = Namespace()
 

@@ -7,10 +7,10 @@ from numpy.random import Generator, PCG64
 from tqdm import tqdm
 from tvm import parser, TVMError
 
-from typefuzz.config import muffin_ops
-from typefuzz.graph import GraphGenerator, print_relay
-from typefuzz.metric.div import EdgeDiversity, VertexDiversity
-from typefuzz.spec import OpRegistry
+from gencog.config import muffin_ops
+from gencog.graph import GraphGenerator, print_relay
+from gencog.metric.div import EdgeDiversity, VertexDiversity
+from gencog.spec import OpRegistry
 
 args = Namespace()
 
@@ -41,7 +41,7 @@ def main():
     opr_count = 0
     progress = tqdm(total=opr_limit, file=stdout)
     div_record = []
-    record_file = time.strftime(f'out/typefuzz-{args.opset}-%Y%m%d-%H%M%S.txt')
+    record_file = time.strftime(f'out/gencog-{args.opset}-%Y%m%d-%H%M%S.txt')
     loop_idx = 0
     while True:
         # Generate graph

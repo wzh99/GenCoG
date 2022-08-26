@@ -1,14 +1,14 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-names = ['Muffin-Chain', 'Muffin-Cell', 'DeepTyper-M', 'DeepTyper']
+names = ['Muffin-Chain', 'Muffin-Cell', 'GenCoG-M', 'GenCoG']
 paths = [
     'out/cov-muffin-dag/data.txt',
     'out/cov-muffin-template/data.txt',
-    'out/cov-typefuzz-muffin/data.txt',
-    'out/cov-typefuzz-complete/data.txt',
+    'out/cov-gencog-muffin/data.txt',
+    'out/cov-gencog-complete/data.txt',
 ]
-colors = ['deepskyblue', 'limegreen', 'darkorange', 'crimson']
+colors = ['dodgerblue', 'tab:green', 'darkorange', 'crimson']
 assert len(names) == len(paths), len(names) == len(colors)
 
 data = [np.loadtxt(p) for p in paths]

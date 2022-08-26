@@ -1,7 +1,7 @@
 import json
 
 base_path = 'out/cov-muffin-dag/cov.json'
-diff_path = 'out/cov-typefuzz-complete/cov.json'
+diff_path = 'out/cov-gencog-complete/cov.json'
 
 comps = ['relay', 'topi', 'tir', 'arith', 'target']
 

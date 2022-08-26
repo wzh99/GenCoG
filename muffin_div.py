@@ -6,13 +6,13 @@ import numpy as np
 from tqdm import tqdm
 from tvm.parser import parse
 
+from gencog.config import muffin_ops
+from gencog.graph.relay import build_graph
+from gencog.metric.div import VertexDiversity, EdgeDiversity
+from gencog.spec import OpRegistry
+from gencog.util import run_process
 from muffin.model_generator import ModelGenerator
 from tvm_util.frontend import from_keras
-from typefuzz.config import muffin_ops
-from typefuzz.graph.relay import build_graph
-from typefuzz.metric.div import VertexDiversity, EdgeDiversity
-from typefuzz.spec import OpRegistry
-from typefuzz.util import run_process
 
 _gen_modes = ['seq', 'merge', 'dag', 'template']
 

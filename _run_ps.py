@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 from numpy.random import Generator, PCG64
 
-from typefuzz.debug import ModuleRunner, ModuleError
+from gencog.debug import ModuleRunner, ModuleError
 
 # Parse arguments
 parser = ArgumentParser()
