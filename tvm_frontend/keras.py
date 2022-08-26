@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 # pylint: disable=invalid-name, import-self, import-outside-toplevel
-"""Keras frontend."""
+"""Keras tvm_frontend."""
 import dis
 import sys
 
@@ -118,7 +118,7 @@ def _convert_activation(inexpr, keras_layer, etab):
         return _op.clip(x, a_min=0.0, a_max=1.0)
 
     raise tvm.error.OpNotImplemented(
-        "Operator {} is not supported in frontend Keras.".format(act_type)
+        "Operator {} is not supported in tvm_frontend Keras.".format(act_type)
     )
 
 
@@ -151,7 +151,7 @@ def _convert_advanced_activation(inexpr, keras_layer, etab):
         )
 
     raise tvm.error.OpNotImplemented(
-        "Operator {} is not supported in frontend Keras.".format(act_type)
+        "Operator {} is not supported in tvm_frontend Keras.".format(act_type)
     )
 
 
@@ -198,7 +198,7 @@ def _convert_merge(inexpr, keras_layer, _):
         ret = ret / _expr.const(len(inexpr), dtype="float32")
     else:
         raise tvm.error.OpNotImplemented(
-            "Operator {} is not supported in frontend Keras.".format(merge_type)
+            "Operator {} is not supported in tvm_frontend Keras.".format(merge_type)
         )
     return ret
 
@@ -281,7 +281,7 @@ def _convert_convolution1d(inexpr, keras_layer, etab):
         pad_w = _get_pad_pair(in_w, dilated_kernel_w, stride_w)
         params["padding"] = [pad_w[0], pad_w[1]]
     else:
-        msg = "Padding with {} is not supported for operator Convolution3D " "in frontend Keras."
+        msg = "Padding with {} is not supported for operator Convolution3D " "in tvm_frontend Keras."
         raise tvm.error.OpAttributeUnImplemented(msg.format(keras_layer.padding))
 
     if is_deconv:
@@ -357,7 +357,7 @@ def _convert_convolution(inexpr, keras_layer, etab):
         pad_l, pad_r = _get_pad_pair(in_w, dilated_kernel_w, stride_w)
         params["padding"] = (pad_t, pad_l, pad_b, pad_r)
     else:
-        msg = "Padding with {} is not supported for operator Convolution " "in frontend Keras."
+        msg = "Padding with {} is not supported for operator Convolution " "in tvm_frontend Keras."
         raise tvm.error.OpAttributeUnImplemented(msg.format(keras_layer.padding))
     if is_deconv:
         out = _op.nn.conv2d_transpose(data=inexpr, **params)
@@ -420,7 +420,7 @@ def _convert_convolution3d(inexpr, keras_layer, etab):
         pad_w = _get_pad_pair(in_w, dilated_kernel_w, stride_w)
         params["padding"] = [pad_d[0], pad_h[0], pad_w[0], pad_d[1], pad_h[1], pad_w[1]]
     else:
-        msg = "Padding with {} is not supported for operator Convolution3D " "in frontend Keras."
+        msg = "Padding with {} is not supported for operator Convolution3D " "in tvm_frontend Keras."
         raise tvm.error.OpAttributeUnImplemented(msg.format(keras_layer.padding))
     if is_deconv:
         out = _op.nn.conv3d_transpose(data=inexpr, **params)
@@ -474,7 +474,7 @@ def _convert_separable_convolution(inexpr, keras_layer, etab):
     else:
         msg = (
             "Padding with {} is not supported for operator Separable "
-            "Convolution in frontend Keras."
+            "Convolution in tvm_frontend Keras."
         )
         raise tvm.error.OpAttributeUnImplemented(msg.format(keras_layer.padding))
     depthconv = _op.nn.conv2d(data=inexpr, **params0)
@@ -550,7 +550,7 @@ def _convert_pooling1d(inexpr, keras_layer, etab):
         params["count_include_pad"] = False
         return _op.nn.avg_pool1d(inexpr, **params)
     raise tvm.error.OpNotImplemented(
-        "Operator {} is not supported for frontend Keras.".format(keras_layer)
+        "Operator {} is not supported for tvm_frontend Keras.".format(keras_layer)
     )
 
 
@@ -593,7 +593,7 @@ def _convert_pooling(inexpr, keras_layer, etab):
         params["count_include_pad"] = False
         return _op.nn.avg_pool2d(inexpr, **params)
     raise tvm.error.OpNotImplemented(
-        "Operator {} is not supported for frontend Keras.".format(keras_layer)
+        "Operator {} is not supported for tvm_frontend Keras.".format(keras_layer)
     )
 
 
@@ -612,7 +612,7 @@ def _convert_pooling3d(inexpr, keras_layer, etab):
 
     if pool_type not in ["MaxPooling3D", "AveragePooling3D"]:
         raise tvm.error.OpNotImplemented(
-            "Operator {} is not supported for frontend Keras.".format(keras_layer)
+            "Operator {} is not supported for tvm_frontend Keras.".format(keras_layer)
         )
 
     pool_d1, pool_d2, pool_d3 = keras_layer.pool_size
@@ -661,7 +661,7 @@ def _convert_global_pooling3d(inexpr, keras_layer, etab):
         out = _op.nn.global_avg_pool3d(inexpr, **global_pool_params)
     else:
         raise tvm.error.OpNotImplemented(
-            "Operator {} is not supported for frontend Keras.".format(keras_layer)
+            "Operator {} is not supported for tvm_frontend Keras.".format(keras_layer)
         )
 
     return _convert_flatten(out, keras_layer, etab)
@@ -687,7 +687,7 @@ def _convert_upsample(inexpr, keras_layer, etab):
                 params["method"] = "bilinear"
     else:
         raise tvm.error.OpNotImplemented(
-            "Operator {} is not supported for frontend Keras.".format(upsample_type)
+            "Operator {} is not supported for tvm_frontend Keras.".format(upsample_type)
         )
     params["layout"] = 'NCHW'
     out = _op.nn.upsampling(inexpr, **params)
@@ -715,7 +715,7 @@ def _convert_cropping(inexpr, keras_layer, _):
         ((crop_t, crop_b), (crop_l, crop_r)) = keras_layer.cropping
     else:
         raise tvm.error.OpNotImplemented(
-            "Operator {} is not supported for frontend Keras.".format(crop_type)
+            "Operator {} is not supported for tvm_frontend Keras.".format(crop_type)
         )
     int32_max = np.iinfo(np.int32).max
     return _op.strided_slice(
@@ -788,7 +788,7 @@ def _convert_padding(inexpr, keras_layer, etab):
             msg = 'Value {} in attribute "padding" of operator Padding is ' "not valid."
             raise tvm.error.OpAttributeInvalid(msg.format(str(padding)))
     else:
-        msg = "Operator {} is not supported in frontend Keras."
+        msg = "Operator {} is not supported in tvm_frontend Keras."
         raise tvm.error.OpNotImplemented(msg.format(padding_type))
     return _op.nn.pad(data=inexpr, pad_width=((0, 0), (0, 0), (top, bottom), (left, right)))
 
@@ -1045,7 +1045,7 @@ def _convert_lambda(inexpr, keras_layer, etab):
     ):
         return _convert_l2_normalize(inexpr, keras_layer, etab)
     raise tvm.error.OpNotImplemented(
-        "Function {} used in Lambda layer is not supported in frontend Keras.".format(
+        "Function {} used in Lambda layer is not supported in tvm_frontend Keras.".format(
             fcode.co_names
         )
     )
@@ -1135,13 +1135,13 @@ def keras_op_to_relay(inexpr, keras_layer, outname, etab):
     outname : str
         Name of the output Relay expression.
 
-    etab : relay.frontend.common.ExprTable
+    etab : relay.tvm_frontend.common.ExprTable
         The global expression table to be updated.
     """
     op_name = type(keras_layer).__name__
     if op_name not in _convert_map:
         raise tvm.error.OpNotImplemented(
-            "Operator {} is not supported for frontend Keras.".format(op_name)
+            "Operator {} is not supported for tvm_frontend Keras.".format(op_name)
         )
     outs = _convert_map[op_name](inexpr, keras_layer, etab)
     outs = _as_list(outs)
@@ -1272,9 +1272,9 @@ def from_keras(model, shape=None, layout="NCHW"):
         except ImportError:
             raise ImportError("Keras must be installed")
         if keras.backend.backend() != "tensorflow":
-            raise ValueError("Keras frontend currently supports tensorflow backend only.")
+            raise ValueError("Keras tvm_frontend currently supports tensorflow backend only.")
         # if keras.backend.image_data_format() != "channels_last":
-        #     raise ValueError("Keras frontend currently supports data_format = channels_last only.")
+        #     raise ValueError("Keras tvm_frontend currently supports data_format = channels_last only.")
         expected_model_class = keras.engine.training.Model
         input_layer_class = keras.layers.InputLayer
     else:

@@ -12,7 +12,7 @@ from gencog.metric.div import VertexDiversity, EdgeDiversity
 from gencog.spec import OpRegistry
 from gencog.util import run_process
 from muffin.model_generator import ModelGenerator
-from tvm_util.frontend import from_keras
+from tvm_frontend import from_keras
 
 _gen_modes = ['seq', 'merge', 'dag', 'template']
 

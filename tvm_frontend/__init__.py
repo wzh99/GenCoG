@@ -21,4 +21,4 @@ Contains the model importers currently defined
 for Relay.
 """
 
-from tvm_util.frontend.keras import from_keras
+from .keras import from_keras

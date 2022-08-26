@@ -6,7 +6,7 @@ from tqdm import tqdm
 from tvm import relay, TVMError
 
 from muffin.model_generator import ModelGenerator
-from tvm_util.frontend import from_keras
+from tvm_frontend import from_keras
 
 args = Namespace()
 

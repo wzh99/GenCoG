@@ -311,7 +311,7 @@ class ExprTable(object):
         # otherwise, we can not get like x = func(x) work.
         # One example is CoreML preprocess, which will override
         # the same name of input.
-        # However, according to git log, Find keras frontend depends
+        # However, according to git log, Find keras tvm_frontend depends
         # on this property, so we add one force_override to control it.
         if name not in self.exprs or force_override:
             self.exprs[name] = expr
@@ -643,7 +643,7 @@ def to_int_list(np_array):
 
 def unbind(data, axis=0):
     """
-    Unbind was taken from Pytorch frontend. The operation removes a tensor dimension
+    Unbind was taken from Pytorch tvm_frontend. The operation removes a tensor dimension
     and returns a tuple of all slices along a given dimension, with specified axis removed.
     TODO (vvchernov): It needs such operation on relay side to reduce time consumption
     on squeeze operation.

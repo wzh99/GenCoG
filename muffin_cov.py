@@ -12,7 +12,7 @@ from tvm import parser
 from gencog.graph.relay import build_graph
 from gencog.util import run_process
 from muffin.model_generator import ModelGenerator
-from tvm_util.frontend import from_keras
+from tvm_frontend import from_keras
 
 args = Namespace()
 
