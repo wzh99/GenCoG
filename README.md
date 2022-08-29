@@ -22,7 +22,7 @@ Methodology (TOSEM) for review.
 
 ## Dependency
 
-GenCoG is written in Python. Run `pip install -r requirements.txt ` to get all dependencies. To
+GenCoG is written in Python. Run `pip install -r requirements.txt` to get all dependencies. To
 evaluate code coverage, another build of TVM
 with [Gcov](https://gcc.gnu.org/onlinedocs/gcc/Gcov.html) should be provided.
 
@@ -36,7 +36,6 @@ project to store all their outputs.
 ```
 python run_test.py
 ```
-
 A working directory `out/run-%Y%m%d-%H%M%S` will be created. Each generated program will be run in a
 separate process. If the process exits abnormally, the test case will be kept and the error message
 will also be stored. Otherwise, the case will be deleted.
@@ -46,7 +45,6 @@ will also be stored. Otherwise, the case will be deleted.
 ```
 python dedup_case.py -d=${WORK_DIR}
 ```
-
 It deduplicates the cases with similar error messages, which indicate that they may share the same
 root cause.
 
@@ -55,7 +53,6 @@ root cause.
 ```
 python reduce_case.py -d=${WORK_DIR}
 ```
-
 It reduces each test case to a possibly simpler graph with fewer vertices.
 
 ## Evaluation
@@ -68,13 +65,11 @@ two modes: `dag` (chain structure with skips) and `template` (cell-base structur
 ### Validity
 
 GenCoG:
-
 ```
 python gencog_valid.py -n=10000 --opset={muffin|all}
 ```
 
 Muffin:
-
 ```
 python muffin_valid.py -n=10000 --mode={dag|template}
 ```
@@ -82,20 +77,18 @@ python muffin_valid.py -n=10000 --mode={dag|template}
 ### Diversity
 
 GenCoG:
-
 ```
 python gencog_div.py -l=50000 --opset={muffin|all}
 ```
 
-Diversity data over time is saved to `out/gencog-${opset}-%Y%m%d-%H%M%S.txt`.
+Diversity data over vertex budget are saved to `out/gencog-${opset}-%Y%m%d-%H%M%S.txt`.
 
 Muffin:
-
 ```
 python muffin_div.py -l=50000 --mode={dag|template}
 ```
 
-Diversity data over time is saved to `out/muffin-${mode}-%Y%m%d-%H%M%S.txt`.
+Diversity data over vertex budget are saved to `out/muffin-${mode}-%Y%m%d-%H%M%S.txt`.
 
 ### Coverage
 
@@ -103,29 +96,28 @@ First build TVM with Gcov. The build files should be stored in `build` subdirect
 directory of TVM source.
 
 GenCoG:
-
 ```
 python gencog_cov.py -r=${TVM_GCOV_ROOT} -l=50000 -s=1000 --opset={muffin|all}
 ```
 
 `TVM_GCOV_ROOT` is the root directory of TVM source containing Gcov build. Coverage files are saved
 to `cov-gencog-${opset}-%Y%m%d-%H%M%S` directory. `cov.json` is the final coverage
-summary. `data.txt` is the line coverage data over time.
+summary. `data.txt` is the line coverage data over vertex budget.
 
 Muffin:
-
 ```
 python muffin_cov.py -r=${TVM_GCOV_ROOT} -l=50000 -s=1000 --mode={dag|template}
 ```
 
-The output files are the same as GenCoG.
+Coverage files are saved to `cov-muffin-${opset}-%Y%m%d-%H%M%S` directory. The file formats are the
+same as GenCoG.
 
 ## Reuse
 
 ### Write Constraint Specifications for New Operators
 
-Refer to files in [`gencog/op`](gencog/op) for how to write constraint specification for an
-operator.
+Refer to files in [`gencog/op`](gencog/op) for how to write constraint specification for an operator
+and register it in `OpRegistry`.
 
 ### Support New DL Compilers
 
