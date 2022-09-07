@@ -1,4 +1,4 @@
-# Confirmed: https://github.com/apache/tvm/issues/11696
+# Fixed: https://github.com/apache/tvm/pull/12702
 
 import numpy as np
 from tvm import relay, transform, cpu, IRModule
