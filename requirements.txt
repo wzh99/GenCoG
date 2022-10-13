@@ -1,6 +1,6 @@
 tvm==0.8.0
-numpy~=1.22
 keras~=2.8
+numpy
 z3-solver
 colorama
 tqdm
