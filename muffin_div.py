@@ -11,7 +11,7 @@ from gencog.graph.relay import build_graph
 from gencog.metric.div import VertexDiversity, EdgeDiversity
 from gencog.spec import OpRegistry
 from gencog.util import run_process
-from muffin.model_generator import ModelGenerator
+from muffin.model_generator import MuffinGenerator
 from tvm_frontend import from_keras
 
 _gen_modes = ['seq', 'merge', 'dag', 'template']
@@ -35,7 +35,7 @@ def _check_relay(src: str):
 def main():
     # Initialization
     opr_limit = args.limit
-    model_gen = ModelGenerator()
+    model_gen = MuffinGenerator(args.mode)
     ops = [OpRegistry.get(name) for name in muffin_ops]
     vert_div = VertexDiversity(ops)
     edge_div = EdgeDiversity(ops)
@@ -48,7 +48,7 @@ def main():
     while True:
         # Generate Keras model
         try:
-            model = model_gen.generate(args.mode)
+            model = model_gen.generate()
         except ValueError:
             # print('Generation failed:', err)
             continue

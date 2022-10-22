@@ -4,6 +4,7 @@ from typing import Optional, Tuple, List
 import keras
 from keras.backend import set_image_data_format, int_shape
 
+from keras_gen import KerasGenerator
 from .dag import DAG
 from .layer_info_generator import LayerInfoGenerator
 from .model_template import ModelTemplate
@@ -31,12 +32,12 @@ config = {
 }
 
 
-class ModelGenerator(object):
+class MuffinGenerator(KerasGenerator):
     '''模型信息生成器
     '''
 
-    def __init__(self, ):
-        super().__init__()
+    def __init__(self, gen_mode: str):
+        self._gen_mode = gen_mode
         self.__node_num_range = config['node_num_range']
         self.__dag_io_num_range = config['dag_io_num_range']
         self.__max_branch_num = config['dag_max_branch_num']
@@ -50,34 +51,32 @@ class ModelGenerator(object):
         self.__layer_generator = LayerInfoGenerator(self.__random, selector)
         self.__weight_range = config['var']['weight_value_range']
 
-    def generate(self, generate_mode: str, node_num: Optional[int] = None,
-                 model_info: Optional[dict] = None):
+    def generate(self):
         '''生成模型信息, 可通过model_info指定模型信息，若不指定则随机生成
 
         返回值：
             json_path, input_shapes, model_id, exp_dir
         '''
+        generate_mode = self._gen_mode
         # 若未规定现成结构
-        if model_info is None:
-            if node_num is None:
-                node_num = 16 if generate_mode in ['dag', 'template'] else 32
+        node_num = 16 if generate_mode in ['dag', 'template'] else 32
 
-            if generate_mode == 'seq':
-                model_info, input_shapes, output_shapes, node_num = self.generate_seq_model(
-                    node_num=node_num)
-            elif generate_mode == 'merge':
-                model_info, input_shapes, output_shapes, node_num = self.generate_merge_model(
-                    node_num=node_num)
-            elif generate_mode == 'dag':
-                model_info, input_shapes, output_shapes, node_num = self.generate_dag_model(
-                    node_num=node_num)
-            elif generate_mode == 'template':
-                model_info, input_shapes, output_shapes, node_num = self.generate_template_model(
-                    cell_num=self.__cell_num,
-                    node_num_per_normal_cell=self.__node_num_per_normal_cell,
-                    node_num_per_reduction_cell=self.__node_num_per_reduction_cell)
-            else:
-                raise ValueError(f"UnKnown generate mode '{generate_mode}'")
+        if generate_mode == 'seq':
+            model_info, input_shapes, output_shapes, node_num = self.generate_seq_model(
+                node_num=node_num)
+        elif generate_mode == 'merge':
+            model_info, input_shapes, output_shapes, node_num = self.generate_merge_model(
+                node_num=node_num)
+        elif generate_mode == 'dag':
+            model_info, input_shapes, output_shapes, node_num = self.generate_dag_model(
+                node_num=node_num)
+        elif generate_mode == 'template':
+            model_info, input_shapes, output_shapes, node_num = self.generate_template_model(
+                cell_num=self.__cell_num,
+                node_num_per_normal_cell=self.__node_num_per_normal_cell,
+                node_num_per_reduction_cell=self.__node_num_per_reduction_cell)
+        else:
+            raise ValueError(f"UnKnown generate mode '{generate_mode}'")
 
         # Generate model from model info
         model = self.__generate_model(model_info)

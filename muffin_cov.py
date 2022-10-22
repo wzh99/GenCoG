@@ -11,7 +11,7 @@ from tvm import parser
 
 from gencog.graph.relay import build_graph
 from gencog.util import run_process
-from muffin.model_generator import ModelGenerator
+from muffin.model_generator import MuffinGenerator
 from tvm_frontend import from_keras
 
 args = Namespace()
@@ -48,7 +48,7 @@ def _check_relay(src: str):
 
 def main():
     # Initialization
-    model_gen = ModelGenerator()
+    model_gen = MuffinGenerator(args.mode)
     cov_dir = os.path.join(args.output, strftime(f'cov-muffin-{args.mode}-%Y%m%d-%H%M%S'))
     if not os.path.exists(cov_dir):
         os.mkdir(cov_dir)
@@ -71,7 +71,7 @@ def main():
     while True:
         # Generate Keras model
         try:
-            model = model_gen.generate(args.mode)
+            model = model_gen.generate()
         except ValueError:
             continue
 

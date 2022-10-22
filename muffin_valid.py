@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 from tvm import relay, TVMError
 
-from muffin.model_generator import ModelGenerator
+from muffin.model_generator import MuffinGenerator
 from tvm_frontend import from_keras
 
 args = Namespace()
@@ -15,14 +15,14 @@ def _parse_args():
     global args
     p = ArgumentParser()
     p.add_argument('-n', '--number', type=int, help='Number of graphs')
-    p.add_argument('-m', '--mode', type=str, choices=['seq', 'merge', 'dag', 'template'],
+    p.add_argument('-m', '--mode', type=str, choices=['dag', 'template'],
                    help='Generation mode.')
     args = p.parse_args()
 
 
 def main():
     # Initialization
-    model_gen = ModelGenerator()
+    model_gen = MuffinGenerator(args.mode)
 
     # Generation loop
     progress = tqdm(range(args.number), file=stdout)
@@ -35,7 +35,7 @@ def main():
     for _ in progress:
         # Generate Keras model
         try:
-            model = model_gen.generate(args.mode)
+            model = model_gen.generate()
         except ValueError as err:
             print(err)
             keras_invalid += 1
@@ -46,7 +46,7 @@ def main():
         batch_size = np.random.randint(1, 5)
         input_shapes = {inp.name: (batch_size,) + tuple(inp.shape.as_list()[1:])
                         for inp in model.inputs}
-        mod, params = from_keras(model, shape=input_shapes)
+        mod, _ = from_keras(model, shape=input_shapes)
 
         # Check type correctness
         try:
