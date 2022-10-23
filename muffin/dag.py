@@ -2,39 +2,46 @@ import random
 from typing import Optional
 
 
+class Node(object):
+    def __init__(self, topo_id: int, is_input: bool = False, is_output: bool = False,
+                 output_shape: Optional[tuple] = None):
+        self.id = topo_id
+        self.is_input = is_input
+        self.is_output = is_output
+        self.output_shape = output_shape
+        self.type = None
+
+        self.inbound_nodes = []
+        self.outbound_nodes = []
+
+    @property
+    def is_merging(self):
+        return len(self.inbound_nodes) > 1
+
+    @property
+    def is_connected(self):
+        return bool(self.inbound_nodes)
+
+    def remove(self):
+        n1 = self.inbound_nodes[0]
+        n1.connect_to(self.outbound_nodes)
+        for n2 in self.outbound_nodes:
+            # print(f"{self.id} -x-> {n2.id}")
+            n2.inbound_nodes.remove(self)
+
+    def connect_to(self, nodes):
+        for n2 in nodes:
+            # print(f"{self.id} --> {n2.id}")
+            n2.inbound_nodes.append(self)
+            self.outbound_nodes.append(n2)
+
+    def __repr__(self):
+        return f'Node(id={self.id}, is_input={self.is_input}, is_output={self.is_output}, ' \
+               f'inbound_nodes={list(map(lambda n: n.id, self.inbound_nodes))}, ' \
+               f'outbound_nodes={list(map(lambda n: n.id, self.outbound_nodes))})'
+
+
 class DAG(object):
-    class Node(object):
-        def __init__(self, topo_id: int, is_input: bool = False, is_output: bool = False,
-                     output_shape: Optional[tuple] = None):
-            self.id = topo_id
-            self.is_input = is_input
-            self.is_output = is_output
-            self.output_shape = output_shape
-            self.type = None
-
-            self.inbound_nodes = []
-            self.outbound_nodes = []
-
-        @property
-        def is_merging(self):
-            return len(self.inbound_nodes) > 1
-
-        @property
-        def is_connected(self):
-            return bool(self.inbound_nodes)
-
-        def remove(self):
-            n1 = self.inbound_nodes[0]
-            n1.connect_to(self.outbound_nodes)
-            for n2 in self.outbound_nodes:
-                # print(f"{self.id} -x-> {n2.id}")
-                n2.inbound_nodes.remove(self)
-
-        def connect_to(self, nodes):
-            for n2 in nodes:
-                # print(f"{self.id} --> {n2.id}")
-                n2.inbound_nodes.append(self)
-                self.outbound_nodes.append(n2)
 
     def __init__(self, main_node_num: int, input_shapes: list, output_shapes: list,
                  max_branch_num: int):
@@ -52,12 +59,12 @@ class DAG(object):
         # print(f"inputs_id: {inputs_id}  outputs_id: {outputs_id}")
         self.nodes = []
         for i, output_shape in zip(inputs_id, input_shapes):
-            self.nodes.append(self.Node(i, is_input=True, output_shape=output_shape))
+            self.nodes.append(Node(i, is_input=True, output_shape=output_shape))
         for i, output_shape in zip(outputs_id, output_shapes):
-            self.nodes.append(self.Node(i, is_output=True, output_shape=output_shape))
+            self.nodes.append(Node(i, is_output=True, output_shape=output_shape))
         for i in range(main_node_num):
             if i not in inputs_id and i not in outputs_id:
-                self.nodes.append(self.Node(i))
+                self.nodes.append(Node(i))
         self.nodes.sort(key=lambda n: n.id)  # 拓扑排序
         self.__generate()
         # self.show()
