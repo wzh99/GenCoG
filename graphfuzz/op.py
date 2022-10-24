@@ -1,7 +1,6 @@
 seq_ops = [
     'sigmoid',
     'tanh',
-    'reshape',
     'transpose',
     'nn.relu',
     'nn.leaky_relu',

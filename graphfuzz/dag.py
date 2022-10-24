@@ -1,11 +1,11 @@
-import random
+from numpy.random import Generator
 
 from muffin.dag import Node
 
 RN_PROB = 0.5
 
 
-def rn_model(num_nodes: int):
+def rn_model(num_nodes: int, rng: Generator):
     # Initialize nodes
     nodes = [Node(0, is_input=True)]
     for i in range(num_nodes):
@@ -16,7 +16,7 @@ def rn_model(num_nodes: int):
     # Randomly connect to nodes after each node
     for i, node in enumerate(nodes[:-1]):
         node.connect_to([nodes[i + 1]])
-        if random.random() < RN_PROB:
-            node.connect_to([nodes[random.randint(i + 1, num_nodes)]])
+        if rng.random() < RN_PROB:
+            node.connect_to([nodes[rng.integers(i + 1, num_nodes + 1)]])
 
     return nodes
