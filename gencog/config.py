@@ -34,7 +34,7 @@ params: Dict[str, Any] = {
 }
 
 # Operators that have correspondences with Keras layers in Muffin (ICSE'22)
-muffin_ops = [
+common_ops = [
     'sigmoid',
     'tanh',
     'add',

@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 from tvm.parser import parse
 
-from gencog.config import muffin_ops
+from gencog.config import common_ops
 from gencog.graph.relay import build_graph
 from gencog.metric.div import VertexDiversity, EdgeDiversity
 from gencog.spec import OpRegistry
@@ -36,7 +36,7 @@ def main():
     # Initialization
     opr_limit = args.limit
     model_gen = MuffinGenerator(args.mode)
-    ops = [OpRegistry.get(name) for name in muffin_ops]
+    ops = [OpRegistry.get(name) for name in common_ops]
     vert_div = VertexDiversity(ops)
     edge_div = EdgeDiversity(ops)
 

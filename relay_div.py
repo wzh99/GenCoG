@@ -7,10 +7,11 @@ from numpy.random import Generator, PCG64
 from tqdm import tqdm
 from tvm import parser, TVMError
 
-from gencog.config import muffin_ops
+from gencog.config import common_ops
 from gencog.graph import GraphGenerator, print_relay
 from gencog.metric.div import EdgeDiversity, VertexDiversity
 from gencog.spec import OpRegistry
+from graphfuzz.gen import GraphFuzzGenerator
 
 args = Namespace()
 
@@ -18,9 +19,12 @@ args = Namespace()
 def _parse_args():
     global args
     p = ArgumentParser()
+    p.add_argument('-g', '--generator', type=str, choices=['gencog', 'graphfuzz'])
     p.add_argument('--opset', type=str, choices=['all', 'muffin'],
-                   help='Operator set for generating graphs.')
+                   help='Operator set for graph generation, only valid for GenCoG.')
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
+    p.add_argument('-m', '--model', type=str, choices=['ws', 'rn'],
+                   help='Graph model to apply, only valid for GraphFuzz (Luo et al.).')
     p.add_argument('-s', '--seed', type=int, default=42, help='Random seed of graph generator.')
     args = p.parse_args()
 
@@ -28,12 +32,16 @@ def _parse_args():
 def main():
     # Initialization
     opr_limit = args.limit
-    if args.opset == 'muffin':
-        ops = [OpRegistry.get(name) for name in muffin_ops]
-    else:
-        ops = list(OpRegistry.ops())
     rng = Generator(PCG64(seed=args.seed))
-    gen = GraphGenerator(ops, rng)
+    if args.generator == 'gencog':
+        if args.opset == 'muffin':
+            ops = [OpRegistry.get(name) for name in common_ops]
+        else:
+            ops = OpRegistry.ops()
+        gen = GraphGenerator(ops, rng)
+    else:
+        ops = [OpRegistry.get(name) for name in common_ops]
+        gen = GraphFuzzGenerator(args.model, rng)
     vert_div = VertexDiversity(ops)
     edge_div = EdgeDiversity(ops)
 
@@ -41,7 +49,10 @@ def main():
     opr_count = 0
     progress = tqdm(total=opr_limit, file=stdout)
     div_record = []
-    record_file = time.strftime(f'out/gencog-{args.opset}-%Y%m%d-%H%M%S.txt')
+    if args.generator == 'gencog':
+        record_file = time.strftime(f'out/gencog-{args.opset}-%Y%m%d-%H%M%S.txt')
+    else:
+        record_file = time.strftime(f'out/graphfuzz-{args.model}-%Y%m%d-%H%M%S.txt')
     loop_idx = 0
     while True:
         # Generate graph

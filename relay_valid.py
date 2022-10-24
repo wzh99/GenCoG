@@ -5,9 +5,10 @@ from numpy.random import Generator, PCG64
 from tqdm import tqdm
 from tvm import parser, TVMError
 
-from gencog.config import muffin_ops
+from gencog.config import common_ops
 from gencog.graph import GraphGenerator, print_relay
 from gencog.spec import OpRegistry
+from graphfuzz.gen import GraphFuzzGenerator
 
 args = Namespace()
 
@@ -15,9 +16,12 @@ args = Namespace()
 def _parse_args():
     global args
     p = ArgumentParser()
-    p.add_argument('-n', '--number', type=int, help='Number of graphs')
+    p.add_argument('-g', '--generator', type=str, choices=['gencog', 'graphfuzz'])
+    p.add_argument('-n', '--number', type=int, help='Number of graphs.')
     p.add_argument('--opset', type=str, choices=['all', 'muffin'],
-                   help='Operator set for generating graphs.')
+                   help='Operator set for graph generation, only valid for GenCoG.')
+    p.add_argument('-m', '--model', type=str, choices=['ws', 'rn'],
+                   help='Graph model to apply, only valid for GraphFuzz (Luo et al.).')
     p.add_argument('-s', '--seed', type=int, default=42, help='Random seed of graph generator.')
     args = p.parse_args()
 
@@ -25,11 +29,14 @@ def _parse_args():
 def main():
     # Initialization
     rng = Generator(PCG64(seed=args.seed))
-    if args.opset == 'muffin':
-        ops = [OpRegistry.get(name) for name in muffin_ops]
+    if args.generator == 'gencog':
+        if args.opset == 'muffin':
+            ops = [OpRegistry.get(name) for name in common_ops]
+        else:
+            ops = OpRegistry.ops()
+        gen = GraphGenerator(ops, rng)
     else:
-        ops = OpRegistry.ops()
-    gen = GraphGenerator(ops, rng)
+        gen = GraphFuzzGenerator(args.model, rng)
 
     # Generation loop
     progress = tqdm(range(args.number), file=stdout)

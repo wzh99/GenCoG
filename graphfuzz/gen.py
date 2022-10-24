@@ -18,9 +18,9 @@ max_opr_num: int = params['graph.max_opr_num']
 
 
 class GraphFuzzGenerator(GraphGenerator):
-    def __init__(self, gen_mode: str, rng: Generator):
+    def __init__(self, graph_model: str, rng: Generator):
         super().__init__(map(OpRegistry.get, seq_ops), rng)
-        self._graph_model = gen_mode
+        self._graph_model = graph_model
         self._bin_ops = list(map(OpRegistry.get, binary_ops))
 
     def generate(self):
@@ -125,7 +125,7 @@ class GraphFuzzGenerator(GraphGenerator):
                 reduce(int.__mul__, src.type_.shape_[tgt_rank - 1:], 1)]
             align_opr = Operation(
                 op=OpRegistry.get('reshape'),
-                attrs=[('newshape', new_shape)],
+                attrs=[('newshape', tuple(new_shape))],
                 inputs=[src],
                 outputs=[Value(TensorType(new_shape, dtype))]
             )
@@ -142,7 +142,7 @@ class GraphFuzzGenerator(GraphGenerator):
             align_opr = Operation(
                 op=OpRegistry.get('nn.pad'),
                 attrs=[
-                    ('pad_width', list(map(lambda s: [0, s], pad_size))),
+                    ('pad_width', tuple(map(lambda s: [0, s], pad_size))),
                     ('pad_mode', 'constant')
                 ],
                 inputs=[src, pad_value_input.value_],
@@ -159,8 +159,8 @@ class GraphFuzzGenerator(GraphGenerator):
             align_opr = Operation(
                 op=OpRegistry.get('strided_slice'),
                 attrs=[
-                    ('axes', list(range(tgt_rank))), ('begin', [0] * tgt_rank),
-                    ('end', new_shape), ('strides', [1] * tgt_rank)
+                    ('axes', tuple(range(tgt_rank))), ('begin', (0,) * tgt_rank),
+                    ('end', tuple(new_shape)), ('strides', (1,) * tgt_rank)
                 ],
                 inputs=[src],
                 outputs=[Value(TensorType(new_shape, dtype))]

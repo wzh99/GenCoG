@@ -9,7 +9,7 @@ import numpy as np
 from numpy.random import Generator, PCG64
 from tqdm import tqdm
 
-from gencog.config import muffin_ops
+from gencog.config import common_ops
 from gencog.graph import GraphGenerator, print_relay
 from gencog.spec import OpRegistry
 
@@ -45,7 +45,7 @@ def main():
     # Initialization
     rng = Generator(PCG64(seed=args.seed))
     if args.opset == 'muffin':
-        ops = [OpRegistry.get(name) for name in muffin_ops]
+        ops = [OpRegistry.get(name) for name in common_ops]
     else:
         ops = OpRegistry.ops()
     gen = GraphGenerator(ops, rng)

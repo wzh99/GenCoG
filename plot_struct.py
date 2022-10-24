@@ -5,7 +5,7 @@ from graphviz import Digraph
 from numpy.random import Generator, PCG64
 from tqdm import trange
 
-from gencog.config import params, muffin_ops
+from gencog.config import params, common_ops
 from gencog.graph import GraphGenerator, GraphVisitor, Graph, Input, Output, Operation
 from gencog.spec import OpRegistry
 from gencog.util import NameGenerator
@@ -71,7 +71,7 @@ class StructurePlotter(GraphVisitor[str]):
 def main():
     # Initialization
     rng = Generator(PCG64(seed=args.seed))
-    ops = [OpRegistry.get(name) for name in muffin_ops]
+    ops = [OpRegistry.get(name) for name in common_ops]
     gen = GraphGenerator(ops, rng)
     vert_num = params['graph.max_opr_num']
     use_penal = params['graph.use_penal']

@@ -5,7 +5,7 @@ from numpy.random import Generator, PCG64
 from tqdm import trange
 from tvm import parser
 
-from gencog.config import muffin_ops
+from gencog.config import common_ops
 from gencog.graph import GraphGenerator, print_relay, visualize
 from gencog.spec import OpRegistry, TypeSpec
 
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     parse_args()
     TypeSpec.for_graph = True
     rng = Generator(PCG64(seed=args.seed))
-    gen = GraphGenerator((OpRegistry.get(name) for name in muffin_ops), rng)
+    gen = GraphGenerator((OpRegistry.get(name) for name in common_ops), rng)
     for idx in trange(args.number, file=stdout):
         graph = gen.generate()
         src = print_relay(graph)
