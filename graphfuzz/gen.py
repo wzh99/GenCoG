@@ -11,7 +11,7 @@ from gencog.graph.lookup import ValueLookup
 from gencog.solve import TypeSolver, TensorType
 from gencog.solve.store import ValueStore
 from gencog.spec import OpRegistry
-from .dag import rn_model
+from .dag import rn_model, ws_model
 from .op import seq_ops, binary_ops
 
 max_opr_num: int = params['graph.max_opr_num']
@@ -20,12 +20,17 @@ max_opr_num: int = params['graph.max_opr_num']
 class GraphFuzzGenerator(GraphGenerator):
     def __init__(self, gen_mode: str, rng: Generator):
         super().__init__(map(OpRegistry.get, seq_ops), rng)
-        self._gen_mode = gen_mode
+        self._graph_model = gen_mode
         self._bin_ops = list(map(OpRegistry.get, binary_ops))
 
     def generate(self):
         # Generate graph model
-        nodes = rn_model(max_opr_num, self._rng)
+        if self._graph_model == 'rn':
+            nodes = rn_model(max_opr_num, 0.5, self._rng)
+        elif self._graph_model == 'ws':
+            nodes = ws_model(max_opr_num, 2, 0.5, self._rng)
+        else:
+            raise ValueError(f'Unknown graph model {self._graph_model}')
 
         # Initialization
         inputs = []
