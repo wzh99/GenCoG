@@ -105,7 +105,9 @@ class RelayPrinter(GraphVisitor[None]):
                 prefix='', suffix=''
             )
         ])
-        self._buf.writeln(';')
+        ty_str = repr(tuple(out.type_ for out in opr.outputs_)) if tup_out else repr(
+            opr.outputs_[0].type_)
+        self._buf.writeln(f'; /* ty={ty_str} */')
 
         # Unpack tuple
         if tup_out:
