@@ -12,6 +12,7 @@ from tqdm import tqdm
 from gencog.config import common_ops
 from gencog.graph import GraphGenerator, print_relay
 from gencog.spec import OpRegistry
+from graphfuzz.gen import GraphFuzzGenerator
 
 args = Namespace()
 
@@ -20,8 +21,11 @@ def parse_args():
     global args
     p = ArgumentParser()
     p.add_argument('-r', '--root', type=str, help='Root directory of TVM source code.')
+    p.add_argument('-g', '--generator', type=str, choices=['gencog', 'graphfuzz'])
     p.add_argument('--opset', type=str, choices=['all', 'muffin'],
-                   help='Operator set for generating graphs.')
+                   help='Operator set for graph generation, only valid for GenCoG.')
+    p.add_argument('-m', '--model', type=str, choices=['ws', 'rn'],
+                   help='Graph model to apply, only valid for GraphFuzz (Luo et al.).')
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of vertices.')
     p.add_argument('-s', '--step', type=int,
                    help='Number of vertices between two coverage collections.')
@@ -44,12 +48,18 @@ def get_line_cov(root: str, out_dir: str, delete_gcda: bool):
 def main():
     # Initialization
     rng = Generator(PCG64(seed=args.seed))
-    if args.opset == 'muffin':
-        ops = [OpRegistry.get(name) for name in common_ops]
+    if args.generator == 'gencog':
+        if args.opset == 'muffin':
+            ops = [OpRegistry.get(name) for name in common_ops]
+        else:
+            ops = OpRegistry.ops()
+        gen = GraphGenerator(ops, rng)
     else:
-        ops = OpRegistry.ops()
-    gen = GraphGenerator(ops, rng)
-    cov_dir = os.path.join(args.output, strftime(f'cov-gencog-{args.opset}-%Y%m%d-%H%M%S'))
+        gen = GraphFuzzGenerator(args.model, rng)
+    if args.generator == 'gencog':
+        cov_dir = os.path.join(args.output, strftime(f'cov-gencog-{args.opset}-%Y%m%d-%H%M%S'))
+    else:
+        cov_dir = os.path.join(args.output, strftime(f'cov-graphfuzz-{args.model}-%Y%m%d-%H%M%S'))
     if not os.path.exists(cov_dir):
         os.mkdir(cov_dir)
     env = os.environ.copy()
