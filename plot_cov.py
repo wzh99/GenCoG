@@ -15,7 +15,7 @@ assert len(names) == len(paths), len(names) == len(colors)
 
 data = [np.loadtxt(p) for p in paths]
 
-plt.rc('font', family='Latin Modern Sans', size=10)
+plt.rc('font', family='Latin Modern Sans', size=9)
 
 plt.figure(figsize=(5, 3))
 plt.gca().set_box_aspect(1 / 2)

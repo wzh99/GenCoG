@@ -4,7 +4,6 @@ from typing import Dict, List
 from numpy.random import Generator
 
 from gencog import Const
-from gencog.config import params
 from gencog.expr.ty import ValueType
 from gencog.graph import GraphGenerator, Value, Operation, Input, Output, Graph
 from gencog.graph.lookup import ValueLookup
@@ -14,7 +13,7 @@ from gencog.spec import OpRegistry
 from .dag import rn_model, ws_model
 from .op import seq_ops, binary_ops
 
-max_opr_num: int = params['graph.max_opr_num']
+num_graph_nodes = 32
 
 
 class GraphFuzzGenerator(GraphGenerator):
@@ -26,9 +25,9 @@ class GraphFuzzGenerator(GraphGenerator):
     def generate(self):
         # Generate graph model
         if self._graph_model == 'rn':
-            nodes = rn_model(max_opr_num, 0.5, self._rng)
+            nodes = rn_model(num_graph_nodes, 0.5, self._rng)
         elif self._graph_model == 'ws':
-            nodes = ws_model(max_opr_num, 2, 0.5, self._rng)
+            nodes = ws_model(num_graph_nodes, 2, 0.5, self._rng)
         else:
             raise ValueError(f'Unknown graph model {self._graph_model}')
 
