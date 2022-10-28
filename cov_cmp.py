@@ -3,7 +3,7 @@ import json
 base_path = 'out/cov-muffin-dag/cov.json'
 diff_path = 'out/cov-gencog-complete/cov.json'
 
-comps = ['relay', 'topi', 'tir', 'arith', 'target']
+comps = ['relay', 'topi', 'tir', 'te', 'arith', 'target', 'runtime']
 
 # Load coverage report
 with open(base_path, 'r') as f:
