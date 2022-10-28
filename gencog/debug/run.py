@@ -101,7 +101,8 @@ def gen_tensor_value_dict(params: List[relay.Var], rng: Generator):
 
 
 def build_mod(mod: IRModule, opt_level: int, params: Optional[TensorDict] = None):
-    with transform.PassContext(opt_level=opt_level, disabled_pass=['AlterOpLayout']):
+    with transform.PassContext(opt_level=opt_level,
+                               disabled_pass=['AlterOpLayout', 'CombineParallelDense']):
         lib = relay.build(mod, target='llvm', params=params)
     return GraphModule(lib['default'](cpu()))
 
