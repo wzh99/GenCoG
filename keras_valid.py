@@ -5,6 +5,7 @@ import numpy as np
 from tqdm import tqdm
 from tvm import relay, TVMError
 
+from lemon.gen import LemonGenerator
 from muffin.model_generator import MuffinGenerator
 from tvm_frontend import from_keras
 
@@ -14,15 +15,20 @@ args = Namespace()
 def _parse_args():
     global args
     p = ArgumentParser()
+    p.add_argument('-g', '--generator', type=str, choices=['lemon', 'muffin'],
+                   help='Method for graph generation.')
     p.add_argument('-n', '--number', type=int, help='Number of graphs')
-    p.add_argument('-m', '--mode', type=str, choices=['dag', 'template'],
-                   help='Generation mode.')
+    p.add_argument('-m', '--model', type=str, choices=['dag', 'template'],
+                   help='Graph model to apply, only valid for Muffin.')
     args = p.parse_args()
 
 
 def main():
     # Initialization
-    model_gen = MuffinGenerator(args.mode)
+    if args.generator == 'lemon':
+        model_gen = LemonGenerator()
+    else:
+        model_gen = MuffinGenerator(args.model)
 
     # Generation loop
     progress = tqdm(range(args.number), file=stdout)

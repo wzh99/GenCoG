@@ -1,15 +1,16 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-names = ['Luo-WS', 'Luo-RN', 'Muffin-Chain', 'Muffin-Cell', 'GenCoG-M']
+names = ['LEMON', 'Luo-WS', 'Luo-RN', 'Muffin-Chain', 'Muffin-Cell', 'GenCoG-M']
 paths = [
+    'out/lemon.txt',
     'out/graphfuzz-ws.txt',
     'out/graphfuzz-rn.txt',
     'out/muffin-dag.txt',
     'out/muffin-template.txt',
     'out/gencog-muffin.txt'
 ]
-colors = ['tab:purple', 'dodgerblue', 'tab:cyan', 'tab:green', 'darkorange']
+colors = ['deeppink', 'tab:purple', 'dodgerblue', 'tab:cyan', 'tab:green', 'darkorange']
 assert len(names) == len(paths), len(names) == len(colors)
 
 data = [np.loadtxt(p) for p in paths]
@@ -36,6 +37,6 @@ plt.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
 plt.ylim(0, 0.85)
 plt.xlabel('#Vertices')
 plt.ylabel('Edge Diversity')
-plt.legend(ncol=2)
+plt.legend(ncol=2, loc='lower right', bbox_to_anchor=(1, 0.07))
 plt.savefig('out/edge-div.pdf')
 plt.show()

@@ -4,17 +4,15 @@ from sys import stdout
 
 import numpy as np
 from tqdm import tqdm
-from tvm.parser import parse
+from tvm import relay, TVMError
 
 from gencog.config import common_ops
 from gencog.graph.relay import build_graph
 from gencog.metric.div import VertexDiversity, EdgeDiversity
 from gencog.spec import OpRegistry
-from gencog.util import run_process
+from lemon.gen import LemonGenerator
 from muffin.model_generator import MuffinGenerator
 from tvm_frontend import from_keras
-
-_gen_modes = ['seq', 'merge', 'dag', 'template']
 
 args = Namespace()
 
@@ -22,20 +20,21 @@ args = Namespace()
 def _parse_args():
     global args
     p = ArgumentParser()
+    p.add_argument('-g', '--generator', type=str, choices=['lemon', 'muffin'],
+                   help='Method for graph generation.')
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
-    p.add_argument('-m', '--mode', type=str, choices=_gen_modes, help='Generation mode.')
+    p.add_argument('-m', '--model', type=str, choices=['seq', 'merge', 'dag', 'template'],
+                   help='Graph model to apply, only valid for Muffin.')
     args = p.parse_args()
-
-
-def _check_relay(src: str):
-    mod = parse(src)
-    return {'src': mod.astext()}
 
 
 def main():
     # Initialization
     opr_limit = args.limit
-    model_gen = MuffinGenerator(args.mode)
+    if args.generator == 'lemon':
+        model_gen = LemonGenerator()
+    else:
+        model_gen = MuffinGenerator(args.model)
     ops = [OpRegistry.get(name) for name in common_ops]
     vert_div = VertexDiversity(ops)
     edge_div = EdgeDiversity(ops)
@@ -44,13 +43,15 @@ def main():
     opr_count = 0
     progress = tqdm(total=opr_limit, file=stdout)
     div_record = []
-    record_file = time.strftime(f'out/muffin-{args.mode}-%Y%m%d-%H%M%S.txt', time.localtime())
+    if args.generator == 'lemon':
+        record_file = time.strftime(f'out/lemon-%Y%m%d-%H%M%S.txt')
+    else:
+        record_file = time.strftime(f'out/muffin-{args.mode}-%Y%m%d-%H%M%S.txt')
     while True:
         # Generate Keras model
         try:
             model = model_gen.generate()
         except ValueError:
-            # print('Generation failed:', err)
             continue
 
         # Convert to Relay
@@ -60,10 +61,10 @@ def main():
         mod, params = from_keras(model, shape=input_shapes)
 
         # Check type correctness
-        ps_result = run_process(_check_relay, (mod.astext(),))
-        if ps_result.exitcode != 0:
+        try:
+            mod = relay.transform.InferType()(mod)
+        except TVMError:
             continue
-        mod = parse(ps_result.ret['src'])
 
         # Convert to graph representation
         graph = build_graph(mod, params)
