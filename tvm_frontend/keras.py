@@ -116,6 +116,10 @@ def _convert_activation(inexpr, keras_layer, etab):
     if act_type == "hard_sigmoid":
         x = (_expr.const(0.2, dtype="float32") * inexpr) + _expr.const(0.5, dtype="float32")
         return _op.clip(x, a_min=0.0, a_max=1.0)
+    if act_type == 'no_activation':
+        return inexpr
+    if act_type == 'leakyrelu':
+        return _op.nn.leaky_relu(inexpr, alpha=0.5)
 
     raise tvm.error.OpNotImplemented(
         "Operator {} is not supported in tvm_frontend Keras.".format(act_type)
@@ -1105,6 +1109,7 @@ _convert_map = {
     "Maximum": _convert_merge,
     "Permute": _convert_permute,
     "InputLayer": _default_skip,
+    'Activation': _convert_activation,
 }
 
 
