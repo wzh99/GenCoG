@@ -17,5 +17,6 @@ for file in cov['files']:
         if c in path_split:
             comp_stat[c] += line_cov
             break
+comp_stat['other'] = cov['line_covered'] - sum(comp_stat.values())
 
 print(comp_stat)
