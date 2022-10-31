@@ -1,13 +1,13 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-names = ['LEMON', 'Luo-WS', 'Luo-RN', 'Muffin-Chain', 'Muffin-Cell', 'GenCoG-M']
+names = ['LEMON', 'Muffin-Chain', 'Muffin-Cell', 'Luo-WS', 'Luo-RN', 'GenCoG-M']
 paths = [
     'out/lemon.txt',
-    'out/graphfuzz-ws.txt',
-    'out/graphfuzz-rn.txt',
     'out/muffin-dag.txt',
     'out/muffin-template.txt',
+    'out/graphfuzz-ws.txt',
+    'out/graphfuzz-rn.txt',
     'out/gencog-muffin.txt'
 ]
 colors = ['deeppink', 'tab:purple', 'dodgerblue', 'tab:cyan', 'tab:green', 'darkorange']

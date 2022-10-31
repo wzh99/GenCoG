@@ -100,8 +100,9 @@ def main():
         # Run subprocess
         cmd = ['python3', '_run_ps.py', f'-d={cov_dir}']
         try:
-            run(cmd, env=env, timeout=60, stderr=open(os.devnull, 'w'))
+            run(cmd, env=env, timeout=600, stderr=open(os.devnull, 'w'))
         except TimeoutExpired:
+            print('Timeout')
             continue
 
         # Clean up
