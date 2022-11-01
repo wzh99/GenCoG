@@ -1,6 +1,6 @@
 import json
 
-cov_path = 'out/cov-gencog-complete/cov.json'
+cov_path = 'out/cov-lemon/cov.json'
 
 comps = ['relay', 'topi', 'tir', 'te', 'arith', 'target', 'runtime']
 
