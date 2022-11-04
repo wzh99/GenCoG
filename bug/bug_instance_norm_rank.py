@@ -1,4 +1,4 @@
-# Fixed: https://github.com/apache/tvm/pull/11643
+# Fixed: https://github.com/apache/tvm/pull/13280
 
 from tvm import relay, IRModule
 

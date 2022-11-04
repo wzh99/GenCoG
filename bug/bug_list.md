@@ -1,7 +1,7 @@
 | Index | Name                    | Status    | Link                                       |
 |-------|-------------------------|-----------|--------------------------------------------|
 | 1     | `reduce_axis`           | Fixed     | https://github.com/apache/tvm/pull/11643   |
-| 2     | `instance_norm_rank`    | Fixed     | https://github.com/apache/tvm/pull/11643   |
+| 2     | `instance_norm_rank`    | Fixed     | https://github.com/apache/tvm/pull/13280   |
 | 3     | `softmax_dtype`         | Fixed     | https://github.com/apache/tvm/pull/11222   |
 | 4     | `conv3d_kernel_size`    | Fixed     | https://github.com/apache/tvm/pull/11681   |
 | 5     | `conv1d_out_layout`     | Fixed     | https://github.com/apache/tvm/pull/11325   |
