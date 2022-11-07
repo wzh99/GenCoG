@@ -91,9 +91,12 @@ class VertexDiversity(Diversity):
         # Record hash for this operation
         self._hash[op].add(h)
 
+    def __getitem__(self, op: Op):
+        return min(len(self._hash[op]) / self._space[op].total, 1)
+
     @property
     def op_div(self):
-        return np.array([min(len(self._hash[op]) / self._space[op].total, 1) for op in self._ops])
+        return np.array([self[op] for op in self._ops])
 
     @property
     def result(self) -> float:
