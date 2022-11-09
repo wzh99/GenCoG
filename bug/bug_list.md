@@ -12,5 +12,6 @@
 | 10    | `squeeze_axis`          | Fixed     | https://github.com/apache/tvm/pull/12596   |
 | 11    | `pad_reflect`           | Reported  | https://github.com/apache/tvm/issues/11687 |
 | 12    | `tanh_nan`              | Fixed     | https://github.com/apache/tvm/pull/12702   |
+| 13    | `conv3d_group`          | Fixed     | https://github.com/apache/tvm/pull/12500   |
 
 
