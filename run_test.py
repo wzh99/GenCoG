@@ -16,6 +16,7 @@ args = Namespace()
 def parse_args():
     global args
     p = ArgumentParser()
+    p.add_argument('-r', '--root', type=str, help='Root directory of TVM source code.')
     p.add_argument('-s', '--seed', type=int, default=42, help='Random seed of graph generator.')
     p.add_argument('-o', '--output', type=str, default='out', help='Output directory.')
     args = p.parse_args()
@@ -26,6 +27,8 @@ def main():
     rng = Generator(PCG64(seed=args.seed))
     gen = GraphGenerator(OpRegistry.ops(), rng)
     path = os.path.join(args.output, strftime('run-%Y%m%d-%H%M%S'))
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.path.join(args.root, 'python')
     if not os.path.exists(path):
         os.mkdir(path)
 
@@ -46,7 +49,7 @@ def main():
         # Run subprocess
         cmd = ['python3', '_run_ps.py', f'-d={case_path}', '-e', f'-s={rng.integers(2 ** 63)}']
         try:
-            run(cmd, check=True, timeout=60, stderr=open(os.devnull, 'w'))
+            run(cmd, env=env, check=True, timeout=60, stderr=open(os.devnull, 'w'))
         except CalledProcessError:
             print(f'Error detected in case {case_id}.')
         except TimeoutExpired:

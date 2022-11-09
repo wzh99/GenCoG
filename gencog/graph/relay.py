@@ -25,8 +25,10 @@ def print_relay(g: Graph):
 
 
 def fmt_val(v: ValueType):
-    if isinstance(v, (bool, int, float, DataType)):
+    if isinstance(v, (bool, int, DataType)):
         return str(v)
+    elif isinstance(v, float):
+        return str(v) + 'f'
     elif isinstance(v, str):
         return '"' + v + '"'
     elif isinstance(v, (tuple, list)):
