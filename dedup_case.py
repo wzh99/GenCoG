@@ -1,6 +1,7 @@
 import os
 from argparse import Namespace, ArgumentParser
 
+import tvm
 from polyleven import levenshtein
 
 from gencog.debug.run import ErrorKind
@@ -28,11 +29,15 @@ class CaseDedup:
 
 
 def main():
+    print(tvm.__version__)
     compile_dedup = CaseDedup()
     run_dedup = CaseDedup()
     for case_id in sorted(os.listdir(args.directory), key=lambda s: int(s)):
         case_path = os.path.join(args.directory, case_id)
-        with open(os.path.join(case_path, 'error.txt'), 'r') as f:
+        err_path = os.path.join(case_path, 'error.txt')
+        if not os.path.exists(err_path):
+            continue
+        with open(err_path, 'r') as f:
             err = f.read()
         for kind, dedup in zip(
                 [ErrorKind.COMPILE, ErrorKind.RUN], [compile_dedup, run_dedup]

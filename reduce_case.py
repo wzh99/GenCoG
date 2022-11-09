@@ -3,6 +3,7 @@ import re
 from argparse import Namespace, ArgumentParser
 
 import numpy as np
+import tvm
 from tvm import parser
 
 from gencog.debug import ErrorKind, CompileReducer, RunReducer, ComputeReducer
@@ -20,6 +21,7 @@ def parse_args():
 
 
 def main():
+    print(tvm.__version__)
     level_matcher = re.compile('opt_level=(\\d)')
     for case_id in sorted(os.listdir(args.directory), key=lambda s: int(s)):
         case_path = os.path.join(args.directory, case_id)
