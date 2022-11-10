@@ -48,13 +48,15 @@ def main():
 
         # Run subprocess
         cmd = ['python3', '_run_ps.py', f'-d={case_path}', '-e', f'-s={rng.integers(2 ** 63)}']
+        keep_dir = False
         try:
             run(cmd, env=env, check=True, timeout=60, stderr=open(os.devnull, 'w'))
         except CalledProcessError:
             print(f'Error detected in case {case_id}.')
+            keep_dir = True
         except TimeoutExpired:
             print(f'Case {case_id} timed out.')
-        else:
+        if not keep_dir:
             os.remove(os.path.join(case_path, 'code.txt'))
             os.rmdir(case_path)
         progress.update()
