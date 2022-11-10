@@ -25,7 +25,14 @@ def main():
     level_matcher = re.compile('opt_level=(\\d)')
     for case_id in sorted(os.listdir(args.directory), key=lambda s: int(s)):
         case_path = os.path.join(args.directory, case_id)
-        with open(os.path.join(case_path, 'error.txt'), 'r') as f:
+        err_path = os.path.join(case_path, 'error.txt')
+        if not os.path.exists(err_path):
+            print(f'No error kind in {case_path}')
+            continue
+        if os.path.exists(os.path.join(case_path, 'code-reduced.txt')):
+            print(f'{case_path} already reduced')
+            continue
+        with open(err_path, 'r') as f:
             opt_str = f.readline()
             err = f.read()
         opt_level = int(next(level_matcher.finditer(opt_str)).groups()[0])
