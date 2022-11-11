@@ -14,5 +14,6 @@
 | 12    | `tanh_nan`              | Fixed     | https://github.com/apache/tvm/pull/12702   |
 | 13    | `conv3d_group`          | Fixed     | https://github.com/apache/tvm/pull/12500   |
 | 14    | `divide_zero`           | Fixed     | https://github.com/apache/tvm/pull/13348   |
+| 15    | `fold_scale_axis`       | Reported  | https://github.com/apache/tvm/issues/13359 |
 
 
