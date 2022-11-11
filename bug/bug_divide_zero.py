@@ -1,3 +1,5 @@
+# Fixed: https://github.com/apache/tvm/pull/13348
+
 import numpy as np
 from tvm import relay, transform, cpu, IRModule
 from tvm.contrib.graph_executor import GraphModule
