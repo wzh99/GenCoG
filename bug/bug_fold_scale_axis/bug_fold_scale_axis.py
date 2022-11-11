@@ -41,8 +41,8 @@ gmod.run(**inputs)
 ref_out = gmod.get_output(0).numpy()
 
 with transform.PassContext(opt_level=3):
-    mod, params = relay.optimize(mod, params=params, target='llvm')
-    lib = relay.build(mod, params=dict(params), target='llvm')
+    mod, params = relay.optimize(mod, params=dict(params), target='llvm')
+    lib = relay.build(mod, params=params, target='llvm')
 gmod = GraphModule(lib['default'](cpu()))
 gmod.run(**inputs)
 opt_out = gmod.get_output(0).numpy()
