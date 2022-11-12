@@ -69,6 +69,7 @@ class ModuleRunner:
             ref_outputs = run_gmod(gmod, inputs)
         except Exception as err:
             raise ModuleError(ErrorKind.RUN, mod.astext(), str(err), 0)
+        all_outputs = [ref_outputs]
 
         # Build and run modules with different levels of optimization
         for opt_level in range(1, 5):
@@ -80,6 +81,7 @@ class ModuleRunner:
                 outputs = run_gmod(gmod, inputs)
             except Exception as err:
                 raise ModuleError(ErrorKind.RUN, mod.astext(), str(err), opt_level)
+            all_outputs.append(outputs)
             for i, (o, ro) in enumerate(zip(outputs, ref_outputs)):
                 if not np.allclose(o, ro, rtol=1e-3, atol=1e-2, equal_nan=True):
                     msg = f'Computation error in output tensor {i}:\n' \
@@ -89,6 +91,8 @@ class ModuleRunner:
                           f'{np.array_repr(o)}'
                     raise ModuleError(ErrorKind.COMPUTE, mod.astext(), msg, opt_level,
                                       inputs=inputs, params=params)
+
+        return all_outputs
 
 
 def gen_tensor_value(var: relay.Var, rng: Generator):
@@ -107,6 +111,6 @@ def build_mod(mod: IRModule, opt_level: int, params: Optional[TensorDict] = None
     return GraphModule(lib['default'](cpu()))
 
 
-def run_gmod(gmod: GraphModule, inputs: Dict[str, np.ndarray]):
+def run_gmod(gmod: GraphModule, inputs: Dict[str, np.ndarray]) -> List[np.ndarray]:
     gmod.run(**inputs)
     return [gmod.get_output(i).numpy() for i in range(gmod.get_num_outputs())]
