@@ -12,8 +12,9 @@
 | 10    | `squeeze_axis`          | Fixed     | https://github.com/apache/tvm/pull/12596   |
 | 11    | `pad_reflect`           | Reported  | https://github.com/apache/tvm/issues/11687 |
 | 12    | `tanh_nan`              | Fixed     | https://github.com/apache/tvm/pull/12702   |
-| 13    | `conv3d_group`          | Fixed     | https://github.com/apache/tvm/pull/12500   |
-| 14    | `divide_zero`           | Fixed     | https://github.com/apache/tvm/pull/13348   |
-| 15    | `fold_scale_axis`       | Reported  | https://github.com/apache/tvm/issues/13359 |
+| 13    | `pool_ceil_pad`         | Fixed     | https://github.com/apache/tvm/pull/9835    |
+| 14    | `conv3d_group`          | Fixed     | https://github.com/apache/tvm/pull/12500   |
+| 15    | `divide_zero`           | Fixed     | https://github.com/apache/tvm/pull/13348   |
+| 16    | `fold_scale_axis`       | Reported  | https://github.com/apache/tvm/issues/13359 |
 
 
