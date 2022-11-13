@@ -63,7 +63,8 @@ def main():
         keep_dir = False
         can_diff = True
         env['PYTHONPATH'] = os.path.join(args.first, 'python')
-        cmd = ['python3', '_run_ps.py', f'-d={case_path}', '-r', f'-s={rng.integers(2 ** 63)}']
+        seed = rng.integers(2 ** 63)
+        cmd = ['python3', '_run_ps.py', f'-d={case_path}', '-r', f'-s={seed}']
         try:
             run(cmd, env=env, check=True, timeout=60, stderr=open(os.devnull, 'w'))
         except CalledProcessError:
@@ -96,7 +97,8 @@ def main():
             for level, (first_res, second_res) in enumerate(zip(first_results, second_results)):
                 for index, (first, second) in enumerate(zip(first_res, second_res)):
                     if not np.allclose(first, second, rtol=1e-3, atol=1e-2, equal_nan=True):
-                        print(f'Difference of output {index} at optimization level {level}.')
+                        print(f'Difference in output {index} at optimization level {level} '
+                              f'with seed {seed}.')
                         keep_dir = True
 
         # Delete case directory
