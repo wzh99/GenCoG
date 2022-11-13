@@ -34,7 +34,7 @@ mod = parser.parse(code)
 inputs = np.load('inputs.npz')
 params = np.load('params.npz')
 
-with transform.PassContext(opt_level=0):
+with transform.PassContext(opt_level=3, disabled_pass=['FoldScaleAxis']):
     lib = relay.build(mod, params=dict(params), target='llvm')
 gmod = GraphModule(lib['default'](cpu()))
 gmod.run(**inputs)
