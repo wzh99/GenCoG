@@ -4,10 +4,10 @@ from tvm.contrib.graph_executor import GraphModule
 
 code = """
 #[version = "0.0.5"]
-def @main(%x0: Tensor[(14, 1, 11, 7), float16], %x2: Tensor[(5, 1, 3, 1), float16], 
-    %x3: Tensor[(5), float16], %x4: Tensor[(5), float16], %x5: Tensor[(5), float16], 
-    %x6: Tensor[(5), float16]) -> Tensor[(14, 5, 5, 4), float16] {
-  %0 = nn.conv2d(%x0, %x2, strides=[2, 2], padding=[0, 0, 0, 0], dilation=[1, 1]);
+def @main(%x0: Tensor[(1, 1, 4, 3), float16], %x2: Tensor[(4, 1, 3, 1), float16],
+    %x3: Tensor[(4), float16], %x4: Tensor[(4), float16], %x5: Tensor[(4), float16],
+    %x6: Tensor[(4), float16]) -> Tensor[(1, 4, 2, 2), float16] {
+  %0 = nn.conv2d(%x0, %x2, strides=[1, 2], padding=[0, 0, 0, 0], dilation=[1, 1]);
   %1 = nn.batch_norm(%0, %x3, %x4, %x5, %x6, axis=1, center=False, scale=False);
   tan(%1.0)
 }
@@ -25,7 +25,6 @@ ref_out = gmod.get_output(0).numpy()
 
 with transform.PassContext(opt_level=3, disabled_pass=['AlterOpLayout']):
     mod, params = relay.optimize(mod, params=params, target='llvm')
-    print(mod.astext(show_meta_data=False))
     lib = relay.build(mod, params=dict(params), target='llvm')
 gmod = GraphModule(lib['default'](cpu()))
 gmod.run(**inputs)
