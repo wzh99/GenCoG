@@ -13,9 +13,13 @@ Methodology (TOSEM) for review.
 ## Contents
 
 * [`gencog`](gencog): Python package of GenCoG implementation;
-* [`bug`](bug): Triggering Python scripts and reports of bugs detected by our work;
-* [`muffin`](muffin): Modified implementation of [Muffin](https://github.com/library-testing/Muffin)
-  which is compared with GenCoG in the paper;
+* [`bug`](bug): [Bug list](bug/bug_list.md), triggering Python scripts and bug reports;
+* [`lemon`](lemon): Adapted implementation of [LEMON](https://github.com/Jacob-yen/LEMON) evaluated
+  in the paper;
+* [`muffin`](muffin): Adapted implementation of [Muffin](https://github.com/library-testing/Muffin)
+  evaluated in the paper;
+* [`graphfuzz`](graphfuzz): Our implementation
+  of [Luo et al.](https://ieeexplore.ieee.org/document/9401995/) by reusing the code in GenCoG;
 * [`tvm_frontend`](tvm_frontend): Modified TVM Keras frontend with better support for channel-first
   layout;
 * Several Python scripts for running experiments.
@@ -33,7 +37,7 @@ project to store all their outputs.
 
 ### Running Test
 
-```
+```shell
 python run_test.py
 ```
 A working directory `out/run-%Y%m%d-%H%M%S` will be created. Each generated program will be run in a
@@ -42,53 +46,86 @@ will also be stored. Otherwise, the case will be deleted.
 
 ### Case Deduplication
 
-```
-python dedup_case.py -d=${WORK_DIR}
+```shell
+python dedup_case.py -d ${WORK_DIR}
 ```
 It deduplicates the cases with similar error messages, which indicate that they may share the same
 root cause.
 
 ### Case Reduction
 
-```
-python reduce_case.py -d=${WORK_DIR}
+```shell
+python reduce_case.py -d ${WORK_DIR}
 ```
 It reduces each test case to a possibly simpler graph with fewer vertices.
 
 ## Evaluation
 
-We have provided scripts to reproduce the evaluation results of both GenCoG and Muffin in the paper.
-GenCoG can be evaluated on two operator sets: `muffin` (39 operators commonly supported by both
-methods) and `all` (all the 62 operators currently covered by GenCoG). Muffin can be evaluated with
-two modes: `dag` (chain structure with skips) and `template` (cell-base structure).
+We have provided scripts to reproduce the evaluation results of GenCoG in the paper. GenCoG can be
+evaluated on two operator sets: `muffin` (39 operators commonly supported by both methods)
+and `all` (all the 62 operators currently covered by GenCoG). Luo et al. can be evaluated with two
+graph models: `ws` (Watts-Strogatz) and `rn` (Residual Network). Muffin can be evaluated with two
+modes: `dag` (chain structure with skips) and `template` (cell-base structure).
 
 ### Validity
 
 GenCoG:
+
+```shell
+python relay_valid.py -g gencog -n 10000 --opset {muffin|all}
 ```
-python gencog_valid.py -n=10000 --opset={muffin|all}
+
+Luo et al.:
+
+```shell
+python relay_valid.py -g graphfuzz -n 10000 -m {ws|rn}
+```
+
+LEMON:
+
+```shell
+python keras_valid.py -g lemon -n 10000
 ```
 
 Muffin:
-```
-python muffin_valid.py -n=10000 --mode={dag|template}
+
+```shell
+python keras_valid.py -g muffin -n 10000 -m {dag|template}
 ```
 
 ### Diversity
 
 GenCoG:
-```
-python gencog_div.py -l=50000 --opset={muffin|all}
+
+```shell
+python relay_div.py -g gencog -l 50000 --opset {muffin|all}
 ```
 
-Diversity data over vertex budget are saved to `out/gencog-${opset}-%Y%m%d-%H%M%S.txt`.
+Diversity data are saved to `out/gencog-${opset}-%Y%m%d-%H%M%S.txt`.
+
+Luo et al.:
+
+```shell
+python relay_div.py -g graphfuzz -l 50000 --model {ws|rn}
+```
+
+Diversity data are saved to `out/graphfuzz-${model}-%Y%m%d-%H%M%S.txt`.
+
+LEMON:
+
+```shell
+python keras_div.py -g lemon -l 50000
+```
+
+Diversity data are saved to `out/lemon-%Y%m%d-%H%M%S.txt`.
 
 Muffin:
-```
-python muffin_div.py -l=50000 --mode={dag|template}
+
+```shell
+python keras_div.py -g muffin -l 50000 --mode {dag|template}
 ```
 
-Diversity data over vertex budget are saved to `out/muffin-${mode}-%Y%m%d-%H%M%S.txt`.
+Diversity data are saved to `out/muffin-${mode}-%Y%m%d-%H%M%S.txt`.
 
 ### Coverage
 
@@ -96,23 +133,43 @@ First build TVM with Gcov. The build files should be stored in `build` subdirect
 directory of TVM source.
 
 GenCoG:
-```
-python gencog_cov.py -r=${TVM_GCOV_ROOT} -l=50000 -s=1000 --opset={muffin|all}
+
+```shell
+python relay_cov.py -r ${TVM_GCOV_ROOT} -g gencog -l 50000 -s 1000 --opset {muffin|all}
 ```
 
 `TVM_GCOV_ROOT` is the root directory of TVM source containing Gcov build. Coverage files are saved
 to `cov-gencog-${opset}-%Y%m%d-%H%M%S` directory. `cov.json` is the final coverage
 summary. `data.txt` is the line coverage data over vertex budget.
 
+Luo et al.:
+
+```shell
+python relay_cov.py -r ${TVM_GCOV_ROOT} -g graphfuzz -l 50000 -s 1000 --model {ws|rn}
+```
+
+Coverage files are saved to `cov-graphfuzz-${model}-%Y%m%d-%H%M%S` directory.
+
+LEMON:
+
+```shell
+python keras_cov.py -r ${TVM_GCOV_ROOT} -g lemon -l 50000 -s 1000
+```
+
+Coverage files are saved to `cov-lemon-%Y%m%d-%H%M%S` directory.
+
 Muffin:
-```
-python muffin_cov.py -r=${TVM_GCOV_ROOT} -l=50000 -s=1000 --mode={dag|template}
+
+```shell
+python keras_cov.py -r ${TVM_GCOV_ROOT} -g muffin -l 50000 -s 1000 --mode {dag|template}
 ```
 
-Coverage files are saved to `cov-muffin-${opset}-%Y%m%d-%H%M%S` directory. The file formats are the
-same as GenCoG.
+Coverage files are saved to `cov-muffin-${opset}-%Y%m%d-%H%M%S` directory.
 
-## Reuse
+Tzer: Please check [this repository](https://github.com/MatthewXY01/tzer/tree/v0.1-reproduce/src)
+for instructions.
+
+## Extension
 
 ### Write Constraint Specifications for New Operators
 
