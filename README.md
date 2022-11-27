@@ -166,8 +166,9 @@ python keras_cov.py -r ${TVM_GCOV_ROOT} -g muffin -l 50000 -s 1000 --mode {dag|t
 
 Coverage files are saved to `cov-muffin-${opset}-%Y%m%d-%H%M%S` directory.
 
-Tzer: Please check [this repository](https://github.com/MatthewXY01/tzer/tree/v0.1-reproduce/src)
-for instructions.
+Tzer: Please
+check [the instruction](https://github.com/MatthewXY01/tzer/blob/v0.1-reproduce/src/Instructions_for_gcov-test.md)
+in [this repository](https://github.com/MatthewXY01/tzer/tree/v0.1-reproduce/src) for instructions.
 
 ## Extension
 
