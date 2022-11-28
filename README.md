@@ -40,6 +40,7 @@ project to store all their outputs.
 ```shell
 python run_test.py
 ```
+
 A working directory `out/run-%Y%m%d-%H%M%S` will be created. Each generated program will be run in a
 separate process. If the process exits abnormally, the test case will be kept and the error message
 will also be stored. Otherwise, the case will be deleted.
@@ -49,6 +50,7 @@ will also be stored. Otherwise, the case will be deleted.
 ```shell
 python dedup_case.py -d ${WORK_DIR}
 ```
+
 It deduplicates the cases with similar error messages, which indicate that they may share the same
 root cause.
 
@@ -57,6 +59,7 @@ root cause.
 ```shell
 python reduce_case.py -d ${WORK_DIR}
 ```
+
 It reduces each test case to a possibly simpler graph with fewer vertices.
 
 ## Evaluation
@@ -167,8 +170,8 @@ python keras_cov.py -r ${TVM_GCOV_ROOT} -g muffin -l 50000 -s 1000 --mode {dag|t
 Coverage files are saved to `cov-muffin-${opset}-%Y%m%d-%H%M%S` directory.
 
 Tzer: Please
-check [the instruction](https://github.com/MatthewXY01/tzer/blob/v0.1-reproduce/src/Instructions_for_gcov-test.md)
-in [this repository](https://github.com/MatthewXY01/tzer/tree/v0.1-reproduce/src) for instructions.
+check [the instructions](https://github.com/MatthewXY01/tzer/blob/v0.1-reproduce/src/Instructions_for_gcov-test.md)
+in [this repository](https://github.com/MatthewXY01/tzer) for details.
 
 ## Extension
 
