@@ -85,8 +85,8 @@ class GraphGenerator:
         prev_vd, prev_ed = self._vert_div.result, self._edge_div.result
         self._vert_div.record(opr)
         for inp in opr.inputs_:
-            if inp.def_ is Operation:
-                self._edge_div.mark(cast(Operation, inp.def_).op_, op)
+            if isinstance(inp.def_, Operation):
+                self._edge_div.mark(inp.def_.op_, op)
 
         # Reject non-contributing operation with probability
         if self._vert_div.result == prev_vd and self._edge_div.result == prev_ed:
