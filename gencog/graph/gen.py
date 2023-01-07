@@ -7,6 +7,7 @@ from .base import Input, Operation, Value, Graph, Output
 from .lookup import OpLookup, ValueLookup
 from ..config import params
 from ..expr.ty import float_dtypes, common_dtypes
+from ..metric.div import VertexDiversity, EdgeDiversity
 from ..solve import TensorType, TypeSolver, SolveError, OpTypeInfo
 from ..solve.store import ArrayNode, ScalarNode
 from ..spec import Op, TypeSpec, int_expr_choices, expr_choices, max_in_num, max_rank, max_dim
@@ -15,6 +16,7 @@ from ..util import inc_cnt
 max_opr_num: int = params['graph.max_opr_num']
 opr_trials: int = params['graph.opr_trials']
 use_penal: float = params['graph.use_penal']
+reject_prob: float = params['graph.reject_prob']
 
 
 def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
@@ -28,8 +30,11 @@ class GraphGenerator:
     """
 
     def __init__(self, ops: Iterable[Op], rng: Generator):
+        ops = list(ops)
         self._ops = OpLookup(ops)
         self._rng = rng
+        self._vert_div = VertexDiversity(ops)
+        self._edge_div = EdgeDiversity(ops)
 
     def generate(self):
         # Initialization
@@ -54,14 +59,41 @@ class GraphGenerator:
             opr = self._gen_opr(op, value, value_lu, inputs)
             if opr is None:
                 continue
-            else:
-                oprs.append(opr)
+
+            # Check if we should keep this operation
+            if not self._should_keep(opr):
+                for inp in opr.inputs_:
+                    inp.drop_use(opr)
+                continue
+
+            # Add output values to value lookup table
+            for idx, out in enumerate(opr.outputs_):
+                if idx not in op.ignored_:
+                    value_lu.add(out)
+
+            oprs.append(opr)
 
         # Create final graph
         outputs = [Output(v) for v in value_lu.values if len(v.uses_) == 0]
         graph = Graph(inputs, outputs, oprs)
 
         return graph
+
+    def _should_keep(self, opr: Operation):
+        # Record the operation
+        op = opr.op_
+        prev_vd, prev_ed = self._vert_div.result, self._edge_div.result
+        self._vert_div.record(opr)
+        for inp in opr.inputs_:
+            if inp.def_ is Operation:
+                self._edge_div.mark(cast(Operation, inp.def_).op_, op)
+
+        # Reject non-contributing operation with probability
+        if self._vert_div.result == prev_vd and self._edge_div.result == prev_ed:
+            if self._rng.uniform() < reject_prob:
+                return False
+
+        return True
 
     def _gen_input(self):
         rank = self._rng.integers(low=2, high=max_rank, endpoint=True)
@@ -134,7 +166,7 @@ class GraphGenerator:
             return None
 
         # Create operation
-        return self._create_opr(op, info, matched, value_lu, graph_inputs)
+        return self._create_opr(op, info, matched, graph_inputs)
 
     def _gen_variadic_opr(self, op: Op, spec: TypeSpec, fst_in: Value, value_lu: ValueLookup,
                           graph_inputs: List[Input]) -> Optional[Operation]:
@@ -193,7 +225,7 @@ class GraphGenerator:
             return None
 
         # Create operation
-        return self._create_opr(op, info, matched, value_lu, graph_inputs)
+        return self._create_opr(op, info, matched, graph_inputs)
 
     def _solve_with_known_len(self, spec: TypeSpec, known: Dict[int, TensorType]):
         solver = TypeSolver(spec, known, self._rng)
@@ -203,7 +235,7 @@ class GraphGenerator:
 
     @staticmethod
     def _create_opr(op: Op, info: OpTypeInfo, matched: Dict[int, Value],
-                    value_lu: ValueLookup, graph_inputs: List[Input]):
+                    graph_inputs: List[Input]):
         # Create operation
         inputs = []
         for idx in range(len(info.in_types_)):
@@ -216,11 +248,6 @@ class GraphGenerator:
 
         outputs = [Value(ty) for ty in info.out_types_]
         opr = Operation(op, info.attrs_, inputs, outputs)
-
-        # Add output values to value lookup table
-        for idx, out in enumerate(outputs):
-            if idx not in op.ignored_:
-                value_lu.add(out)
 
         return opr
 

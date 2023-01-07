@@ -71,10 +71,14 @@ class VertexDiversity(Diversity):
             vis.visit(o)
 
     def record(self, opr: Operation):
-        # Hash input shape
         op = opr.op_
         if op not in self._specs:
             return
+        self._hash[op].add(self._encode(opr))
+
+    def _encode(self, opr: Operation):
+        # Hash input shape
+        op = opr.op_
         shapes = tuple(tuple(v.type_.shape_) for i, v in enumerate(opr.inputs_)
                        if i not in op.params_)
         h = hash(shapes)
@@ -88,15 +92,14 @@ class VertexDiversity(Diversity):
                 continue  # skip attributes whose space cannot be estimated
             h ^= hash((n, v))
 
-        # Record hash for this operation
-        self._hash[op].add(h)
+        return h
 
-    def __getitem__(self, op: Op):
+    def query(self, op: Op):
         return min(len(self._hash[op]) / self._space[op].total, 1)
 
     @property
     def op_div(self):
-        return np.array([self[op] for op in self._ops])
+        return np.array([self.query(op) for op in self._ops])
 
     @property
     def result(self) -> float:

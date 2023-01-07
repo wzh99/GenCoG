@@ -6,7 +6,6 @@ from numpy.random import Generator
 from gencog import Const
 from gencog.expr.ty import ValueType
 from gencog.graph import GraphGenerator, Value, Operation, Input, Output, Graph
-from gencog.graph.lookup import ValueLookup
 from gencog.solve import TypeSolver, TensorType
 from gencog.solve.store import ValueStore
 from gencog.spec import OpRegistry
@@ -73,7 +72,7 @@ class GraphFuzzGenerator(GraphGenerator):
             self._set_known_attr(solver.store_, 'groups', 1)
         info = solver.solve()
 
-        return self._create_opr(op, info, {0: data}, ValueLookup(), graph_inputs)
+        return self._create_opr(op, info, {0: data}, graph_inputs)
 
     @staticmethod
     def _set_known_attr(store: ValueStore, name: str, val: ValueType):

@@ -11,7 +11,7 @@ params: Dict[str, Any] = {
     'spec.max_dim': 4,
 
     # Maximal number of model candidates
-    'solver.max_model_cand': 4,
+    'solver.max_model_cand': 1,
     # Length (in bits) of bit vector
     'solver.bit_vec_len': 32,
 
@@ -19,6 +19,8 @@ params: Dict[str, Any] = {
     'graph.max_opr_num': 32,
     # Penalty coefficient on number of uses of a value
     'graph.use_penal': 4,
+    # Probability of rejecting a vertex that has no contribution to diversity
+    'graph.reject_prob': 0.5,
     # Number of trials for generating one operation
     # For variadic operators, this is the maximal number of trials of adding a new input value
     'graph.opr_trials': 3,

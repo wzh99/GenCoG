@@ -69,6 +69,9 @@ class Value:
         self.def_ = def_vert
         self.uses_: List[Vertex] = []
 
+    def drop_use(self, use: Vertex):
+        self.uses_ = [u for u in self.uses_ if u is not use]
+
 
 class Graph:
     """
