@@ -7,7 +7,7 @@ from .. import Op, TypeSpec, Const, Expr
 from ..expr.array import Tuple, List
 from ..expr.basic import ExprKind
 from ..graph import Graph, GraphVisitor, Output, Operation
-from ..graph.base import VertexKind
+from ..graph.base import VertexKind, Input
 from ..spec import max_dim, expr_choices
 
 
@@ -55,6 +55,53 @@ class EdgeMarker(GraphVisitor[None]):
             self.visit(v.def_)
             if v.def_.kind == VertexKind.OPR:
                 self._div.mark(cast(Operation, v.def_).op_, opr.op_)
+
+
+class StructDiversity(Diversity):
+    def __init__(self):
+        self._num_oprs = 0
+        self._id_set: Set[int] = set()
+        self._opr_cache: Dict[Operation, int] = {}
+
+    def evaluate(self, graph: Graph):
+        for opr in graph.oprs_:
+            self.record(opr)
+        self.clear_cache()
+
+    def record(self, opr: Operation):
+        result = self._encode(opr)
+        self._id_set.add(result)
+        self._opr_cache[opr] = result
+        self._num_oprs += 1
+
+    def can_inc_by(self, opr: Operation):
+        return self._encode(opr) not in self._id_set
+
+    def _encode(self, opr: Operation):
+        input_ids = []
+        for inp in opr.inputs_:
+            pred = inp.def_
+            if isinstance(pred, Operation):
+                input_ids.append(self._opr_cache[pred])
+            elif isinstance(pred, Input) and (not pred.is_param_):
+                input_ids.append(0)
+        if len(input_ids) == 0:
+            return 1
+        result = input_ids[0]
+        if len(input_ids) == 1:
+            if not len(opr.inputs_[0].uses_) == 1:
+                result += 1
+        else:
+            for k in input_ids[1:]:
+                result ^= (k + 0x9e3779b9 + (result << 6) + (result >> 2))
+        return result
+
+    def clear_cache(self):
+        self._opr_cache.clear()
+
+    @property
+    def result(self) -> float:
+        return len(self._id_set) / self._num_oprs
 
 
 class VertexDiversity(Diversity):
