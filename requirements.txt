@@ -1,4 +1,4 @@
-tvm==0.8.0
+tvm==0.9
 keras~=2.8
 numpy
 z3-solver
