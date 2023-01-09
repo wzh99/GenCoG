@@ -377,7 +377,7 @@ class Op:
     Operator.
     """
 
-    def __init__(self, name: str, spec_f: Callable[[], TypeSpec],
+    def __init__(self, name: str, spec_f: Optional[Callable[[], TypeSpec]],
                  params: Optional[t.List[int]] = None, ignored_outs: Optional[t.List[int]] = None,
                  register: bool = True):
         self.name_ = name
@@ -387,8 +387,18 @@ class Op:
         if register:
             OpRegistry.register(self)
 
+    @classmethod
+    def create_dummy(cls, name: str):
+        return cls(name, None, register=False)
+
+    @property
+    def is_dummy(self):
+        return self.spec_f_ is None
+
     @property
     def spec(self):
+        if self.is_dummy:
+            raise RuntimeError(f'Cannot get specification from a dummy op.')
         spec = self.spec_f_()
         try:
             spec.check()
@@ -419,6 +429,10 @@ class OpRegistry:
         else:
             cls._ops.append(op)
             cls._table[op.name_] = op
+
+    @classmethod
+    def is_registered(cls, name: str):
+        return name in cls._table
 
     @classmethod
     def get(cls, name: str):

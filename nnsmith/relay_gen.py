@@ -31,15 +31,14 @@ common_opset = [
     ConstPad,
     BatchNorm2d,
     Linear,
-    Flatten,
 ]
 
 
-def nnsmith_gen_relay(opset: List[Type[AbsOpBase]], rng: Generator):
+def nnsmith_gen_relay(opset: List[Type[AbsOpBase]], max_nodes: int, rng: Generator):
     # Generate a random ONNX model
     seed = rng.integers(2 ** 32)
-    ModelType = Model.init('onnx')
-    ModelType.add_seed_setter()
+    model_cls = Model.init('onnx')
+    model_cls.add_seed_setter()
 
     # GENERATION
     gen = model_gen(
@@ -47,14 +46,13 @@ def nnsmith_gen_relay(opset: List[Type[AbsOpBase]], rng: Generator):
         method='concolic',
         seed=seed,
         max_elem_per_tensor=65536,
-        max_nodes=32,
+        max_nodes=max_nodes,
         concr_ph_dim_rng=(1, 4),
     )
 
     # MATERIALIZATION
     ir = gen.make_concrete()
-    model = ModelType.from_gir(ir).native_model
-    dtypes = {name: svar.dtype.name for name, svar in ir.vars.items()}
-    mod, params = from_onnx(model, dtype=dtypes)
+    model = model_cls.from_gir(ir).native_model
+    mod, params = from_onnx(model, )
 
     return mod, params

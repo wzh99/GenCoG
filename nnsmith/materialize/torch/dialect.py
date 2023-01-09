@@ -1,4 +1,4 @@
-from math import prod
+from functools import reduce
 from random import randint
 from typing import List, Tuple
 
@@ -59,7 +59,7 @@ class Flatten(UnaryOpBase):
         inp = input_shapes[0]
         return [
             AbsTensor(
-                shape=[prod(inp.shape)],
+                shape=[reduce(nnsmith_mul, inp.shape, 1)],
                 dtype=inp.dtype,
             )
         ]

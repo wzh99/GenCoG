@@ -6,7 +6,7 @@ from tvm.ir import IRModule
 
 from .base import GraphVisitor, Value, Graph, VertexKind, Input, Output, Operation, TensorType
 from ..expr.ty import ValueType, DataType
-from ..spec import OpRegistry
+from ..spec import OpRegistry, Op
 from ..util import NameGenerator, CodeBuffer
 
 # Operators that accept tuple as input
@@ -195,7 +195,11 @@ class GraphBuilder(relay.ExprFunctor):
             raise TypeError('{} not supported.'.format(type(out_ty).__name__))
 
         # Create operation
-        opr = Operation(OpRegistry.get(name), attrs, inputs, outputs)
+        if OpRegistry.is_registered(name):
+            op = OpRegistry.get(name)
+        else:
+            op = Op.create_dummy(name)
+        opr = Operation(op, attrs, inputs, outputs)
         self._oprs.append(opr)
 
         return opr.outputs_[0]
