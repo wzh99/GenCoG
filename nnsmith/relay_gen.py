@@ -1,5 +1,6 @@
 from numpy.random import Generator
 from tvm.relay.frontend import from_onnx
+from tvm.relay.transform import InferType
 
 from .abstract.op import *
 from .graph_gen import model_gen
@@ -53,6 +54,7 @@ def nnsmith_gen_relay(opset: List[Type[AbsOpBase]], max_nodes: int, rng: Generat
     # MATERIALIZATION
     ir = gen.make_concrete()
     model = model_cls.from_gir(ir).native_model
-    mod, params = from_onnx(model, )
+    mod, params = from_onnx(model)
+    mod = InferType()(mod)
 
     return mod, params

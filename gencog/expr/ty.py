@@ -110,6 +110,8 @@ class DataType:
 
     @classmethod
     def from_str(cls, s: str):
+        if s == 'bool':
+            return DataType.b()
         for code in TypeCode:
             if s.find(code.name) != 0:
                 continue

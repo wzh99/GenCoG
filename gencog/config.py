@@ -35,10 +35,9 @@ params: Dict[str, Any] = {
     'op.max_dilation': 2,
 }
 
-# Operators that have correspondences with Keras layers in Muffin (ICSE'22)
+# Operators that are commonly supported by all the baselines
 common_ops = [
     'sigmoid',
-    'tanh',
     'add',
     'subtract',
     'multiply',
@@ -51,29 +50,12 @@ common_ops = [
     'nn.relu',
     'nn.leaky_relu',
     'nn.prelu',
-    'nn.bias_add',
     'nn.softmax',
     'nn.conv1d',
     'nn.conv2d',
-    'nn.conv3d',
-    'nn.conv2d_transpose',
-    'nn.conv3d_transpose',
-    'nn.max_pool1d',
     'nn.max_pool2d',
-    'nn.max_pool3d',
-    'nn.avg_pool1d',
     'nn.avg_pool2d',
-    'nn.avg_pool3d',
-    'nn.adaptive_max_pool1d',
-    'nn.adaptive_max_pool2d',
-    'nn.adaptive_max_pool3d',
-    'nn.adaptive_avg_pool1d',
-    'nn.adaptive_avg_pool2d',
-    'nn.adaptive_avg_pool3d',
-    'nn.upsampling',
-    'nn.upsampling3d',
     'nn.pad',
     'nn.batch_norm',
     'nn.dense',
-    'nn.batch_flatten',
 ]

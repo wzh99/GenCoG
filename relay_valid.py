@@ -18,7 +18,7 @@ def _parse_args():
     p = ArgumentParser()
     p.add_argument('-g', '--generator', type=str, choices=['gencog', 'graphfuzz'])
     p.add_argument('-n', '--number', type=int, help='Number of graphs.')
-    p.add_argument('--opset', type=str, choices=['all', 'muffin'],
+    p.add_argument('--opset', type=str, choices=['all', 'common'], default='common',
                    help='Operator set for graph generation, only valid for GenCoG.')
     p.add_argument('-m', '--model', type=str, choices=['ws', 'rn'],
                    help='Graph model to apply, only valid for GraphFuzz (Luo et al.).')
@@ -30,7 +30,7 @@ def main():
     # Initialization
     rng = Generator(PCG64(seed=args.seed))
     if args.generator == 'gencog':
-        if args.opset == 'muffin':
+        if args.opset == 'common':
             ops = [OpRegistry.get(name) for name in common_ops]
         else:
             ops = OpRegistry.ops()
