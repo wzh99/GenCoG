@@ -83,25 +83,25 @@ seq_layer_types = [
 
     'conv1D',
     'conv2D',
-    'conv3D',
-    # 'separable_conv1D', # TVM does not support depth-wise 1d convolution
+    # 'conv3D',
+    # 'separable_conv1D',
     'separable_conv2D',
-    'depthwise_conv2D',  # TVM use different weights for each group, while Keras use the same
-    'conv2D_transpose',
-    'conv3D_transpose',
+    'depthwise_conv2D',
+    # 'conv2D_transpose',
+    # 'conv3D_transpose',
 
-    'max_pooling1D',
+    # 'max_pooling1D',
     'max_pooling2D',
-    'max_pooling3D',
-    'average_pooling1D',
+    # 'max_pooling3D',
+    # 'average_pooling1D',
     'average_pooling2D',
-    'average_pooling3D',
-    'global_max_pooling1D',
-    'global_max_pooling2D',
-    'global_max_pooling3D',
-    'global_average_pooling1D',
-    'global_average_pooling2D',
-    'global_average_pooling3D',
+    # 'average_pooling3D',
+    # 'global_max_pooling1D',
+    # 'global_max_pooling2D',
+    # 'global_max_pooling3D',
+    # 'global_average_pooling1D',
+    # 'global_average_pooling2D',
+    # 'global_average_pooling3D',
 
     # 'time_distributed',
     # 'bidirectional',
@@ -109,16 +109,16 @@ seq_layer_types = [
     'batch_normalization',
 
     'reshape',
-    'flatten',
+    # 'flatten',
     # 'repeat_vector',
     'permute',
-    # 'cropping1D',  # NCHW not supported in Keras
+    # 'cropping1D',
     'cropping2D',
     'cropping3D',
-    # 'up_sampling1D',  # NCHW not supported in Keras
-    'up_sampling2D',
-    'up_sampling3D',
-    # 'zero_padding1D',  # NCHW not supported in Keras
+    # 'up_sampling1D',
+    # 'up_sampling2D',
+    # 'up_sampling3D',
+    # 'zero_padding1D',
     'zero_padding2D',
     'zero_padding3D',
 

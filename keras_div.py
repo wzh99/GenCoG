@@ -23,7 +23,7 @@ def _parse_args():
     p.add_argument('-g', '--generator', type=str, choices=['lemon', 'muffin'],
                    help='Method for graph generation.')
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
-    p.add_argument('-m', '--model', type=str, choices=['seq', 'merge', 'dag', 'template'],
+    p.add_argument('-m', '--model', type=str, choices=['dag', 'template'],
                    help='Graph model to apply, only valid for Muffin.')
     args = p.parse_args()
 
@@ -46,7 +46,7 @@ def main():
     if args.generator == 'lemon':
         record_file = time.strftime(f'out/lemon-%Y%m%d-%H%M%S.txt')
     else:
-        record_file = time.strftime(f'out/muffin-{args.mode}-%Y%m%d-%H%M%S.txt')
+        record_file = time.strftime(f'out/muffin-{args.model}-%Y%m%d-%H%M%S.txt')
     while True:
         # Generate Keras model
         try:
@@ -79,7 +79,9 @@ def main():
         progress.update(n=opr_num)
 
         # Write record to file
-        div_record.append([opr_count, vert_div.result, edge_div.result])
+        vd, ed = vert_div.result, edge_div.result
+        div_record.append([opr_count, vd, ed])
+        progress.set_postfix_str('vert={:.4f}, edge={:.4f}'.format(vd, ed))
         # noinspection PyTypeChecker
         np.savetxt(record_file, np.array(div_record), fmt='%.4f')
 

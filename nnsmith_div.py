@@ -66,6 +66,7 @@ def main():
             # noinspection PyTypeChecker
             np.savetxt(record_file, np.array(div_record), fmt='%.4f')
             progress.close()
+            break
         loop_idx += 1
 
     # Output diversity

@@ -102,12 +102,12 @@ class BaseGen:
 
     def random_dtype(self):
         # more floats than ints.
-        wts = [1] * len(DTYPE_GEN_ALL)
-        for i in DTYPE_GEN_FLOATS:
-            wts[DTYPE_GEN_ALL.index(i)] = 4
-        for i in DTYPE_GEN_INTS:
-            wts[DTYPE_GEN_ALL.index(i)] = 1
-        return random.choices(DTYPE_GEN_ALL, weights=wts)[0]
+        # wts = [1] * len(DTYPE_GEN_ALL)
+        # for i in DTYPE_GEN_FLOATS:
+        #     wts[DTYPE_GEN_ALL.index(i)] = 4
+        # for i in DTYPE_GEN_INTS:
+        #     wts[DTYPE_GEN_ALL.index(i)] = 1
+        return random.choice(DTYPE_GEN_FLOATS)
 
     def new_sym(self, name):
         return z3.Int(name)

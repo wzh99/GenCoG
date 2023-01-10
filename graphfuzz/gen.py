@@ -6,7 +6,7 @@ from numpy.random import Generator
 from gencog import Const
 from gencog.expr.ty import ValueType
 from gencog.graph import GraphGenerator, Value, Operation, Input, Output, Graph
-from gencog.solve import TypeSolver, TensorType
+from gencog.solve import TypeSolver, TensorType, SolveError
 from gencog.solve.store import ValueStore
 from gencog.spec import OpRegistry
 from .dag import rn_model, ws_model
@@ -62,17 +62,21 @@ class GraphFuzzGenerator(GraphGenerator):
         return graph
 
     def _gen_seq_op(self, data: Value, graph_inputs: List[Input]) -> Operation:
-        # Choose one operator
-        op = self._rng.choice(list(self._ops.by_first_type(data.type_)))
-        spec = op.spec
+        while True:
+            # Choose one operator
+            op = self._rng.choice(list(self._ops.by_first_type(data.type_)))
+            spec = op.spec
 
-        # Create constraint solver
-        solver = TypeSolver(spec, {0: data.type_}, self._rng)
-        if 'nn.conv' in op.name_:
-            self._set_known_attr(solver.store_, 'groups', 1)
-        info = solver.solve()
+            # Create constraint solver
+            solver = TypeSolver(spec, {0: data.type_}, self._rng)
+            if 'nn.conv' in op.name_:
+                self._set_known_attr(solver.store_, 'groups', 1)
+            try:
+                info = solver.solve()
+            except SolveError:
+                continue
 
-        return self._create_opr(op, info, {0: data}, graph_inputs)
+            return self._create_opr(op, info, {0: data}, graph_inputs)
 
     @staticmethod
     def _set_known_attr(store: ValueStore, name: str, val: ValueType):
@@ -107,11 +111,11 @@ class GraphFuzzGenerator(GraphGenerator):
         src_rank, tgt_rank = src.type_.rank, tgt.type_.rank
         rank_diff = src.type_.rank - tgt.type_.rank
         if rank_diff < 0:
-            # Increase rank of source value by `expand_dims`
+            # Increase rank of source value by `reshape`
             new_shape = src.type_.shape_ + [1] * -rank_diff
             align_opr = Operation(
-                op=OpRegistry.get('expand_dims'),
-                attrs=[('axis', src_rank), ('num_newaxis', -rank_diff)],
+                op=OpRegistry.get('reshape'),
+                attrs=[('newshape', tuple(new_shape))],
                 inputs=[src],
                 outputs=[Value(TensorType(new_shape, dtype))]
             )
