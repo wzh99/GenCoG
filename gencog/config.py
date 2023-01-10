@@ -58,4 +58,5 @@ common_ops = [
     'nn.pad',
     'nn.batch_norm',
     'nn.dense',
+    'nn.bias_add',
 ]
