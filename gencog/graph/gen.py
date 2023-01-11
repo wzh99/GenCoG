@@ -17,6 +17,8 @@ max_opr_num: int = params['graph.max_opr_num']
 opr_trials: int = params['graph.opr_trials']
 use_penal: float = params['graph.use_penal']
 reject_prob: float = params['graph.reject_prob']
+div_direct: str = params['graph.div_direct']
+assert div_direct in ['none', 'vertex', 'edge', 'both']
 
 
 def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
@@ -88,12 +90,23 @@ class GraphGenerator:
             if isinstance(inp.def_, Operation):
                 self._edge_div.mark(inp.def_.op_, op)
 
-        # Reject non-contributing operation with probability
-        if self._vert_div.result == prev_vd and self._edge_div.result == prev_ed:
-            if self._rng.uniform() < reject_prob:
-                return False
+        # Decide whether we may reject this vertex
+        # Always keep if no direction is involved
+        if div_direct == 'none':
+            return True
+        may_reject = True
+        use_vert = div_direct in ['vertex', 'both']
+        use_edge = div_direct in ['edge', 'both']
+        if use_vert and self._vert_div.result != prev_vd:
+            may_reject = False
+        if use_edge and self._edge_div.result != prev_ed:
+            may_reject = False
 
-        return True
+        # Roll the dice to decide if we should reject this vertex
+        if may_reject and self._rng.uniform() < reject_prob:
+            return False
+        else:
+            return True
 
     def _gen_input(self):
         rank = self._rng.integers(low=2, high=max_rank, endpoint=True)
