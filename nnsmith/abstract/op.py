@@ -922,6 +922,8 @@ class Pool2d(UnaryOpBase):
         '''Added'''
         cons.append(nnsmith_ge(self.kernel_w_size, 1))
         cons.append(nnsmith_le(self.kernel_w_size, 3))
+        cons.append(nnsmith_ge(self.kernel_h_size, 1))
+        cons.append(nnsmith_le(self.kernel_h_size, 3))
         cons.append(nnsmith_le(self.stride, 2))
         cons.append(nnsmith_le(self.padding, 2))
 
