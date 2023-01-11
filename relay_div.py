@@ -20,8 +20,6 @@ def _parse_args():
     global args
     p = ArgumentParser()
     p.add_argument('-g', '--generator', type=str, choices=['gencog', 'graphfuzz'])
-    p.add_argument('--opset', type=str, choices=['all', 'common'], default='common',
-                   help='Operator set for graph generation, only valid for GenCoG.')
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
     p.add_argument('-m', '--model', type=str, choices=['ws', 'rn'],
                    help='Graph model to apply, only valid for GraphFuzz (Luo et al.).')
@@ -32,15 +30,11 @@ def _parse_args():
 def main():
     # Initialization
     opr_limit = args.limit
+    ops = [OpRegistry.get(name) for name in common_ops]
     rng = Generator(PCG64(seed=args.seed))
     if args.generator == 'gencog':
-        if args.opset == 'common':
-            ops = [OpRegistry.get(name) for name in common_ops]
-        else:
-            ops = OpRegistry.ops()
         gen = GraphGenerator(ops, rng)
     else:
-        ops = [OpRegistry.get(name) for name in common_ops]
         gen = GraphFuzzGenerator(args.model, rng)
     vert_div = VertexDiversity(ops)
     edge_div = EdgeDiversity(ops)
@@ -50,7 +44,7 @@ def main():
     progress = tqdm(total=opr_limit, file=stdout)
     div_record = []
     if args.generator == 'gencog':
-        record_file = time.strftime(f'out/gencog-{args.opset}-%Y%m%d-%H%M%S.txt')
+        record_file = time.strftime(f'out/gencog-%Y%m%d-%H%M%S.txt')
     else:
         record_file = time.strftime(f'out/graphfuzz-{args.model}-%Y%m%d-%H%M%S.txt')
     loop_idx = 0
@@ -92,7 +86,9 @@ def main():
 
     # Output diversity
     np.set_printoptions(precision=3)
-    print('Operator detail:', vert_div.op_div, sep='\n')
+    print('Operator detail:')
+    for op, div in zip(common_ops, vert_div.op_div):
+        print('{}: {:.4f}'.format(op, div))
     print('Vertex diversity:', vert_div.result)
     print('Edge diversity:', edge_div.result)
 

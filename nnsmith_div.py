@@ -71,7 +71,9 @@ def main():
 
     # Output diversity
     np.set_printoptions(precision=3)
-    print('Operator detail:', vert_div.op_div, sep='\n')
+    print('Operator detail:')
+    for op, div in zip(common_ops, vert_div.op_div):
+        print('{}: {:.4f}'.format(op, div))
     print('Vertex diversity:', vert_div.result)
     print('Edge diversity:', edge_div.result)
 
