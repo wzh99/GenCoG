@@ -898,27 +898,32 @@ class Pool2d(UnaryOpBase):
         ret = []
         cons.append(nnsmith_ge(self.kernel_h_size, 1))
         cons.append(nnsmith_ge(self.kernel_w_size, 1))
-        cons.append(
-            nnsmith_le(
-                self.kernel_h_size,
-                nnsmith_add(input_shapes[0].shape[2], 2 * self.padding),
-            )
-        )
-        cons.append(
-            nnsmith_le(
-                self.kernel_w_size,
-                nnsmith_add(input_shapes[0].shape[3], 2 * self.padding),
-            )
-        )
+        # cons.append(
+        #     nnsmith_le(
+        #         self.kernel_h_size,
+        #         nnsmith_add(input_shapes[0].shape[2], 2 * self.padding),
+        #     )
+        # )
+        # cons.append(
+        #     nnsmith_le(
+        #         self.kernel_w_size,
+        #         nnsmith_add(input_shapes[0].shape[3], 2 * self.padding),
+        #     )
+        # )
         cons.append(nnsmith_ge(self.stride, 1))
         cons.append(nnsmith_ge(self.padding, 0))
         # not too extream to avoid torch exporter issue
-        cons.append(nnsmith_le(self.padding, 255))
+        # cons.append(nnsmith_le(self.padding, 255))
         cons.append(nnsmith_le(self.padding, nnsmith_div(self.kernel_h_size, 2)))
         cons.append(nnsmith_le(self.padding, nnsmith_div(self.kernel_w_size, 2)))
         cons.extend(
             [nnsmith_gt(v, 0) for v in input_shapes[0].shape]
         )  # dim cannot be 0 for maxpool
+        '''Added'''
+        cons.append(nnsmith_ge(self.kernel_w_size, 1))
+        cons.append(nnsmith_le(self.kernel_w_size, 3))
+        cons.append(nnsmith_le(self.stride, 2))
+        cons.append(nnsmith_le(self.padding, 2))
 
         # limit FLOPS
         if Z3_CONS_FLOPS:
@@ -1325,7 +1330,13 @@ class Conv1d(UnaryOpBase):
             nnsmith_le(mimic_k, nnsmith_add(input_shapes[0].shape[2], 2 * self.padding))
         )
         # not too extream to avoid torch exporter issue
-        cons.append(nnsmith_le(self.padding, 255))
+        # cons.append(nnsmith_le(self.padding, 255))
+        '''Added'''
+        cons.append(nnsmith_ge(self.kernel_size, 1))
+        cons.append(nnsmith_le(self.kernel_size, 3))
+        cons.append(nnsmith_le(self.stride, 2))
+        cons.append(nnsmith_le(self.padding, 2))
+        cons.append(nnsmith_le(self.dilation, 2))
         return cons
 
     def deduct_inp_ranks_and_dtype(
@@ -1434,10 +1445,19 @@ class NCHWConv2d(UnaryOpBase):
             )
         )
         # not too extream to avoid torch exporter issue
-        cons.append(nnsmith_le(self.padding, 255))
+        # cons.append(nnsmith_le(self.padding, 255))
         # limit FLOPS
         if Z3_CONS_FLOPS:
             cons.append(nnsmith_le(self.flops(input_shapes), FLOPS_LIM))
+        '''Added'''
+        cons.append(nnsmith_ge(self.kernel_h_size, 1))
+        cons.append(nnsmith_le(self.kernel_h_size, 3))
+        cons.append(nnsmith_ge(self.kernel_w_size, 1))
+        cons.append(nnsmith_le(self.kernel_w_size, 3))
+        cons.append(nnsmith_le(self.stride, 2))
+        cons.append(nnsmith_le(self.padding, 2))
+        cons.append(nnsmith_le(self.dilation_w, 2))
+        cons.append(nnsmith_le(self.dilation_h, 2))
         return cons
 
     def flops(self, input_shapes):
