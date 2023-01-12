@@ -5,7 +5,9 @@ from numpy.random import Generator, PCG64
 from tqdm import tqdm
 from tvm import TVMError
 
-from nnsmith.relay_gen import nnsmith_gen_relay, common_opset
+from nnsmith.materialize import Model
+from nnsmith.narrow_spec import auto_opset
+from nnsmith.relay_gen import nnsmith_gen_relay
 
 args = Namespace()
 
@@ -21,27 +23,28 @@ def _parse_args():
 def main():
     # Initialization
     rng = Generator(PCG64(seed=args.seed))
+    opset = auto_opset(Model.init('onnx'))
 
     # Generation loop
     progress = tqdm(range(args.number), file=stdout)
-    native_invalid, relay_invalid = 0, 0
+    native_invalid, convert_invalid = 0, 0
 
     def display_count():
-        progress.set_postfix_str(f'{native_invalid}, {relay_invalid}')
+        progress.set_postfix_str(f'{native_invalid}, {convert_invalid}')
 
-    progress.set_postfix_str(str(native_invalid))
     for _ in progress:
         # Generate Keras model
         try:
-            nnsmith_gen_relay(common_opset, 32, rng)
-        except TVMError as err:
+            nnsmith_gen_relay(opset, 32, rng)
+        except TVMError:
+            convert_invalid += 1
+        except RuntimeError as err:
             print(err)
-            relay_invalid += 1
-            display_count()
+            pass
         except Exception as err:
             print(err)
             native_invalid += 1
-            display_count()
+        display_count()
 
 
 if __name__ == '__main__':

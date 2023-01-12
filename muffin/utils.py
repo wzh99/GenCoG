@@ -76,87 +76,170 @@ def get_layer_func(layer_type):
                                                                     _str2Str(layer_type))
 
 
-seq_layer_types = [
-    'dense',
-    # 'masking',
-    # 'embedding',
+if os.getenv('COMMON_LAYERS') == '1':
+    seq_layer_types = [
+        'dense',
+        # 'masking',
+        # 'embedding',
 
-    'conv1D',
-    'conv2D',
-    # 'conv3D',
-    # 'separable_conv1D',
-    'separable_conv2D',
-    'depthwise_conv2D',
-    # 'conv2D_transpose',
-    # 'conv3D_transpose',
+        'conv1D',
+        'conv2D',
+        # 'conv3D',
+        # 'separable_conv1D',
+        'separable_conv2D',
+        'depthwise_conv2D',
+        # 'conv2D_transpose',
+        # 'conv3D_transpose',
 
-    # 'max_pooling1D',
-    'max_pooling2D',
-    # 'max_pooling3D',
-    # 'average_pooling1D',
-    'average_pooling2D',
-    # 'average_pooling3D',
-    # 'global_max_pooling1D',
-    # 'global_max_pooling2D',
-    # 'global_max_pooling3D',
-    # 'global_average_pooling1D',
-    # 'global_average_pooling2D',
-    # 'global_average_pooling3D',
+        # 'max_pooling1D',
+        'max_pooling2D',
+        # 'max_pooling3D',
+        # 'average_pooling1D',
+        'average_pooling2D',
+        # 'average_pooling3D',
+        # 'global_max_pooling1D',
+        # 'global_max_pooling2D',
+        # 'global_max_pooling3D',
+        # 'global_average_pooling1D',
+        # 'global_average_pooling2D',
+        # 'global_average_pooling3D',
 
-    # 'time_distributed',
-    # 'bidirectional',
+        # 'time_distributed',
+        # 'bidirectional',
 
-    'batch_normalization',
+        'batch_normalization',
 
-    'reshape',
-    # 'flatten',
-    # 'repeat_vector',
-    'permute',
-    # 'cropping1D',
-    'cropping2D',
-    'cropping3D',
-    # 'up_sampling1D',
-    # 'up_sampling2D',
-    # 'up_sampling3D',
-    # 'zero_padding1D',
-    'zero_padding2D',
-    'zero_padding3D',
+        'reshape',
+        # 'flatten',
+        # 'repeat_vector',
+        'permute',
+        # 'cropping1D',
+        'cropping2D',
+        'cropping3D',
+        # 'up_sampling1D',
+        # 'up_sampling2D',
+        # 'up_sampling3D',
+        # 'zero_padding1D',
+        'zero_padding2D',
+        'zero_padding3D',
 
-    # 'locally_connected1D',
-    # 'locally_connected2D',
-]
+        # 'locally_connected1D',
+        # 'locally_connected2D',
+    ]
 
-RNN_layer_types = [
-    # 'LSTM',
-    # 'GRU',
-    # 'simpleRNN',
-    # 'convLSTM2D',
-]
+    RNN_layer_types = [
+        # 'LSTM',
+        # 'GRU',
+        # 'simpleRNN',
+        # 'convLSTM2D',
+    ]
 
-activation_layer_types = [
-    # 'activation',
+    activation_layer_types = [
+        # 'activation',
 
-    'ReLU',
-    'softmax',
-    'leakyReLU',
-    'PReLU',
-    # 'ELU',
-    # 'thresholded_ReLU',
-]
+        'ReLU',
+        'softmax',
+        'leakyReLU',
+        'PReLU',
+        # 'ELU',
+        # 'thresholded_ReLU',
+    ]
 
-merging_layer_types = [
-    'concatenate',
-    # 'average',
-    'maximum',
-    'minimum',
-    'add',
-    'subtract',
-    'multiply',
-    # 'dot',
-]
+    merging_layer_types = [
+        'concatenate',
+        # 'average',
+        'maximum',
+        'minimum',
+        'add',
+        'subtract',
+        'multiply',
+        # 'dot',
+    ]
 
-# 所有layer类型
-layer_types = seq_layer_types + RNN_layer_types + activation_layer_types + merging_layer_types
+    # 所有layer类型
+    layer_types = seq_layer_types + RNN_layer_types + activation_layer_types + merging_layer_types
+else:
+    seq_layer_types = [
+        'dense',
+        # 'masking',
+        # 'embedding',
+
+        'conv1D',
+        'conv2D',
+        'conv3D',
+        # 'separable_conv1D', # TVM does not support depth-wise 1d convolution
+        'separable_conv2D',
+        'depthwise_conv2D',  # TVM use different weights for each group, while Keras use the same
+        'conv2D_transpose',
+        'conv3D_transpose',
+
+        'max_pooling1D',
+        'max_pooling2D',
+        'max_pooling3D',
+        'average_pooling1D',
+        'average_pooling2D',
+        'average_pooling3D',
+        'global_max_pooling1D',
+        'global_max_pooling2D',
+        'global_max_pooling3D',
+        'global_average_pooling1D',
+        'global_average_pooling2D',
+        'global_average_pooling3D',
+
+        # 'time_distributed',
+        # 'bidirectional',
+
+        'batch_normalization',
+
+        'reshape',
+        'flatten',
+        # 'repeat_vector',
+        'permute',
+        # 'cropping1D',  # NCHW not supported in Keras
+        'cropping2D',
+        'cropping3D',
+        # 'up_sampling1D',  # NCHW not supported in Keras
+        'up_sampling2D',
+        'up_sampling3D',
+        # 'zero_padding1D',  # NCHW not supported in Keras
+        'zero_padding2D',
+        'zero_padding3D',
+
+        # 'locally_connected1D',
+        # 'locally_connected2D',
+    ]
+
+    RNN_layer_types = [
+        # 'LSTM',
+        # 'GRU',
+        # 'simpleRNN',
+        # 'convLSTM2D',
+    ]
+
+    activation_layer_types = [
+        # 'activation',
+
+        'ReLU',
+        'softmax',
+        'leakyReLU',
+        'PReLU',
+        # 'ELU',
+        # 'thresholded_ReLU',
+    ]
+
+    merging_layer_types = [
+        'concatenate',
+        # 'average',
+        'maximum',
+        'minimum',
+        'add',
+        'subtract',
+        'multiply',
+        # 'dot',
+    ]
+
+    # 所有layer类型
+    layer_types = seq_layer_types + RNN_layer_types + activation_layer_types + merging_layer_types
 
 # 以下为对上述layer的不同分类
 # ------------------------------------------------------------------------

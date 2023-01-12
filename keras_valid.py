@@ -37,7 +37,7 @@ def main():
     def display_count():
         progress.set_postfix_str(f'{keras_invalid}, {relay_invalid}')
 
-    progress.set_postfix_str(str(keras_invalid))
+    display_count()
     for _ in progress:
         # Generate Keras model
         try:
@@ -60,7 +60,6 @@ def main():
         except TVMError:
             relay_invalid += 1
             display_count()
-            continue
 
 
 if __name__ == '__main__':

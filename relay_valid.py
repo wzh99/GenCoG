@@ -50,7 +50,8 @@ def main():
         # Check type correctness
         try:
             parser.parse(code)
-        except TVMError:
+        except TVMError as err:
+            print(err)
             num_invalid += 1
             progress.set_postfix_str(str(num_invalid))
 

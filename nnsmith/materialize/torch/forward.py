@@ -409,16 +409,16 @@ def forward_fn(op: ArgMax):
     return lambda x: x.argmax()
 
 
-# Tril
-@operator_impl(Tril)
-def forward_fn(op: Tril):
-    return lambda x: x.tril(op.diagonal)
-
-
-# Triu
-@operator_impl(Triu)
-def forward_fn(op: Triu):
-    return lambda x: x.triu(op.diagonal)
+# # Tril
+# @operator_impl(Tril)
+# def forward_fn(op: Tril):
+#     return lambda x: x.tril(op.diagonal)
+#
+#
+# # Triu
+# @operator_impl(Triu)
+# def forward_fn(op: Triu):
+#     return lambda x: x.triu(op.diagonal)
 
 
 # Linear

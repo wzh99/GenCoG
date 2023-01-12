@@ -1880,22 +1880,22 @@ class TriBase(UnaryOpBase):
         return [(2, out_abs_tensor[0].dtype)]
 
 
-@mark_materialize("core")
-class Tril(TriBase):
-    def requires(self, input_shapes: List[AbsTensor]) -> List[Union[z3.BoolRef, bool]]:
-        ConstraintCheck.true(input_shapes[0].ndims == 2)
-        nrow = input_shapes[0].shape[0]
-        ncol = input_shapes[0].shape[1]
-        return [z3.And(self.diagonal >= -nrow, (ncol - 1) >= self.diagonal)]
-
-
-@mark_materialize("core")
-class Triu(TriBase):
-    def requires(self, input_shapes: List[AbsTensor]) -> List[Union[z3.BoolRef, bool]]:
-        ConstraintCheck.true(input_shapes[0].ndims == 2)
-        nrow = input_shapes[0].shape[0]
-        ncol = input_shapes[0].shape[1]
-        return [z3.And(self.diagonal >= -(nrow - 1), ncol >= self.diagonal)]
+# @mark_materialize("core")
+# class Tril(TriBase):
+#     def requires(self, input_shapes: List[AbsTensor]) -> List[Union[z3.BoolRef, bool]]:
+#         ConstraintCheck.true(input_shapes[0].ndims == 2)
+#         nrow = input_shapes[0].shape[0]
+#         ncol = input_shapes[0].shape[1]
+#         return [z3.And(self.diagonal >= -nrow, (ncol - 1) >= self.diagonal)]
+#
+#
+# @mark_materialize("core")
+# class Triu(TriBase):
+#     def requires(self, input_shapes: List[AbsTensor]) -> List[Union[z3.BoolRef, bool]]:
+#         ConstraintCheck.true(input_shapes[0].ndims == 2)
+#         nrow = input_shapes[0].shape[0]
+#         ncol = input_shapes[0].shape[1]
+#         return [z3.And(self.diagonal >= -(nrow - 1), ncol >= self.diagonal)]
 
 
 class Concat(AbsOpBase):
