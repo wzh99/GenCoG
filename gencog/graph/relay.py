@@ -127,7 +127,7 @@ class RelayPrinter(GraphVisitor[None]):
         return name
 
 
-def build_graph(mod: IRModule, params: Dict[str, np.ndarray]):
+def build_graph(mod: IRModule, params: Dict[str, np.ndarray]) -> Graph:
     return GraphBuilder(params).visit(mod['main'])
 
 

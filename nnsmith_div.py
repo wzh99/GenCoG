@@ -49,7 +49,7 @@ def main():
         edge_div.evaluate(graph)
 
         # Count operations
-        opr_num = len(graph.oprs_)
+        opr_num = sum(opr.op_.name_ in common_ops for opr in graph.oprs_)
         opr_count += opr_num
         progress.update(n=opr_num)
 
