@@ -2,6 +2,7 @@ from argparse import ArgumentParser, Namespace
 from sys import stdout
 
 from numpy.random import Generator, PCG64
+from onnx.shape_inference import InferenceError
 from tqdm import tqdm
 from tvm import TVMError
 
@@ -38,11 +39,14 @@ def main():
             nnsmith_gen_relay(opset, 32, rng)
         except TVMError:
             convert_invalid += 1
+        except InferenceError as err:
+            print(err)
+            convert_invalid += 1
         except RuntimeError as err:
             print(err)
             pass
         except Exception as err:
-            print(err)
+            print(err.__class__, err)
             native_invalid += 1
         display_count()
 
