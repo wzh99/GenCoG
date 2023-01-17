@@ -444,6 +444,21 @@ class SymbolicGen(BaseGen):
         for pred in self.tensor_type_constraints(ph.ttype):
             self.assume(pred)
 
+    def make_symbolic_placeholder(self, rank, dtype=None) -> Placeholder:
+        syms = self.new_syms(
+            [f"ph{self.monotonic_placeholder_id}_{k}" for k in range(rank)]
+        )
+        for sym in syms:
+            self.assume(sym >= self.concr_ph_dim_rng[0])
+            self.assume(sym <= self.concr_ph_dim_rng[1])
+        ph = Placeholder(
+            AbsTensor(
+                shape=syms, dtype=dtype if dtype is not None else self.random_dtype()
+            )
+        )
+        self.monotonic_placeholder_id += 1
+        return ph
+
     def assume(self, c: z3.BoolRef):
         self.solver.add(c)
 
