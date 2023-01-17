@@ -39,7 +39,7 @@ assert Z3_CONS_FLOPS in [
 ], "NNSMITH_Z3_CONS_FLOPS must be either 'on' or 'off'"
 Z3_CONS_FLOPS = Z3_CONS_FLOPS == "on"
 
-__MIN_RANK__ = 0
+__MIN_RANK__ = 2
 __MAX_RANK__ = 5
 
 FULL_OPERATOR_SETS: Dict[str, List[Type["AbsOpBase"]]] = dict()

@@ -64,7 +64,7 @@ def nnsmith_gen_relay(opset: List[Type[AbsOpBase]], max_nodes: int, rng: Generat
     # GENERATION
     gen = model_gen(
         opset=opset,
-        method='symbolic-cinit',
+        method='symbolic',
         seed=seed,
         max_elem_per_tensor=65536,
         max_nodes=max_nodes,
