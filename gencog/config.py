@@ -19,11 +19,6 @@ params: Dict[str, Any] = {
     'graph.max_opr_num': 32,
     # Penalty coefficient on number of uses of a value
     'graph.use_penal': 4,
-    # Which diversity metric to use for direction
-    # Can be 'none', 'vertex', 'edge', 'both'
-    'graph.div_direct': 'none',
-    # Probability of rejecting a vertex that has no contribution to diversity
-    'graph.reject_prob': 0.5,
     # Number of trials for generating one operation
     # For variadic operators, this is the maximal number of trials of adding a new input value
     'graph.opr_trials': 3,

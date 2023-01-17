@@ -7,7 +7,6 @@ from .base import Input, Operation, Value, Graph, Output
 from .lookup import OpLookup, ValueLookup
 from ..config import params
 from ..expr.ty import float_dtypes, common_dtypes
-from ..metric.div import VertexDiversity, EdgeDiversity
 from ..solve import TensorType, TypeSolver, SolveError, OpTypeInfo
 from ..solve.store import ArrayNode, ScalarNode
 from ..spec import Op, TypeSpec, int_expr_choices, expr_choices, max_in_num, max_rank, max_dim
@@ -16,9 +15,6 @@ from ..util import inc_cnt
 max_opr_num: int = params['graph.max_opr_num']
 opr_trials: int = params['graph.opr_trials']
 use_penal: float = params['graph.use_penal']
-reject_prob: float = params['graph.reject_prob']
-div_direct: str = params['graph.div_direct']
-assert div_direct in ['none', 'vertex', 'edge', 'both']
 
 
 def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
@@ -35,8 +31,6 @@ class GraphGenerator:
         ops = list(ops)
         self._ops = OpLookup(ops)
         self._rng = rng
-        self._vert_div = VertexDiversity(ops)
-        self._edge_div = EdgeDiversity(ops)
 
     def generate(self):
         # Initialization
@@ -62,12 +56,6 @@ class GraphGenerator:
             if opr is None:
                 continue
 
-            # Check if we should keep this operation
-            if not self._should_keep(opr):
-                for inp in opr.inputs_:
-                    inp.drop_use(opr)
-                continue
-
             # Add output values to value lookup table
             for idx, out in enumerate(opr.outputs_):
                 if idx not in op.ignored_:
@@ -80,33 +68,6 @@ class GraphGenerator:
         graph = Graph(inputs, outputs, oprs)
 
         return graph
-
-    def _should_keep(self, opr: Operation):
-        # Record the operation
-        op = opr.op_
-        prev_vd, prev_ed = self._vert_div.result, self._edge_div.result
-        self._vert_div.record(opr)
-        for inp in opr.inputs_:
-            if isinstance(inp.def_, Operation):
-                self._edge_div.mark(inp.def_.op_, op)
-
-        # Decide whether we may reject this vertex
-        # Always keep if no direction is involved
-        if div_direct == 'none':
-            return True
-        may_reject = True
-        use_vert = div_direct in ['vertex', 'both']
-        use_edge = div_direct in ['edge', 'both']
-        if use_vert and self._vert_div.result != prev_vd:
-            may_reject = False
-        if use_edge and self._edge_div.result != prev_ed:
-            may_reject = False
-
-        # Roll the dice to decide if we should reject this vertex
-        if may_reject and self._rng.uniform() < reject_prob:
-            return False
-        else:
-            return True
 
     def _gen_input(self):
         rank = self._rng.integers(low=2, high=max_rank, endpoint=True)
