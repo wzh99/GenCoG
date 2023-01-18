@@ -7,6 +7,7 @@ from .base import Input, Operation, Value, Graph, Output
 from .lookup import OpLookup, ValueLookup
 from ..config import params
 from ..expr.ty import float_dtypes, common_dtypes
+from ..metric.div import VertexDiversity
 from ..solve import TensorType, TypeSolver, SolveError, OpTypeInfo
 from ..solve.store import ArrayNode, ScalarNode
 from ..spec import Op, TypeSpec, int_expr_choices, expr_choices, max_in_num, max_rank, max_dim
@@ -15,11 +16,17 @@ from ..util import inc_cnt
 max_opr_num: int = params['graph.max_opr_num']
 opr_trials: int = params['graph.opr_trials']
 use_penal: float = params['graph.use_penal']
+num_div_record: int = params['graph.num_div_record']
+div_score_scale: float = params['graph.div_score_scale']
 
 
 def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
     exp = np.exp(x - np.max(x, axis=axis, keepdims=True))
     return exp / np.sum(exp, axis=axis, keepdims=True)
+
+
+def standardize(x: np.ndarray, axis: int = -1) -> np.ndarray:
+    return (x - np.mean(x, axis=axis, keepdims=True)) / (np.std(x, axis=axis, keepdims=True) + 1e-5)
 
 
 class GraphGenerator:
@@ -31,6 +38,8 @@ class GraphGenerator:
         ops = list(ops)
         self._ops = OpLookup(ops)
         self._rng = rng
+        self._vert_div = VertexDiversity(ops)
+        self._op_div_inc: Dict[Op, List[float]] = {op: [False] * num_div_record for op in ops}
 
     def generate(self):
         # Initialization
@@ -61,6 +70,7 @@ class GraphGenerator:
                 if idx not in op.ignored_:
                     value_lu.add(out)
 
+            self._record_div(opr)
             oprs.append(opr)
 
         # Create final graph
@@ -83,7 +93,17 @@ class GraphGenerator:
 
     def _sample_op(self, value: Value) -> Op:
         ops = list(self._ops.by_first_type(value.type_))
-        return self._rng.choice(ops)
+        scores = np.array([np.count_nonzero(self._op_div_inc[op]) for op in ops], dtype='float32')
+        prob = softmax(div_score_scale * standardize(scores))
+        return self._rng.choice(ops, p=prob)
+
+    def _record_div(self, opr: Operation):
+        op = opr.op_
+        prev_div = self._vert_div.query(op)
+        self._vert_div.record(opr)
+        new_div = self._vert_div.query(op)
+        self._op_div_inc[op].pop(0)
+        self._op_div_inc[op].append(new_div != prev_div)
 
     def _gen_opr(self, op: Op, fst_in: Value, value_lu: ValueLookup, graph_inputs: List[Input]) \
             -> Optional[Operation]:

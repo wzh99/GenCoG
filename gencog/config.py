@@ -19,6 +19,10 @@ params: Dict[str, Any] = {
     'graph.max_opr_num': 32,
     # Penalty coefficient on number of uses of a value
     'graph.use_penal': 4,
+    # Number of records in diversity history of each operator
+    'graph.num_div_record': 16,
+    # Scale of the normalized diversity score
+    'graph.div_score_scale': 0.2,
     # Number of trials for generating one operation
     # For variadic operators, this is the maximal number of trials of adding a new input value
     'graph.opr_trials': 3,
