@@ -18,6 +18,7 @@ opr_trials: int = params['graph.opr_trials']
 use_penal: float = params['graph.use_penal']
 num_div_record: int = params['graph.num_div_record']
 div_score_scale: float = params['graph.div_score_scale']
+reject_prob: float = params['graph.reject_prob']
 
 
 def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
@@ -26,7 +27,8 @@ def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
 
 
 def standardize(x: np.ndarray, axis: int = -1) -> np.ndarray:
-    return (x - np.mean(x, axis=axis, keepdims=True)) / (np.std(x, axis=axis, keepdims=True) + 1e-5)
+    return (x - np.mean(x, axis=axis, keepdims=True)) / np.sqrt(
+        np.var(x, axis=axis, keepdims=True) + 1e-5)
 
 
 class GraphGenerator:
@@ -39,7 +41,7 @@ class GraphGenerator:
         self._ops = OpLookup(ops)
         self._rng = rng
         self._vert_div = VertexDiversity(ops)
-        self._op_div_inc: Dict[Op, List[float]] = {op: [False] * num_div_record for op in ops}
+        self._op_div_inc: Dict[Op, List[bool]] = {op: [True] * num_div_record for op in ops}
 
     def generate(self):
         # Initialization
@@ -65,12 +67,18 @@ class GraphGenerator:
             if opr is None:
                 continue
 
+            # Reject if the operation does not contribute to diversity
+            if not self._should_keep(opr):
+                for inp in opr.inputs_:
+                    inp.drop_use(opr)
+                continue
+
             # Add output values to value lookup table
             for idx, out in enumerate(opr.outputs_):
                 if idx not in op.ignored_:
                     value_lu.add(out)
 
-            self._record_div(opr)
+            # Add the new operation
             oprs.append(opr)
 
         # Create final graph
@@ -97,13 +105,22 @@ class GraphGenerator:
         prob = softmax(div_score_scale * standardize(scores))
         return self._rng.choice(ops, p=prob)
 
-    def _record_div(self, opr: Operation):
+    def _should_keep(self, opr: Operation):
+        # Compute diversity increase
         op = opr.op_
         prev_div = self._vert_div.query(op)
         self._vert_div.record(opr)
         new_div = self._vert_div.query(op)
+        is_unique = new_div != prev_div
+
+        # Update diversity history
         self._op_div_inc[op].pop(0)
-        self._op_div_inc[op].append(new_div != prev_div)
+        self._op_div_inc[op].append(is_unique)
+
+        # Roll the dice if the operation is non-unique
+        if not is_unique and self._rng.uniform() < reject_prob:
+            return False
+        return True
 
     def _gen_opr(self, op: Op, fst_in: Value, value_lu: ValueLookup, graph_inputs: List[Input]) \
             -> Optional[Operation]:

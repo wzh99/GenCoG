@@ -23,6 +23,8 @@ params: Dict[str, Any] = {
     'graph.num_div_record': 16,
     # Scale of the normalized diversity score
     'graph.div_score_scale': 0.2,
+    # Probability of rejecting a non-unique operation
+    'graph.reject_prob': 0.5,
     # Number of trials for generating one operation
     # For variadic operators, this is the maximal number of trials of adding a new input value
     'graph.opr_trials': 3,
