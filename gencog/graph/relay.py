@@ -20,8 +20,8 @@ tuple_out_ops = {
 }
 
 
-def print_relay(g: Graph):
-    return RelayPrinter().print(g)
+def print_relay(g: Graph, extra_types: bool = True):
+    return RelayPrinter(extra_types).print(g)
 
 
 def fmt_val(v: ValueType):
@@ -33,6 +33,9 @@ def fmt_val(v: ValueType):
         return '"' + v + '"'
     elif isinstance(v, (tuple, list)):
         return '[' + ', '.join(fmt_val(e) for e in v) + ']'
+    elif isinstance(v, (np.ndarray, np.generic)):
+        # noinspection PyTypeChecker
+        return fmt_val(v.tolist())
     elif v is None:
         return fmt_val([])
     else:
@@ -40,12 +43,13 @@ def fmt_val(v: ValueType):
 
 
 class RelayPrinter(GraphVisitor[None]):
-    def __init__(self):
+    def __init__(self, extra_types: bool):
         super().__init__()
         self._buf = CodeBuffer()
         self._val_names: Dict[Value, str] = {}
         self._arg_gen = NameGenerator('%x')
         self._res_gen = NameGenerator('%')
+        self._extra_types = extra_types
 
     def print(self, g: Graph):
         # Function signature
@@ -55,10 +59,11 @@ class RelayPrinter(GraphVisitor[None]):
             map(lambda i: lambda: self._buf.write(
                 f'{self.visit_value(i.value_)}: {i.value_.type_}'), g.inputs_)
         )
-        self._buf.write(' -> ')
-        self._buf.write_pos(
-            map(lambda o: lambda: self._buf.write(str(o.value_.type_)), g.outputs_)
-        )
+        if self._extra_types:
+            self._buf.write(' -> ')
+            self._buf.write_pos(
+                map(lambda o: lambda: self._buf.write(str(o.value_.type_)), g.outputs_)
+            )
 
         # Function body
         self._buf.writeln(' {')
@@ -107,9 +112,12 @@ class RelayPrinter(GraphVisitor[None]):
                 prefix='', suffix=''
             )
         ])
-        ty_str = repr(tuple(out.type_ for out in opr.outputs_)) if tup_out else repr(
-            opr.outputs_[0].type_)
-        self._buf.writeln(f'; /* ty={ty_str} */')
+        self._buf.write(';')
+        if self._extra_types:
+            ty_str = repr(tuple(out.type_ for out in opr.outputs_)) if tup_out else repr(
+                opr.outputs_[0].type_)
+            self._buf.write(f' /* ty={ty_str} */')
+        self._buf.writeln()
 
         # Unpack tuple
         if tup_out:
