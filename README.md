@@ -2,13 +2,9 @@
 
 ## Introduction
 
-GenCoG is a diversity-oriented, type-constrained approach to generating computation graphs for TVM
-testing. It contains (1) GenCoGL, a domain-specific language for specifying type constraints of
-operators, and (2) an incremental graph generation algorithm which iteratively solves type
-constraints and generates valid and diverse computation graphs.
-
-The manuscript of this work is submitted to ACM Transactions on Software Engineering and
-Methodology (TOSEM) for review.
+GenCoG is a DSL-based approach to generating computation graphs for TVM testing. It contains (1)
+GenCoGL, a domain-specific language for specifying type constraints of operators, and (2) an
+incremental generation approach with expressivity-directed strategy and concolic constraint solving.
 
 ## Contents
 
@@ -26,11 +22,8 @@ Methodology (TOSEM) for review.
 
 ## Dependency
 
-GenCoG is written in Python. Run `pip install -r requirements.txt` to get all dependencies. To
-evaluate code coverage, another build of TVM
-with [Gcov](https://gcc.gnu.org/onlinedocs/gcc/Gcov.html) should be provided.
-
-Before running testing and evaluation scripts, create a subdirectory `out` in root directory of this
+GenCoG is written in Python. Run `pip install -r requirements.txt` to get all dependencies. Before
+running testing and evaluation scripts, create a subdirectory `out` in root directory of this
 project to store all their outputs.
 
 ## Bug Detection
@@ -64,114 +57,83 @@ It reduces each test case to a possibly simpler graph with fewer vertices.
 
 ## Evaluation
 
-We have provided scripts to reproduce the evaluation results of GenCoG in the paper. GenCoG can be
-evaluated on two operator sets: `muffin` (39 operators commonly supported by both methods)
-and `all` (all the 62 operators currently covered by GenCoG). Luo et al. can be evaluated with two
-graph models: `ws` (Watts-Strogatz) and `rn` (Residual Network). Muffin can be evaluated with two
-modes: `dag` (chain structure with skips) and `template` (cell-base structure).
+We have provided scripts to reproduce the evaluation results of GenCoG in the paper. Luo et al. can
+be evaluated with two graph models: `ws` (Watts-Strogatz) and `rn` (Residual Network). Muffin can be
+evaluated with two modes: `dag` (chain structure with skips) and `template` (cell-base structure).
 
 ### Validity
 
 GenCoG:
 
 ```shell
-python relay_valid.py -g gencog -n 10000 --opset {muffin|all}
+python relay_valid.py -g gencog -n 1000
 ```
 
 Luo et al.:
 
 ```shell
-python relay_valid.py -g graphfuzz -n 10000 -m {ws|rn}
+python relay_valid.py -g graphfuzz -n 1000 -m {ws|rn}
 ```
 
 LEMON:
 
 ```shell
-python keras_valid.py -g lemon -n 10000
+python keras_valid.py -g lemon -n 1000
 ```
 
 Muffin:
 
 ```shell
-python keras_valid.py -g muffin -n 10000 -m {dag|template}
+python keras_valid.py -g muffin -n 1000 -m {dag|template}
 ```
 
-### Diversity
+NNSmith:
+
+```shell
+python nnsmith_valid.py -n 1000
+```
+
+### Expressivity
 
 GenCoG:
 
 ```shell
-python relay_div.py -g gencog -l 50000 --opset {muffin|all}
+python relay_div.py -g gencog -l 50000
 ```
 
-Diversity data are saved to `out/gencog-${opset}-%Y%m%d-%H%M%S.txt`.
+Data are saved to `out/gencog-${opset}-%Y%m%d-%H%M%S.txt`.
 
 Luo et al.:
 
 ```shell
-python relay_div.py -g graphfuzz -l 50000 --model {ws|rn}
+python relay_div.py -g graphfuzz -l 20000 --model {ws|rn}
 ```
 
-Diversity data are saved to `out/graphfuzz-${model}-%Y%m%d-%H%M%S.txt`.
+Data are saved to `out/graphfuzz-${model}-%Y%m%d-%H%M%S.txt`.
 
 LEMON:
 
 ```shell
-python keras_div.py -g lemon -l 50000
+python keras_div.py -g lemon -l 20000
 ```
 
-Diversity data are saved to `out/lemon-%Y%m%d-%H%M%S.txt`.
+Data are saved to `out/lemon-%Y%m%d-%H%M%S.txt`.
 
 Muffin:
 
 ```shell
-python keras_div.py -g muffin -l 50000 --mode {dag|template}
+python keras_div.py -g muffin -l 20000 --mode {dag|template}
 ```
 
-Diversity data are saved to `out/muffin-${mode}-%Y%m%d-%H%M%S.txt`.
+Data are saved to `out/muffin-${mode}-%Y%m%d-%H%M%S.txt`.
 
-### Coverage
-
-First build TVM with Gcov. The build files should be stored in `build` subdirectory in the root
-directory of TVM source.
-
-GenCoG:
+NNSmith:
 
 ```shell
-python relay_cov.py -r ${TVM_GCOV_ROOT} -g gencog -l 50000 -s 1000 --opset {muffin|all}
+python nnsmith_div.py -l 20000
 ```
 
-`TVM_GCOV_ROOT` is the root directory of TVM source containing Gcov build. Coverage files are saved
-to `cov-gencog-${opset}-%Y%m%d-%H%M%S` directory. `cov.json` is the final coverage
-summary. `data.txt` is the line coverage data over vertex budget.
-
-Luo et al.:
-
-```shell
-python relay_cov.py -r ${TVM_GCOV_ROOT} -g graphfuzz -l 50000 -s 1000 --model {ws|rn}
-```
-
-Coverage files are saved to `cov-graphfuzz-${model}-%Y%m%d-%H%M%S` directory.
-
-LEMON:
-
-```shell
-python keras_cov.py -r ${TVM_GCOV_ROOT} -g lemon -l 50000 -s 1000
-```
-
-Coverage files are saved to `cov-lemon-%Y%m%d-%H%M%S` directory.
-
-Muffin:
-
-```shell
-python keras_cov.py -r ${TVM_GCOV_ROOT} -g muffin -l 50000 -s 1000 --mode {dag|template}
-```
-
-Coverage files are saved to `cov-muffin-${opset}-%Y%m%d-%H%M%S` directory.
-
-Tzer: Please
-check [the instructions](https://github.com/MatthewXY01/tzer/blob/v0.1-reproduce/src/Instructions_for_gcov-test.md)
-in [this repository](https://github.com/MatthewXY01/tzer) for details.
+Data are saved to `out/nnsmith-%Y%m%d-%H%M%S.txt`.
 
 ## Extension
 
