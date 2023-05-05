@@ -50,6 +50,9 @@ def main():
             native_invalid += 1
         display_count()
 
+    print('Original pass rate: {:.3f}'.format(1 - native_invalid / args.number))
+    print('Relay pass rate: {:.3f}'.format(1 - (native_invalid + convert_invalid) / args.number))
+
 
 if __name__ == '__main__':
     _parse_args()

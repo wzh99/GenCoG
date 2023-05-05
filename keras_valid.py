@@ -61,6 +61,9 @@ def main():
             relay_invalid += 1
             display_count()
 
+    print('Original pass rate: {:.3f}'.format(1 - keras_invalid / args.number))
+    print('Relay pass rate: {:.3f}'.format(1 - (keras_invalid + relay_invalid) / args.number))
+
 
 if __name__ == '__main__':
     _parse_args()

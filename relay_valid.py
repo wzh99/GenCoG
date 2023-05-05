@@ -55,6 +55,8 @@ def main():
             num_invalid += 1
             progress.set_postfix_str(str(num_invalid))
 
+    print('Pass rate: {:.3f}'.format(1 - num_invalid / args.number))
+
 
 if __name__ == '__main__':
     _parse_args()
