@@ -1,0 +1,7 @@
+tensorflow==2.8
+onnx==1.9
+onnxruntime==1.12.1
+torch==1.13
+omegaconf
+multipledispatch
+appdirs

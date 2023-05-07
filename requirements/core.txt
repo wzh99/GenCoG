@@ -1,0 +1,8 @@
+numpy
+z3-solver
+polyleven
+bitarray
+colorama
+tqdm
+matplotlib
+graphviz
