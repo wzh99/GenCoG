@@ -25,6 +25,7 @@ def _parse_args():
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
     p.add_argument('-m', '--model', type=str, choices=['dag', 'template'],
                    help='Graph model to apply, only valid for Muffin.')
+    p.add_argument('-t', '--trend', action='store_true', help='Whether to record diversity trend.')
     args = p.parse_args()
 
 
@@ -44,9 +45,9 @@ def main():
     progress = tqdm(total=opr_limit, file=stdout)
     div_record = []
     if args.generator == 'lemon':
-        record_file = time.strftime(f'out/lemon-%Y%m%d-%H%M%S.txt')
+        trend_file = time.strftime(f'out/lemon-%Y%m%d-%H%M%S.txt')
     else:
-        record_file = time.strftime(f'out/muffin-{args.model}-%Y%m%d-%H%M%S.txt')
+        trend_file = time.strftime(f'out/muffin-{args.model}-%Y%m%d-%H%M%S.txt')
     while True:
         # Generate Keras model
         try:
@@ -82,8 +83,9 @@ def main():
         vd, ed = vert_div.result, edge_div.result
         div_record.append([opr_count, vd, ed])
         progress.set_postfix_str('vert={:.4f}, edge={:.4f}'.format(vd, ed))
-        # noinspection PyTypeChecker
-        np.savetxt(record_file, np.array(div_record), fmt='%.4f')
+        if args.trend:
+            # noinspection PyTypeChecker
+            np.savetxt(trend_file, np.array(div_record), fmt='%.4f')
 
         # Stop if operation limit is reached
         if opr_count >= opr_limit:
@@ -92,9 +94,9 @@ def main():
 
     # Output diversity
     np.set_printoptions(precision=3)
-    print('Operator detail:', vert_div.op_div, sep='\n')
-    print('Vertex diversity:', vert_div.result)
-    print('Edge diversity:', edge_div.result)
+    # print('Operator detail:', vert_div.op_div, sep='\n')
+    print('Vertex diversity: {:.4f}'.format(vert_div.result))
+    print('Edge diversity: {:.4f}'.format(edge_div.result))
 
 
 if __name__ == '__main__':

@@ -23,6 +23,7 @@ def _parse_args():
     p.add_argument('-l', '--limit', type=int, help='Limit on total number of operations.')
     p.add_argument('-m', '--model', type=str, choices=['ws', 'rn'],
                    help='Graph model to apply, only valid for GraphFuzz (Luo et al.).')
+    p.add_argument('-t', '--trend', action='store_true', help='Whether to record diversity trend.')
     p.add_argument('-s', '--seed', type=int, default=42, help='Random seed of graph generator.')
     args = p.parse_args()
 
@@ -44,9 +45,9 @@ def main():
     progress = tqdm(total=opr_limit, file=stdout)
     div_record = []
     if args.generator == 'gencog':
-        record_file = time.strftime(f'out/gencog-%Y%m%d-%H%M%S.txt')
+        trend_file = time.strftime(f'out/gencog-%Y%m%d-%H%M%S.txt')
     else:
-        record_file = time.strftime(f'out/graphfuzz-{args.model}-%Y%m%d-%H%M%S.txt')
+        trend_file = time.strftime(f'out/graphfuzz-{args.model}-%Y%m%d-%H%M%S.txt')
     loop_idx = 0
     while True:
         # Generate graph
@@ -72,25 +73,26 @@ def main():
         vd, ed = vert_div.result, edge_div.result
         div_record.append([opr_count, vd, ed])
         progress.set_postfix_str('vert={:.4f}, edge={:.4f}'.format(vd, ed))
-        if loop_idx % 10 == 0:
+        if args.trend and loop_idx % 10 == 0:
             # noinspection PyTypeChecker
-            np.savetxt(record_file, np.array(div_record), fmt='%.4f')
+            np.savetxt(trend_file, np.array(div_record), fmt='%.4f')
 
         # Stop if operation limit is reached
         if opr_count >= opr_limit:
-            # noinspection PyTypeChecker
-            np.savetxt(record_file, np.array(div_record), fmt='%.4f')
+            if args.trend:
+                # noinspection PyTypeChecker
+                np.savetxt(trend_file, np.array(div_record), fmt='%.4f')
             progress.close()
             break
         loop_idx += 1
 
     # Output diversity
     np.set_printoptions(precision=3)
-    print('Operator detail:')
-    for op, div in zip(common_ops, vert_div.op_div):
-        print('{}: {:.4f}'.format(op, div))
-    print('Vertex diversity:', vert_div.result)
-    print('Edge diversity:', edge_div.result)
+    # print('Operator detail:')
+    # for op, div in zip(common_ops, vert_div.op_div):
+    #     print('{}: {:.4f}'.format(op, div))
+    print('Vertex diversity: {:.4f}'.format(vert_div.result))
+    print('Edge diversity: {:.4f}'.format(edge_div.result))
 
 
 if __name__ == '__main__':
