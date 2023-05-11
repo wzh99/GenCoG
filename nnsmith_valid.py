@@ -45,9 +45,6 @@ def main():
         except RuntimeError as err:
             print(err)
             pass
-        except Exception as err:
-            print(err.__class__, err)
-            native_invalid += 1
         display_count()
 
     print('Original pass rate: {:.3f}'.format(1 - native_invalid / args.number))
