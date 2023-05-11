@@ -62,6 +62,7 @@ def main():
             display_count()
 
     print('Original pass rate: {:.3f}'.format(1 - keras_invalid / args.number))
+    print('Failure rate of conversion: {:.3f}'.format(relay_invalid / args.number))
     print('Relay pass rate: {:.3f}'.format(1 - (keras_invalid + relay_invalid) / args.number))
 
 

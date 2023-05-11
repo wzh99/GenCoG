@@ -28,20 +28,20 @@ def main():
 
     # Generation loop
     progress = tqdm(range(args.number), file=stdout)
-    native_invalid, convert_invalid = 0, 0
+    native_invalid, relay_invalid = 0, 0
 
     def display_count():
-        progress.set_postfix_str(f'{native_invalid}, {convert_invalid}')
+        progress.set_postfix_str(f'{native_invalid}, {relay_invalid}')
 
     for _ in progress:
         # Generate Keras model
         try:
             nnsmith_gen_relay(opset, 32, rng)
         except TVMError:
-            convert_invalid += 1
+            relay_invalid += 1
         except InferenceError as err:
             print(err)
-            convert_invalid += 1
+            relay_invalid += 1
         except RuntimeError as err:
             print(err)
             pass
@@ -51,7 +51,8 @@ def main():
         display_count()
 
     print('Original pass rate: {:.3f}'.format(1 - native_invalid / args.number))
-    print('Relay pass rate: {:.3f}'.format(1 - (native_invalid + convert_invalid) / args.number))
+    print('Failure rate of conversion: {:.3f}'.format(relay_invalid / args.number))
+    print('Relay pass rate: {:.3f}'.format(1 - (native_invalid + relay_invalid) / args.number))
 
 
 if __name__ == '__main__':
