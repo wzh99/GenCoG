@@ -25,6 +25,9 @@ install dependencies of the baselines.
 
 ## Bug Detection
 
+Please first create a subdirectory `out` in the root directory of this project to store all the
+outputs.
+
 ### Running Test
 
 ```shell
@@ -52,6 +55,11 @@ python3 reduce_case.py -d ${WORK_DIR}
 
 It reduces each test case to a possibly simpler graph with fewer vertices.
 
+## Reproduction
+
+To reproduce the experiments in our paper, please check
+our [artifact](https://doi.org/10.5281/zenodo.7955514).
+
 ## Extension
 
 ### Write Constraint Specifications for New Operators
@@ -70,4 +78,17 @@ code generator for Relay. You can refer to this file to implement your own gener
 
 ## Citation
 
-Coming soon.
+```bibtex
+@inproceedings{wang2023gencog,
+author = {Zihan Wang, Pengbo Nie, Xinyuan Miao, Yuting Chen, Chengcheng Wan, Lei Bu, Jianjun Zhao},
+title = {GenCoG: A DSL-Based Approach to Generating Computation Graphs for TVM Testing},
+year = {2023},
+publisher = {ACM},
+address = {New York, NY, USA},
+doi = {10.1145/3597926.3598105},
+booktitle = {Proceedings of the 32nd ACM SIGSOFT International Symposium on Software Testing and 
+Analysis},
+numpages = {13},
+series = {ISSTA ’23}
+}
+```
