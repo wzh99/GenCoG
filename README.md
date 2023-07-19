@@ -1,7 +1,7 @@
 # GenCoG
 
 [Paper](https://dl.acm.org/doi/10.1145/3597926.3598105)
-| [Slides](https://www.aliyundrive.com/s/tUbmidkvLav)
+| [Slides](https://docs.qq.com/pdf/DSEJhaW93d0lxTW9o)
 | [Artifact](https://doi.org/10.5281/zenodo.7955514)
 
 ## Introduction
